@@ -12,8 +12,7 @@ pygame.display.set_caption("Simulateur - Accélération Corrigée")
 COULEUR_CIEL_SOL = (190, 200, 210) 
 COULEUR_CIEL_ESPACE = (20, 30, 40) 
 COULEUR_SOL = (100, 115, 100)      
-COULEUR_TEXTE = (10, 10, 10)       
-COULEUR_AVION = (240, 240, 240)    
+COULEUR_TEXTE = (10, 10, 10)           
 COULEUR_ALERTE = (220, 50, 50)     
 COULEUR_INFO = (0, 80, 180)       
 
@@ -21,9 +20,7 @@ police = pygame.font.SysFont("consolas", 20, bold=True)
 police_grosse = pygame.font.SysFont("consolas", 40, bold=True)
 
 # --- AVION ---
-avion_surf = pygame.Surface((60, 20), pygame.SRCALPHA)
-avion_surf.fill(COULEUR_AVION)
-pygame.draw.rect(avion_surf, (50, 50, 50), (40, 5, 20, 10)) 
+avion_surf = pygame.image.load("avion_marche.png").convert_alpha()
 
 # --- VARIABLES ---
 world_y = 0      
@@ -140,15 +137,17 @@ while True:
     pygame.draw.line(fenetre, (80, 90, 80), (0, pos_sol_y + 15), (L, pos_sol_y + 15), 2)
 
     # Avion 
-    couleur_navion = COULEUR_ALERTE if en_decrochage else COULEUR_AVION
-    if vitesse_kph > V_VNE: couleur_navion = (255, 100, 0)
-
-    avion_dessin = avion_surf.copy()
-    avion_dessin.fill(couleur_navion)
-    avion_rot = pygame.transform.rotate(avion_dessin, angle)
-    rect_center = avion_rot.get_rect(center=(L//2, H//2))
-    fenetre.blit(avion_rot, rect_center)
-
+    # Si la touche avancer est utiliser, le png passe en mode moteru allume sinon le moteur est à
+    if  touches[pygame.K_RIGHT]:
+        avion_dessin = avion_surf.copy()
+        avion_rot = pygame.transform.rotate(avion_dessin, angle)
+        rect_center = avion_rot.get_rect(center=(L//2, H//2))
+        fenetre.blit(avion_rot, rect_center)
+    else:
+        avion_dessin = pygame.image.load("avion_arret.png").convert_alpha()
+        avion_rot = pygame.transform.rotate(avion_dessin, angle)
+        rect_center = avion_rot.get_rect(center=(L//2, H//2))
+        fenetre.blit(avion_rot, rect_center)
     # --- HUD ---
     vario = -vy * 1.5 
     
