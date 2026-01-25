@@ -1,18 +1,27 @@
 import pygame
 
+# 1. On prépare le jeu
 pygame.init()
 fenetre = pygame.display.set_mode((600, 400))
-avion = pygame.Rect(300, 200, 40, 20) # x, y, largeur, hauteur
+avion = pygame.Rect(100, 200, 50, 30) # Un rectangle (x, y, largeur, hauteur)
 
+# 2. La boucle du jeu (le moteur)
 while True:
-    if pygame.event.peek(pygame.QUIT): break # Quitter si on ferme la fenêtre
+    # On regarde si l'utilisateur veut fermer la fenêtre
+    if pygame.event.peek(pygame.QUIT):
+        break
 
-    # Mouvement ultra-rapide : (Touche Droite - Touche Gauche) donne la direction
+    # On regarde sur quelles touches on appuie
     touches = pygame.key.get_pressed()
-    avion.x += (touches[pygame.K_RIGHT] - touches[pygame.K_LEFT]) * 5
-    avion.y += (touches[pygame.K_DOWN] - touches[pygame.K_UP]) * 5
+    if touches[pygame.K_RIGHT]: avion.x += 5
+    if touches[pygame.K_LEFT]:  avion.x -= 5
+    if touches[pygame.K_UP]:    avion.y -= 5
+    if touches[pygame.K_DOWN]:  avion.y += 5
 
-    fenetre.fill("skyblue")            # Fond bleu
-    pygame.draw.rect(fenetre, "white", avion) # Dessine l'avion en blanc
-    pygame.display.flip()              # Met à jour l'image
-    pygame.time.Clock().tick(60)       # 60 images par seconde
+    # On dessine tout
+    fenetre.fill("skyblue")               # On peint le fond en bleu
+    pygame.draw.rect(fenetre, "red", avion) # On dessine l'avion en rouge
+    pygame.display.flip()                 # On montre le dessin à l'écran
+
+    # On attend un tout petit peu (60 images par seconde)
+    pygame.time.Clock().tick(60)
