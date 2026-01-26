@@ -8,12 +8,11 @@ pygame.init()
 # --- FENETRE ---
 L, H = 1200, 700
 fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("Simulateur Pro - Zoom & Commandes Lourdes")
+pygame.display.set_caption("Simulateur Pro - Zoom Souris")
 
 # --- CHARGEMENT IMAGES ---
 dossier = os.path.dirname(__file__)
 try:
-    # On garde les images originales en mémoire ("base") pour ne pas perdre en qualité au zoom
     chemin_arret = os.path.join(dossier, "avion_arret.png")
     img_avion_normal_base = pygame.image.load(chemin_arret).convert_alpha()
     
@@ -50,8 +49,8 @@ vitesse_kph = 0
 pilote_auto_actif = False
 
 # VARIABLE DE ZOOM
-zoom = 1.0          # Niveau de zoom actuel
-zoom_cible = 1.0    # Pour fluidifier le zoom
+zoom = 1.0          
+zoom_cible = 1.0    
 
 # --- PARTICULES ---
 particules = []
@@ -63,22 +62,14 @@ V_DECOLLAGE = 220
 V_DECROCHAGE = 160
 V_VNE = 2500 
 
-# --- PHYSIQUE LOURDE (AJUSTÉE) ---
+# --- PHYSIQUE LOURDE ---
 GRAVITE = 0.18             
 PUISSANCE_MOTEUR = 1.0     
 FRICTION_AIR = 0.998       
 FRICTION_VERTICALE = 0.96  
-
-# --- RÉGLAGES DE RÉACTIVITÉ (C'est ici qu'on alourdit) ---
-# Avant 0.15 -> Maintenant 0.05 (3x plus lent à démarrer la rotation)
 ACCEL_ROTATION = 0.05      
-
-# Vitesse max de rotation réduite (plus réaliste)
 MAX_ROTATION = 2.0         
-
-# Inertie augmentée (0.92 -> 0.96) : L'avion continue de tourner un peu quand on lâche
 FRICTION_ROTATION = 0.96   
-
 COEFF_PORTANCE = 0.0018    
 COEFF_TRAINEE_MONTEE = 0.002 
 
@@ -134,22 +125,23 @@ def dessiner_anemometre(surface, x, y, vitesse):
 while True:
     dt = horloge.tick(60) / 1000.0 
 
+    # --- GESTION DES ÉVÉNEMENTS (CLAVIER + SOURIS) ---
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
+        
+        # --- NOUVEAU : ZOOM AVEC LA MOLETTE ---
+        elif event.type == pygame.MOUSEWHEEL:
+            # event.y est positif si on roule vers le haut, négatif vers le bas
+            zoom_cible += event.y * 0.1 
 
     touches = pygame.key.get_pressed()
 
-    # --- GESTION DU ZOOM ---
-    if touches[pygame.K_PAGEUP]:
-        zoom_cible += 0.02
-    if touches[pygame.K_PAGEDOWN]:
-        zoom_cible -= 0.02
-    
-    # Limites du zoom (0.5 = loin, 1.5 = proche)
-    zoom_cible = max(0.5, min(1.5, zoom_cible))
-    # Lissage du mouvement de zoom
+    # --- APPLICATION DU ZOOM (LISSAGE) ---
+    # Limites du zoom
+    zoom_cible = max(0.5, min(2.0, zoom_cible))
+    # Animation fluide vers la cible
     zoom += (zoom_cible - zoom) * 0.1
 
     # --- COMMANDES DE VOL ---
@@ -234,45 +226,35 @@ while True:
     # --- DESSIN ---
     fenetre.fill(obtenir_couleur_ciel(altitude))
     
-    # 1. PARTICULES (Ajustées avec le zoom)
+    # 1. PARTICULES
     if vitesse_kph > 50:
         for p in particules:
-            # Vitesse apparente dépend du zoom
             p[0] -= (vitesse_kph * 0.05 * p[2]) * zoom 
-            
             if p[0] < 0:
                 p[0] = L + random.randint(0, 100)
                 p[1] = random.randint(0, H)
             
-            # Taille des poussières selon le zoom
             taille_visuelle = max(1, int(p[3] * zoom))
             col_p = (200, 200, 220) 
             pygame.draw.circle(fenetre, col_p, (int(p[0]), int(p[1])), taille_visuelle)
 
-    # 2. SOL (Grille ajustable avec le zoom)
-    # L'écartement des lignes dépend du zoom
+    # 2. SOL
     grid_gap = int(150 * zoom) 
     offset_sol = int(world_x % grid_gap)
-    pos_sol_y = (H // 2) + (altitude * zoom) # L'altitude visuelle change aussi
+    pos_sol_y = (H // 2) + (altitude * zoom) 
 
-    # Limite pour ne pas dessiner le sol trop bas si on zoome fort en altitude
     if pos_sol_y < H:
         pygame.draw.rect(fenetre, COULEUR_SOL, (-100, pos_sol_y + 10, L+200, H))
         for i in range(-grid_gap, L + grid_gap, grid_gap):
             x_ligne = i - offset_sol
             pygame.draw.line(fenetre, (70, 80, 70), (x_ligne, pos_sol_y + 10), (x_ligne + (80*zoom), pos_sol_y + 10), max(1, int(4*zoom)))
 
-    # 3. AVION (Redimensionné avec le zoom)
+    # 3. AVION
     if images_ok:
         img_actuelle = img_avion_feu_base if postcombustion else img_avion_normal_base
-        
-        # Calcul de la nouvelle taille
         new_w = int(90 * zoom)
         new_h = int(35 * zoom)
-        
-        # On scale l'image de base (propre)
         img_scaled = pygame.transform.scale(img_actuelle, (new_w, new_h))
-        
         avion_rot = pygame.transform.rotate(img_scaled, angle)
         rect_rot = avion_rot.get_rect(center=(L // 2, H // 2))
         fenetre.blit(avion_rot, rect_rot)
@@ -280,7 +262,7 @@ while True:
         pts = [(L//2+(30*zoom), H//2), (L//2-(10*zoom), H//2-(10*zoom)), (L//2-(10*zoom), H//2+(10*zoom))]
         pygame.draw.polygon(fenetre, (150, 150, 150), pts)
 
-    # 4. HUD & INSTRUMENTS
+    # 4. HUD
     dessiner_anemometre(fenetre, 100, H - 100, vitesse_kph)
 
     vario = -vy * 1.5 
@@ -289,7 +271,7 @@ while True:
     infos = [
         f"ALT  : {int(altitude)} FT", 
         f"MACH : {mach:.2f}",
-        f"ZOOM : x{zoom:.2f}", # Affichage du zoom
+        f"ZOOM : x{zoom:.2f}",
         f"AUTO : {'ON' if pilote_auto_actif else 'OFF'}"
     ]
 
