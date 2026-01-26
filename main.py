@@ -4,31 +4,21 @@ import os
 import random
 
 pygame.init()
-# --- SON ---
-pygame.mixer.init()
-
-son_moteur = pygame.mixer.Sound("moteur.ogg")
-son_bang = pygame.mixer.Sound("bang_sonique.wav")
-son_alarme = pygame.mixer.Sound("alarme_decrochage.wav")
-
-son_moteur.set_volume(0.5)
-son_bang.set_volume(0.9)
-son_alarme.set_volume(0.7)
-
-moteur_en_marche = False
-bang_joue = False
-alarme_jouee = False
-
-V_SON = 1060  # km/h (vitesse du son en altitude)
+pygame.mixer.init() # Initialisation du son
 
 # --- FENETRE ---
 L, H = 1200, 700
 fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("Simulateur Pro - Zoom Souris")
+pygame.display.set_caption("Simulateur Pro - Audio & Zoom")
 
-# --- CHARGEMENT IMAGES ---
+# --- CHARGEMENT RESSOURCES (IMAGES + SON) ---
 dossier = os.path.dirname(__file__)
+images_ok = False
+sound_ok = False
+
+# 1. Chargement Images
 try:
+    # On charge les .png (correspond à ton dossier)
     chemin_arret = os.path.join(dossier, "avion_arret.png")
     img_avion_normal_base = pygame.image.load(chemin_arret).convert_alpha()
     
@@ -36,9 +26,23 @@ try:
     img_avion_feu_base = pygame.image.load(chemin_marche).convert_alpha()
     
     images_ok = True
+    print("Images chargées avec succès !")
 except Exception as e:
-    print(f"Erreur image: {e}")
-    images_ok = False
+    print(f"ERREUR IMAGE : {e}")
+    print("Vérifie que avion_arret.png est bien dans le même dossier que ce script.")
+
+# 2. Chargement Son [CORRIGÉ MAJUSCULE]
+try:
+    # ATTENTION : J'ai mis "Moteur.ogg" avec une majuscule comme sur ta capture
+    chemin_son = os.path.join(dossier, "Moteur.ogg")
+    son_moteur = pygame.mixer.Sound(chemin_son)
+    son_moteur.play(loops=-1)
+    son_moteur.set_volume(0.4) 
+    sound_ok = True
+    print("Son chargé avec succès !")
+except Exception as e:
+    print(f"ERREUR SON : {e}")
+    print("Vérifie que Moteur.ogg est bien dans le même dossier.")
 
 # --- COULEURS ---
 COULEUR_CIEL_HAUT = (5, 10, 25)    
@@ -88,7 +92,7 @@ MAX_ROTATION = 2.0
 FRICTION_ROTATION = 0.96   
 COEFF_PORTANCE = 0.0018    
 COEFF_TRAINEE_MONTEE = 0.002 
-SEUIL_SON = 1200
+
 horloge = pygame.time.Clock()
 
 def obtenir_couleur_ciel(alt):
@@ -141,26 +145,21 @@ def dessiner_anemometre(surface, x, y, vitesse):
 while True:
     dt = horloge.tick(60) / 1000.0 
 
-    # --- GESTION DES ÉVÉNEMENTS (CLAVIER + SOURIS) ---
+    # --- GESTION DES ÉVÉNEMENTS ---
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
-        
-        # --- NOUVEAU : ZOOM AVEC LA MOLETTE ---
         elif event.type == pygame.MOUSEWHEEL:
-            # event.y est positif si on roule vers le haut, négatif vers le bas
             zoom_cible += event.y * 0.1 
 
     touches = pygame.key.get_pressed()
 
-    # --- APPLICATION DU ZOOM (LISSAGE) ---
-    # Limites du zoom
+    # --- ZOOM ---
     zoom_cible = max(0.5, min(2.0, zoom_cible))
-    # Animation fluide vers la cible
     zoom += (zoom_cible - zoom) * 0.1
 
-    # --- COMMANDES DE VOL ---
+    # --- COMMANDES ---
     target_rotation = 0
     action_manche = False 
     pilote_auto_actif = False
@@ -188,40 +187,19 @@ while True:
             
     angle += vitesse_rotation_actuelle
 
-    # MOTEUR
+    # --- MOTEUR & SON ---
     postcombustion = False
     if touches[pygame.K_RIGHT]:
         postcombustion = True
         rad = math.radians(angle)
         vx += math.cos(rad) * PUISSANCE_MOTEUR
         vy -= math.sin(rad) * PUISSANCE_MOTEUR
-    # --- SON MOTEUR ---
-    if touches[pygame.K_RIGHT]:
-        if not moteur_en_marche:
-            son_moteur.play(-1)   # boucle
-            moteur_en_marche = True
+        
+        # Le volume augmente en postcombustion
+        if sound_ok: son_moteur.set_volume(1.0)
     else:
-        if moteur_en_marche:
-            son_moteur.stop()
-            moteur_en_marche = False
-
-    # Volume moteur dépend de la vitesse
-    son_moteur.set_volume(min(1, vitesse_kph / 300))
-    if vitesse_kph >= V_SON and not bang_joue:
-        son_bang.play()
-        bang_joue = True
-
-    if vitesse_kph < V_SON - 50:
-        bang_joue = False
-    if en_decrochage and not alarme_jouee:
-        son_alarme.play(-1)
-        alarme_jouee = True
-
-    elif not en_decrochage and alarme_jouee:
-        son_alarme.stop()
-        alarme_jouee = False
-
-
+        # Volume normal
+        if sound_ok: son_moteur.set_volume(0.4)
 
     # --- PHYSIQUE ---
     altitude = -world_y 
@@ -276,7 +254,6 @@ while True:
             if p[0] < 0:
                 p[0] = L + random.randint(0, 100)
                 p[1] = random.randint(0, H)
-            
             taille_visuelle = max(1, int(p[3] * zoom))
             col_p = (200, 200, 220) 
             pygame.draw.circle(fenetre, col_p, (int(p[0]), int(p[1])), taille_visuelle)
@@ -294,12 +271,7 @@ while True:
 
     # 3. AVION
     if images_ok:
-        if vitesse_kph >= SEUIL_SON:
-            img_actuelle = pygame.image.load("avion_mur du son .png").convert_alpha()
-        elif postcombustion:
-            img_actuelle = img_avion_feu_base
-        else:
-            img_actuelle = img_avion_normal_base
+        img_actuelle = img_avion_feu_base if postcombustion else img_avion_normal_base
         new_w = int(90 * zoom)
         new_h = int(35 * zoom)
         img_scaled = pygame.transform.scale(img_actuelle, (new_w, new_h))
@@ -307,6 +279,7 @@ while True:
         rect_rot = avion_rot.get_rect(center=(L // 2, H // 2))
         fenetre.blit(avion_rot, rect_rot)
     else:
+        # Fallback (Triangle) si pas d'image
         pts = [(L//2+(30*zoom), H//2), (L//2-(10*zoom), H//2-(10*zoom)), (L//2-(10*zoom), H//2+(10*zoom))]
         pygame.draw.polygon(fenetre, (150, 150, 150), pts)
 
