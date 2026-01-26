@@ -8,18 +8,19 @@ pygame.init()
 # --- FENETRE ---
 L, H = 1200, 700
 fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("Simulateur - Speed FX & Smooth Auto-Pilot")
+pygame.display.set_caption("Simulateur - PNG Fixed")
 
-# --- CHARGEMENT IMAGES ---
+# --- CHARGEMENT IMAGES (CORRIGÉ POUR PNG) ---
 dossier = os.path.dirname(__file__)
 try:
-    chemin_arret = os.path.join(dossier, "avion_arret.jpg")
-    img_avion_normal = pygame.image.load(chemin_arret).convert() 
-    chemin_marche = os.path.join(dossier, "avion_marche.jpg")
-    img_avion_feu = pygame.image.load(chemin_marche).convert()
+    # 1. On cherche des PNG
+    chemin_arret = os.path.join(dossier, "avion_arret.png")
+    img_avion_normal = pygame.image.load(chemin_arret).convert_alpha()
     
-    img_avion_normal.set_colorkey((255, 255, 255))
-    img_avion_feu.set_colorkey((255, 255, 255))
+    chemin_marche = os.path.join(dossier, "avion_marche.png")
+    img_avion_feu = pygame.image.load(chemin_marche).convert_alpha()
+    
+    # 2. Redimensionnement
     img_avion_normal = pygame.transform.scale(img_avion_normal, (90, 35))
     img_avion_feu = pygame.transform.scale(img_avion_feu, (90, 35))
     images_ok = True
@@ -52,7 +53,7 @@ pilote_auto_actif = False
 
 # Gestion des particules (Effet de vitesse)
 particules = []
-for _ in range(50): # 50 traits de vent
+for _ in range(50): 
     particules.append([random.randint(0, L), random.randint(0, H), random.randint(5, 15)])
 
 # --- PERFORMANCES ---
@@ -81,13 +82,10 @@ def obtenir_couleur_ciel(alt):
     return (r, g, b)
 
 def dessiner_jauge_vitesse(surface, x, y, vitesse):
-    """Dessine un cadran analogique (le moyeu)"""
     rayon = 60
-    # Fond du cadran
     pygame.draw.circle(surface, (0, 20, 0), (x, y), rayon)
     pygame.draw.circle(surface, COULEUR_HUD, (x, y), rayon, 2)
     
-    # Graduations
     for i in range(0, 360, 30):
         rad = math.radians(i)
         x1 = x + math.cos(rad) * (rayon - 10)
@@ -96,8 +94,6 @@ def dessiner_jauge_vitesse(surface, x, y, vitesse):
         y2 = y + math.sin(rad) * rayon
         pygame.draw.line(surface, COULEUR_HUD, (x1, y1), (x2, y2), 1)
 
-    # Aiguille (Moyeu tournant)
-    # 0 km/h = -135 degrés, 2500 km/h = +135 degrés
     ratio_vitesse = min(vitesse, 2500) / 2500
     angle_aiguille = -135 + (ratio_vitesse * 270)
     rad_aiguille = math.radians(angle_aiguille)
@@ -106,9 +102,8 @@ def dessiner_jauge_vitesse(surface, x, y, vitesse):
     y_fin = y + math.sin(rad_aiguille) * (rayon - 15)
     
     pygame.draw.line(surface, (255, 50, 50), (x, y), (x_fin, y_fin), 3)
-    pygame.draw.circle(surface, (200, 200, 200), (x, y), 5) # Le centre du moyeu
+    pygame.draw.circle(surface, (200, 200, 200), (x, y), 5)
     
-    # Texte Vitesse
     txt = police.render(f"{int(vitesse)}", True, (255, 255, 255))
     surface.blit(txt, (x - 15, y + 20))
 
@@ -134,28 +129,17 @@ while True:
         action_manche = True
     
     if action_manche:
-        # Inertie manuelle
         if target_rotation > vitesse_rotation_actuelle:
             vitesse_rotation_actuelle += ACCEL_ROTATION
         elif target_rotation < vitesse_rotation_actuelle:
             vitesse_rotation_actuelle -= ACCEL_ROTATION
     else:
-        # --- PILOTE AUTOMATIQUE FLUIDIFIÉ ---
         vitesse_rotation_actuelle *= FRICTION_ROTATION
         
         if vitesse_kph > V_DECOLLAGE and not en_decrochage:
             pilote_auto_actif = True
-            
-            # Au lieu de corriger l'angle directement, on calcule une CIBLE d'angle
-            # Si vy > 0 (descend), on veut un angle positif.
-            angle_cible = vy * 2.0 # Gain proportionnel
-            
-            # Limite de l'angle cible pour ne pas cabrer violemment
+            angle_cible = vy * 2.0 
             angle_cible = max(-15, min(15, angle_cible))
-            
-            # LISSAGE (FLUIDIFICATION) :
-            # On déplace l'angle actuel vers l'angle cible doucement (5% par frame)
-            # C'est la fonction "Lerp" (Linear Interpolation)
             angle += (angle_cible - angle) * 0.05
             
     angle += vitesse_rotation_actuelle
@@ -212,31 +196,18 @@ while True:
     # --- 3. DESSIN ---
     fenetre.fill(obtenir_couleur_ciel(altitude))
     
-    # A. EFFET DE VITESSE (PARTICULES DE VENT)
-    # Plus on va vite, plus les lignes sont longues et transparentes
-    coeff_vitesse = max(0, vitesse_kph - 100) / 1000 # 0 à basse vitesse, augmente après
-    
+    # A. EFFET DE VITESSE
+    coeff_vitesse = max(0, vitesse_kph - 100) / 1000 
     if coeff_vitesse > 0:
         for p in particules:
-            # p[0]=x, p[1]=y, p[2]=longueur_base
-            
-            # Mouvement: Elles reculent selon la vitesse de l'avion
             p[0] -= (vitesse_kph * 0.15) 
-            
-            # Reset si sort de l'écran
             if p[0] < 0:
                 p[0] = L + random.randint(0, 200)
                 p[1] = random.randint(0, H)
-            
-            # Dessin
-            longueur = p[2] + (vitesse_kph * 0.1) # S'allonge avec la vitesse
+            longueur = p[2] + (vitesse_kph * 0.1) 
             epaisseur = 1 if vitesse_kph < 1000 else 2
-            
-            # Transparence (Simulée par nuance de gris)
             gris = min(255, int(50 + coeff_vitesse * 100))
-            couleur_vent = (gris, gris, gris)
-            
-            pygame.draw.line(fenetre, couleur_vent, (p[0], p[1]), (p[0] - longueur, p[1]), epaisseur)
+            pygame.draw.line(fenetre, (gris, gris, gris), (p[0], p[1]), (p[0] - longueur, p[1]), epaisseur)
 
     # B. Sol
     offset_sol = int(world_x % 150)
@@ -260,10 +231,8 @@ while True:
     vario = -vy * 1.5 
     mach = vitesse_kph / 1225.0 
     
-    # Affichage du "Moyeu" (Cadran Vitesse) en bas à gauche
     dessiner_jauge_vitesse(fenetre, 80, H - 80, vitesse_kph)
 
-    # Infos HUD Texte
     infos = [
         f"ALT  : {int(altitude)} FT", 
         f"MACH : {mach:.2f}",
@@ -274,7 +243,6 @@ while True:
     x_base = L - 200
     y_base = H - 200
     
-    # Petit fond pour le HUD texte
     s = pygame.Surface((190, 120))
     s.set_alpha(80)
     s.fill((0, 0, 0))
