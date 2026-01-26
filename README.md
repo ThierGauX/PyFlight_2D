@@ -27,10 +27,10 @@ Le simulateur se joue au Clavier et à la Souris.
 
 | Touche / Action | Fonction | Effet Physique |
 | :--- | :--- | :--- |
-| ** Flèche DROITE** | **Postcombustion** | Accélère l'avion (Maintenir pour décoller). |
-| ** Flèche BAS** | **Tirer le manche** | Le nez monte (**Cabrer**). Attention à la perte de vitesse ! 🛫 |
-| ** Flèche HAUT** | **Pousser le manche** | Le nez descend (**Piquer**) pour prendre de la vitesse. 🛬 |
-| ** Molette SOURIS** | **Zoom Caméra** | **Haut :** Zoom Avant (Détails) <br> **Bas :** Zoom Arrière (Vue large). |
+| **Flèche DROITE** | **Postcombustion** | Accélère l'avion (Maintenir pour décoller). |
+| **Flèche BAS** | **Tirer le manche** | Le nez monte (**Cabrer**). Attention à la perte de vitesse ! 🛫 |
+| **Flèche HAUT** | **Pousser le manche** | Le nez descend (**Piquer**) pour prendre de la vitesse. 🛬 |
+| **Molette SOURIS** | **Zoom Caméra** | **Haut :** Zoom Avant (Détails) <br> **Bas :** Zoom Arrière (Vue large). |
 | *(Aucune touche)* | **Auto-Pilot** | Activation automatique du mode **STABLE** (Maintien d'altitude). |
 
 ##  Guide Rapide
