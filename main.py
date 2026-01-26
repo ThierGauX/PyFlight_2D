@@ -8,19 +8,17 @@ pygame.init()
 # --- FENETRE ---
 L, H = 1200, 700
 fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("Simulateur - PNG Fixed")
+pygame.display.set_caption("Simulateur Pro - Cockpit Réaliste & Physique Lourde")
 
-# --- CHARGEMENT IMAGES (CORRIGÉ POUR PNG) ---
+# --- CHARGEMENT IMAGES ---
 dossier = os.path.dirname(__file__)
 try:
-    # 1. On cherche des PNG
     chemin_arret = os.path.join(dossier, "avion_arret.png")
     img_avion_normal = pygame.image.load(chemin_arret).convert_alpha()
     
     chemin_marche = os.path.join(dossier, "avion_marche.png")
     img_avion_feu = pygame.image.load(chemin_marche).convert_alpha()
     
-    # 2. Redimensionnement
     img_avion_normal = pygame.transform.scale(img_avion_normal, (90, 35))
     img_avion_feu = pygame.transform.scale(img_avion_feu, (90, 35))
     images_ok = True
@@ -29,15 +27,17 @@ except Exception as e:
     images_ok = False
 
 # --- COULEURS ---
-COULEUR_CIEL_HAUT = (5, 15, 30)    
-COULEUR_CIEL_BAS = (80, 120, 180) 
-COULEUR_SOL = (40, 50, 40)         
-COULEUR_HUD = (0, 255, 100)          
-COULEUR_ALERTE = (255, 50, 0)
-COULEUR_AUTO = (0, 150, 255)
+COULEUR_CIEL_HAUT = (5, 10, 25)    
+COULEUR_CIEL_BAS = (100, 140, 200) 
+COULEUR_SOL = (50, 60, 50)         
+COULEUR_INSTRUMENT = (20, 20, 20)  # Fond noir des compteurs
+COULEUR_AIGUILLE = (200, 50, 50)
+COULEUR_TEXTE = (255, 255, 255)
+COULEUR_AUTO = (0, 180, 255)
 
-police = pygame.font.SysFont("consolas", 18, bold=True)
-police_grosse = pygame.font.SysFont("consolas", 40, bold=True)
+police = pygame.font.SysFont("arial", 14, bold=True)
+police_compteur = pygame.font.SysFont("arial", 12)
+police_grosse = pygame.font.SysFont("arial", 30, bold=True)
 
 # --- VARIABLES ---
 world_y = 0      
@@ -48,66 +48,99 @@ vitesse_rotation_actuelle = 0
 en_decrochage = False 
 altitude = 0 
 vitesse_kph = 0
-postcombustion = False 
 pilote_auto_actif = False
 
-# Gestion des particules (Effet de vitesse)
+# --- NOUVEAU SYSTÈME DE PARTICULES (POUSSIÈRES) ---
+# x, y, vitesse_relative, taille
 particules = []
-for _ in range(50): 
-    particules.append([random.randint(0, L), random.randint(0, H), random.randint(5, 15)])
+for _ in range(40): 
+    particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 1.5), random.randint(1, 2)])
 
 # --- PERFORMANCES ---
 V_DECOLLAGE = 220
 V_DECROCHAGE = 160
-V_VNE = 2200 
+V_VNE = 2500 
 
-# --- PHYSIQUE ---
-GRAVITE = 0.20             
-PUISSANCE_MOTEUR = 1.3     
-FRICTION_AIR = 0.997       
-FRICTION_VERTICALE = 0.95  
-ACCEL_ROTATION = 0.2       
-MAX_ROTATION = 3.0         
-FRICTION_ROTATION = 0.90   
-COEFF_PORTANCE = 0.0035    
+# --- PHYSIQUE LOURDE (CORRIGÉE) ---
+GRAVITE = 0.18             
+PUISSANCE_MOTEUR = 1.0     # Puissance réduite pour éviter l'effet fusée
+FRICTION_AIR = 0.998       
+FRICTION_VERTICALE = 0.96  
+ACCEL_ROTATION = 0.15      # Rotation plus lourde
+MAX_ROTATION = 2.5         
+FRICTION_ROTATION = 0.92   
+
+# Portance très faible pour obliger à aller vite
+COEFF_PORTANCE = 0.0018    
+# PÉNALITÉ : Plus on monte, plus on perd de vitesse (Traînée)
+COEFF_TRAINEE_MONTEE = 0.002 
 
 horloge = pygame.time.Clock()
 
 def obtenir_couleur_ciel(alt):
     plafond = 15000 
     ratio = min(max(alt, 0), plafond) / plafond
+    # Lissage des couleurs
     r = int(COULEUR_CIEL_BAS[0] * (1 - ratio) + COULEUR_CIEL_HAUT[0] * ratio)
     g = int(COULEUR_CIEL_BAS[1] * (1 - ratio) + COULEUR_CIEL_HAUT[1] * ratio)
     b = int(COULEUR_CIEL_BAS[2] * (1 - ratio) + COULEUR_CIEL_HAUT[2] * ratio)
     return (r, g, b)
 
-def dessiner_jauge_vitesse(surface, x, y, vitesse):
-    rayon = 60
-    pygame.draw.circle(surface, (0, 20, 0), (x, y), rayon)
-    pygame.draw.circle(surface, COULEUR_HUD, (x, y), rayon, 2)
+def dessiner_anemometre(surface, x, y, vitesse):
+    """Un vrai instrument de vol rond et lisible"""
+    rayon = 70
     
-    for i in range(0, 360, 30):
-        rad = math.radians(i)
-        x1 = x + math.cos(rad) * (rayon - 10)
-        y1 = y + math.sin(rad) * (rayon - 10)
-        x2 = x + math.cos(rad) * rayon
-        y2 = y + math.sin(rad) * rayon
-        pygame.draw.line(surface, COULEUR_HUD, (x1, y1), (x2, y2), 1)
+    # 1. Boîtier (Fond noir avec bordure grise)
+    pygame.draw.circle(surface, (50, 50, 50), (x, y), rayon + 4)
+    pygame.draw.circle(surface, COULEUR_INSTRUMENT, (x, y), rayon)
+    
+    # 2. Graduations (Ticks)
+    # De 0 à 3000 km/h répartis sur 300 degrés
+    for v in range(0, 3001, 250):
+        ratio = v / 3000
+        ang_rad = math.radians(135 + (ratio * 270)) # Départ à 135° (en bas à gauche)
+        
+        # Position du trait
+        x1 = x + math.cos(ang_rad) * (rayon - 10)
+        y1 = y + math.sin(ang_rad) * (rayon - 10)
+        x2 = x + math.cos(ang_rad) * rayon
+        y2 = y + math.sin(ang_rad) * rayon
+        
+        epaisseur = 2 if v % 1000 == 0 else 1
+        col = (255, 255, 255) if v < V_VNE else (255, 0, 0) # Rouge si zone danger
+        pygame.draw.line(surface, col, (x1, y1), (x2, y2), epaisseur)
+        
+        # Texte des milliers (1, 2, 3)
+        if v % 1000 == 0 and v != 0:
+            lbl = police_compteur.render(str(v//1000), True, (200, 200, 200))
+            xr = x + math.cos(ang_rad) * (rayon - 22) - 3
+            yr = y + math.sin(ang_rad) * (rayon - 22) - 5
+            surface.blit(lbl, (xr, yr))
 
-    ratio_vitesse = min(vitesse, 2500) / 2500
-    angle_aiguille = -135 + (ratio_vitesse * 270)
-    rad_aiguille = math.radians(angle_aiguille)
+    # 3. Aiguille
+    # On clampe la vitesse affichée à 3000 max
+    v_aff = min(vitesse, 3000)
+    ratio_v = v_aff / 3000
+    ang_aiguille = math.radians(135 + (ratio_v * 270))
     
-    x_fin = x + math.cos(rad_aiguille) * (rayon - 15)
-    y_fin = y + math.sin(rad_aiguille) * (rayon - 15)
+    xa = x + math.cos(ang_aiguille) * (rayon - 15)
+    ya = y + math.sin(ang_aiguille) * (rayon - 15)
     
-    pygame.draw.line(surface, (255, 50, 50), (x, y), (x_fin, y_fin), 3)
-    pygame.draw.circle(surface, (200, 200, 200), (x, y), 5)
+    pygame.draw.line(surface, COULEUR_AIGUILLE, (x, y), (xa, ya), 3)
+    pygame.draw.circle(surface, (100, 100, 100), (x, y), 5) # Capuchon central
     
-    txt = police.render(f"{int(vitesse)}", True, (255, 255, 255))
-    surface.blit(txt, (x - 15, y + 20))
+    # 4. Affichage numérique au centre
+    txt_spd = police.render(f"{int(vitesse)}", True, (255, 255, 255))
+    rect_spd = txt_spd.get_rect(center=(x, y + 30))
+    surface.blit(txt_spd, rect_spd)
+    
+    # Titre
+    lbl = police_compteur.render("KPH x1000", True, (150, 150, 150))
+    surface.blit(lbl, (x - 25, y - 30))
 
 while True:
+    dt = horloge.tick(60) / 1000.0 # Delta time pour physique précise
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -115,8 +148,7 @@ while True:
 
     touches = pygame.key.get_pressed()
 
-    # --- 1. COMMANDES & PILOTE AUTO ---
-    
+    # --- COMMANDES ---
     target_rotation = 0
     action_manche = False 
     pilote_auto_actif = False
@@ -135,12 +167,12 @@ while True:
             vitesse_rotation_actuelle -= ACCEL_ROTATION
     else:
         vitesse_rotation_actuelle *= FRICTION_ROTATION
-        
+        # Pilote Auto (Fluidifié)
         if vitesse_kph > V_DECOLLAGE and not en_decrochage:
             pilote_auto_actif = True
-            angle_cible = vy * 2.0 
-            angle_cible = max(-15, min(15, angle_cible))
-            angle += (angle_cible - angle) * 0.05
+            angle_cible = vy * 1.5
+            angle_cible = max(-10, min(10, angle_cible))
+            angle += (angle_cible - angle) * 0.04
             
     angle += vitesse_rotation_actuelle
 
@@ -152,11 +184,12 @@ while True:
         vx += math.cos(rad) * PUISSANCE_MOTEUR
         vy -= math.sin(rad) * PUISSANCE_MOTEUR
 
-    # --- 2. PHYSIQUE ---
+    # --- PHYSIQUE ---
     altitude = -world_y 
     vitesse_totale = math.sqrt(vx**2 + vy**2)
     vitesse_kph = int(vitesse_totale * 15)
     
+    # Décrochage
     if vitesse_kph < V_DECROCHAGE and altitude > 10:
         en_decrochage = True
     elif vitesse_kph > V_DECROCHAGE + 40:
@@ -167,13 +200,19 @@ while True:
     portance = 0
     if not en_decrochage:
         if vitesse_kph > 100: 
+            # Traînée en virage
             angle_attaque = abs(angle)
             if angle_attaque > 5:
-                perte = (angle_attaque * 0.0004)
-                vx *= (1.0 - perte)
-                vy *= (1.0 - perte)
+                vx *= 0.999 
+                vy *= 0.999
+            
+            # PÉNALITÉ DE MONTÉE (Nouveau)
+            # Si on monte (angle > 0), on freine horizontalement (vx)
+            # Cela empêche l'avion de grimper à l'infini sans perdre d'énergie
             if angle > 0:
+                vx *= (1.0 - (angle * COEFF_TRAINEE_MONTEE))
                 portance = abs(vx) * (angle * COEFF_PORTANCE)
+            
             vx *= FRICTION_AIR
             vy *= FRICTION_VERTICALE
     else:
@@ -193,21 +232,24 @@ while True:
             vx *= 0.98 
     altitude = -world_y
 
-    # --- 3. DESSIN ---
+    # --- DESSIN ---
     fenetre.fill(obtenir_couleur_ciel(altitude))
     
-    # A. EFFET DE VITESSE
-    coeff_vitesse = max(0, vitesse_kph - 100) / 1000 
-    if coeff_vitesse > 0:
+    # A. PARTICULES "POUSSIÈRE" (Beaucoup plus joli)
+    # Elles sont subtiles et donnent l'impression de traverser l'air
+    if vitesse_kph > 50:
         for p in particules:
-            p[0] -= (vitesse_kph * 0.15) 
+            # p[0]=x, p[1]=y, p[2]=speed_factor, p[3]=size
+            p[0] -= (vitesse_kph * 0.05 * p[2]) # Vitesse parallax
+            
             if p[0] < 0:
-                p[0] = L + random.randint(0, 200)
+                p[0] = L + random.randint(0, 100)
                 p[1] = random.randint(0, H)
-            longueur = p[2] + (vitesse_kph * 0.1) 
-            epaisseur = 1 if vitesse_kph < 1000 else 2
-            gris = min(255, int(50 + coeff_vitesse * 100))
-            pygame.draw.line(fenetre, (gris, gris, gris), (p[0], p[1]), (p[0] - longueur, p[1]), epaisseur)
+            
+            # Dessin d'un petit rond blanc un peu transparent
+            # Astuce : On dessine en gris clair pour simuler la transparence sur fond bleu
+            col_p = (200, 200, 220) 
+            pygame.draw.circle(fenetre, col_p, (int(p[0]), int(p[1])), p[3])
 
     # B. Sol
     offset_sol = int(world_x % 150)
@@ -224,15 +266,17 @@ while True:
         rect_rot = avion_rot.get_rect(center=(L // 2, H // 2))
         fenetre.blit(avion_rot, rect_rot)
     else:
+        # Fallback propre
         pts = [(L//2+30, H//2), (L//2-10, H//2-10), (L//2-10, H//2+10)]
         pygame.draw.polygon(fenetre, (150, 150, 150), pts)
 
-    # D. HUD & CADRAN
+    # D. ANÉMOMÈTRE RÉALISTE (En bas à gauche)
+    dessiner_anemometre(fenetre, 100, H - 100, vitesse_kph)
+
+    # E. HUD TEXTE DISCRET
     vario = -vy * 1.5 
     mach = vitesse_kph / 1225.0 
     
-    dessiner_jauge_vitesse(fenetre, 80, H - 80, vitesse_kph)
-
     infos = [
         f"ALT  : {int(altitude)} FT", 
         f"MACH : {mach:.2f}",
@@ -241,32 +285,32 @@ while True:
     ]
 
     x_base = L - 200
-    y_base = H - 200
+    y_base = H - 150
     
-    s = pygame.Surface((190, 120))
-    s.set_alpha(80)
+    # Petit panneau HUD semi-transparent en bas à droite
+    s = pygame.Surface((180, 110))
+    s.set_alpha(100)
     s.fill((0, 0, 0))
     fenetre.blit(s, (x_base - 10, y_base - 10))
+    pygame.draw.rect(fenetre, (100, 100, 100), (x_base - 10, y_base - 10, 180, 110), 2)
 
     for i, ligne in enumerate(infos):
-        c_txt = COULEUR_HUD
+        c_txt = COULEUR_TEXTE
         if "AUTO" in ligne and pilote_auto_actif: c_txt = COULEUR_AUTO
         fenetre.blit(police.render(ligne, True, c_txt), (x_base, y_base + i*25))
 
+    # Messages Alerte
     msg = ""
-    c_msg = COULEUR_HUD
+    c_msg = COULEUR_AUTO
     if en_decrochage:
-        msg = "[ STALL ]"
-        c_msg = COULEUR_ALERTE
+        msg = "!! STALL !!"
+        c_msg = (255, 0, 0)
     elif pilote_auto_actif and abs(vy) < 1.0 and altitude > 50:
-        msg = "FLIGHT PATH STABLE" 
-        c_msg = COULEUR_AUTO
+        msg = "STABLE"
 
     if msg:
-        y_pos = H//2 - 120
         txt_msg = police_grosse.render(msg, True, c_msg)
-        rect_msg = txt_msg.get_rect(center=(L//2, y_pos))
+        rect_msg = txt_msg.get_rect(center=(L//2, H//2 - 120))
         fenetre.blit(txt_msg, rect_msg)
 
     pygame.display.flip()
-    horloge.tick(60)
