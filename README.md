@@ -21,7 +21,7 @@ Bienvenue dans **PyFlight 2D**, un simulateur de vol développé en Python avec 
 * **Effets de Particules :** Système de poussières atmosphériques pour ressentir la vitesse.
 * **HUD Militaire :** Affichage tête haute du Mach, des G-Force et du Variomètre.
 
-## 🎮 Commandes de Vol
+##  Commandes de Vol
 
 Le simulateur se joue au Clavier et à la Souris.
 
