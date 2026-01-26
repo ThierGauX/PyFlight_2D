@@ -6,7 +6,7 @@ Bienvenue dans **PyFlight 2D**, un simulateur de vol développé en Python avec 
 * **Gauthier :** Développement du Menu du jeu.
 * **Jules :** style de l'avion.
 
-## 🌟 Fonctionnalités Nouvelles & Principales
+##  Fonctionnalités Nouvelles & Principales
 
 ###  Physique & Pilotage
 * **Inertie Réaliste :** Les commandes sont "lourdes". L'avion ne tourne pas instantanément, simulant la masse d'un véritable appareil.
