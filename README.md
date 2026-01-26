@@ -40,7 +40,7 @@ Le simulateur se joue au Clavier et à la Souris.
 3.  **En vol :** Utilisez la **Molette** de la souris pour ajuster la vue.
 4.  **Atterrissage :** Coupez les gaz, levez le nez pour freiner avec l'air (Aérofreinage) et touchez le sol doucement (< 5 m/s).
 
-## 🛠️ Installation
+##  Installation
 
 ### Prérequis
 * Python 3.x installé.
