@@ -4,6 +4,22 @@ import os
 import random
 
 pygame.init()
+# --- SON ---
+pygame.mixer.init()
+
+son_moteur = pygame.mixer.Sound("moteur.ogg")
+son_bang = pygame.mixer.Sound("bang_sonique.wav")
+son_alarme = pygame.mixer.Sound("alarme_decrochage.wav")
+
+son_moteur.set_volume(0.5)
+son_bang.set_volume(0.9)
+son_alarme.set_volume(0.7)
+
+moteur_en_marche = False
+bang_joue = False
+alarme_jouee = False
+
+V_SON = 1060  # km/h (vitesse du son en altitude)
 
 # --- FENETRE ---
 L, H = 1200, 700
@@ -72,7 +88,7 @@ MAX_ROTATION = 2.0
 FRICTION_ROTATION = 0.96   
 COEFF_PORTANCE = 0.0018    
 COEFF_TRAINEE_MONTEE = 0.002 
-
+SEUIL_SON = 1200
 horloge = pygame.time.Clock()
 
 def obtenir_couleur_ciel(alt):
@@ -179,6 +195,33 @@ while True:
         rad = math.radians(angle)
         vx += math.cos(rad) * PUISSANCE_MOTEUR
         vy -= math.sin(rad) * PUISSANCE_MOTEUR
+    # --- SON MOTEUR ---
+    if touches[pygame.K_RIGHT]:
+        if not moteur_en_marche:
+            son_moteur.play(-1)   # boucle
+            moteur_en_marche = True
+    else:
+        if moteur_en_marche:
+            son_moteur.stop()
+            moteur_en_marche = False
+
+    # Volume moteur dépend de la vitesse
+    son_moteur.set_volume(min(1, vitesse_kph / 300))
+    if vitesse_kph >= V_SON and not bang_joue:
+        son_bang.play()
+        bang_joue = True
+
+    if vitesse_kph < V_SON - 50:
+        bang_joue = False
+    if en_decrochage and not alarme_jouee:
+        son_alarme.play(-1)
+        alarme_jouee = True
+
+    elif not en_decrochage and alarme_jouee:
+        son_alarme.stop()
+        alarme_jouee = False
+
+
 
     # --- PHYSIQUE ---
     altitude = -world_y 
@@ -251,7 +294,12 @@ while True:
 
     # 3. AVION
     if images_ok:
-        img_actuelle = img_avion_feu_base if postcombustion else img_avion_normal_base
+        if vitesse_kph >= SEUIL_SON:
+            img_actuelle = pygame.image.load("avion_mur du son .png").convert_alpha()
+        elif postcombustion:
+            img_actuelle = img_avion_feu_base
+        else:
+            img_actuelle = img_avion_normal_base
         new_w = int(90 * zoom)
         new_h = int(35 * zoom)
         img_scaled = pygame.transform.scale(img_actuelle, (new_w, new_h))
