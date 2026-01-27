@@ -3,46 +3,54 @@ import math
 import os
 import random
 
+# --- INITIALISATION ---
 pygame.init()
-pygame.mixer.init() # Initialisation du son
+try:
+    # Réglages audio compatibles Linux
+    pygame.mixer.pre_init(44100, -16, 2, 2048)
+    pygame.mixer.init()
+except Exception as e:
+    print(f"Attention audio: {e}")
 
 # --- FENETRE ---
 L, H = 1200, 700
 fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("Simulateur Pro - Audio & Zoom")
+pygame.display.set_caption("Simulateur - Final")
 
-# --- CHARGEMENT RESSOURCES (IMAGES + SON) ---
-dossier = os.path.dirname(__file__)
+# --- RESSOURCES ---
+dossier = os.path.dirname(os.path.abspath(__file__))
 images_ok = False
 sound_ok = False
 
-# 1. Chargement Images
+# 1. IMAGES
 try:
-    # On charge les .png (correspond à ton dossier)
     chemin_arret = os.path.join(dossier, "avion_arret.png")
-    img_avion_normal_base = pygame.image.load(chemin_arret).convert_alpha()
-    
     chemin_marche = os.path.join(dossier, "avion_marche.png")
-    img_avion_feu_base = pygame.image.load(chemin_marche).convert_alpha()
     
+    img_avion_normal_base = pygame.image.load(chemin_arret).convert_alpha()
+    img_avion_feu_base = pygame.image.load(chemin_marche).convert_alpha()
     images_ok = True
-    print("Images chargées avec succès !")
 except Exception as e:
-    print(f"ERREUR IMAGE : {e}")
-    print("Vérifie que avion_arret.png est bien dans le même dossier que ce script.")
+    print(f"Erreur Images: {e}")
 
-# 2. Chargement Son [CORRIGÉ MAJUSCULE]
-try:
-    # ATTENTION : J'ai mis "Moteur.ogg" avec une majuscule comme sur ta capture
-    chemin_son = os.path.join(dossier, "Moteur.ogg")
-    son_moteur = pygame.mixer.Sound(chemin_son)
-    son_moteur.play(loops=-1)
-    son_moteur.set_volume(0.4) 
-    sound_ok = True
-    print("Son chargé avec succès !")
-except Exception as e:
-    print(f"ERREUR SON : {e}")
-    print("Vérifie que Moteur.ogg est bien dans le même dossier.")
+# 2. SON (On cherche le fichier généré en priorité)
+# Liste des noms possibles
+noms_sons = ["moteur_neuf.wav", "Moteur.wav", "moteur.ogg"] 
+son_moteur = None
+
+for nom in noms_sons:
+    chemin_test = os.path.join(dossier, nom)
+    if os.path.exists(chemin_test):
+        try:
+            print(f"Essai chargement son : {nom}...")
+            son_moteur = pygame.mixer.Sound(chemin_test)
+            son_moteur.play(loops=-1)
+            son_moteur.set_volume(0.3) # Un peu moins fort
+            sound_ok = True
+            print(">>> SUCCÈS : MOTEUR ACTIVÉ ! <<<")
+            break
+        except Exception as e:
+            print(f"Fichier {nom} illisible : {e}")
 
 # --- COULEURS ---
 COULEUR_CIEL_HAUT = (5, 10, 25)    
@@ -67,22 +75,17 @@ en_decrochage = False
 altitude = 0 
 vitesse_kph = 0
 pilote_auto_actif = False
-
-# VARIABLE DE ZOOM
 zoom = 1.0          
 zoom_cible = 1.0    
 
-# --- PARTICULES ---
 particules = []
 for _ in range(40): 
     particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 1.5), random.randint(1, 2)])
 
-# --- PERFORMANCES ---
+# --- CONFIG PHYSIQUE ---
 V_DECOLLAGE = 220
 V_DECROCHAGE = 160
 V_VNE = 2500 
-
-# --- PHYSIQUE LOURDE ---
 GRAVITE = 0.18             
 PUISSANCE_MOTEUR = 1.0     
 FRICTION_AIR = 0.998       
@@ -107,7 +110,6 @@ def dessiner_anemometre(surface, x, y, vitesse):
     rayon = 70
     pygame.draw.circle(surface, (50, 50, 50), (x, y), rayon + 4)
     pygame.draw.circle(surface, COULEUR_INSTRUMENT, (x, y), rayon)
-    
     for v in range(0, 3001, 250):
         ratio = v / 3000
         ang_rad = math.radians(135 + (ratio * 270))
@@ -115,37 +117,30 @@ def dessiner_anemometre(surface, x, y, vitesse):
         y1 = y + math.sin(ang_rad) * (rayon - 10)
         x2 = x + math.cos(ang_rad) * rayon
         y2 = y + math.sin(ang_rad) * rayon
-        
         epaisseur = 2 if v % 1000 == 0 else 1
         col = (255, 255, 255) if v < V_VNE else (255, 0, 0)
         pygame.draw.line(surface, col, (x1, y1), (x2, y2), epaisseur)
-        
         if v % 1000 == 0 and v != 0:
             lbl = police_compteur.render(str(v//1000), True, (200, 200, 200))
             xr = x + math.cos(ang_rad) * (rayon - 22) - 3
             yr = y + math.sin(ang_rad) * (rayon - 22) - 5
             surface.blit(lbl, (xr, yr))
-
     v_aff = min(vitesse, 3000)
     ratio_v = v_aff / 3000
     ang_aiguille = math.radians(135 + (ratio_v * 270))
     xa = x + math.cos(ang_aiguille) * (rayon - 15)
     ya = y + math.sin(ang_aiguille) * (rayon - 15)
-    
     pygame.draw.line(surface, COULEUR_AIGUILLE, (x, y), (xa, ya), 3)
     pygame.draw.circle(surface, (100, 100, 100), (x, y), 5) 
-    
     txt_spd = police.render(f"{int(vitesse)}", True, (255, 255, 255))
     rect_spd = txt_spd.get_rect(center=(x, y + 30))
     surface.blit(txt_spd, rect_spd)
-    
     lbl = police_compteur.render("KPH x1000", True, (150, 150, 150))
     surface.blit(lbl, (x - 25, y - 30))
 
 while True:
     dt = horloge.tick(60) / 1000.0 
 
-    # --- GESTION DES ÉVÉNEMENTS ---
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -154,12 +149,9 @@ while True:
             zoom_cible += event.y * 0.1 
 
     touches = pygame.key.get_pressed()
-
-    # --- ZOOM ---
     zoom_cible = max(0.5, min(2.0, zoom_cible))
     zoom += (zoom_cible - zoom) * 0.1
 
-    # --- COMMANDES ---
     target_rotation = 0
     action_manche = False 
     pilote_auto_actif = False
@@ -178,7 +170,6 @@ while True:
             vitesse_rotation_actuelle -= ACCEL_ROTATION
     else:
         vitesse_rotation_actuelle *= FRICTION_ROTATION
-        # Pilote Auto
         if vitesse_kph > V_DECOLLAGE and not en_decrochage:
             pilote_auto_actif = True
             angle_cible = vy * 1.5
@@ -194,12 +185,9 @@ while True:
         rad = math.radians(angle)
         vx += math.cos(rad) * PUISSANCE_MOTEUR
         vy -= math.sin(rad) * PUISSANCE_MOTEUR
-        
-        # Le volume augmente en postcombustion
-        if sound_ok: son_moteur.set_volume(1.0)
+        if sound_ok and son_moteur: son_moteur.set_volume(0.8)
     else:
-        # Volume normal
-        if sound_ok: son_moteur.set_volume(0.4)
+        if sound_ok and son_moteur: son_moteur.set_volume(0.3)
 
     # --- PHYSIQUE ---
     altitude = -world_y 
@@ -220,11 +208,9 @@ while True:
             if angle_attaque > 5:
                 vx *= 0.999 
                 vy *= 0.999
-            
             if angle > 0:
                 vx *= (1.0 - (angle * COEFF_TRAINEE_MONTEE))
                 portance = abs(vx) * (angle * COEFF_PORTANCE)
-            
             vx *= FRICTION_AIR
             vy *= FRICTION_VERTICALE
     else:
@@ -247,7 +233,6 @@ while True:
     # --- DESSIN ---
     fenetre.fill(obtenir_couleur_ciel(altitude))
     
-    # 1. PARTICULES
     if vitesse_kph > 50:
         for p in particules:
             p[0] -= (vitesse_kph * 0.05 * p[2]) * zoom 
@@ -258,7 +243,6 @@ while True:
             col_p = (200, 200, 220) 
             pygame.draw.circle(fenetre, col_p, (int(p[0]), int(p[1])), taille_visuelle)
 
-    # 2. SOL
     grid_gap = int(150 * zoom) 
     offset_sol = int(world_x % grid_gap)
     pos_sol_y = (H // 2) + (altitude * zoom) 
@@ -269,21 +253,18 @@ while True:
             x_ligne = i - offset_sol
             pygame.draw.line(fenetre, (70, 80, 70), (x_ligne, pos_sol_y + 10), (x_ligne + (80*zoom), pos_sol_y + 10), max(1, int(4*zoom)))
 
-    # 3. AVION
     if images_ok:
         img_actuelle = img_avion_feu_base if postcombustion else img_avion_normal_base
-        new_w = int(90 * zoom)
-        new_h = int(35 * zoom)
+        new_w = max(10, int(90 * zoom))
+        new_h = max(5, int(35 * zoom))
         img_scaled = pygame.transform.scale(img_actuelle, (new_w, new_h))
         avion_rot = pygame.transform.rotate(img_scaled, angle)
         rect_rot = avion_rot.get_rect(center=(L // 2, H // 2))
         fenetre.blit(avion_rot, rect_rot)
     else:
-        # Fallback (Triangle) si pas d'image
         pts = [(L//2+(30*zoom), H//2), (L//2-(10*zoom), H//2-(10*zoom)), (L//2-(10*zoom), H//2+(10*zoom))]
         pygame.draw.polygon(fenetre, (150, 150, 150), pts)
 
-    # 4. HUD
     dessiner_anemometre(fenetre, 100, H - 100, vitesse_kph)
 
     vario = -vy * 1.5 
@@ -293,20 +274,22 @@ while True:
         f"ALT  : {int(altitude)} FT", 
         f"MACH : {mach:.2f}",
         f"ZOOM : x{zoom:.2f}",
-        f"AUTO : {'ON' if pilote_auto_actif else 'OFF'}"
+        f"AUTO : {'ON' if pilote_auto_actif else 'OFF'}",
+        f"SON  : {'OK' if sound_ok else 'NON'}"
     ]
 
     x_base = L - 200
     y_base = H - 150
-    s = pygame.Surface((180, 110))
+    s = pygame.Surface((180, 130))
     s.set_alpha(100)
     s.fill((0, 0, 0))
     fenetre.blit(s, (x_base - 10, y_base - 10))
-    pygame.draw.rect(fenetre, (100, 100, 100), (x_base - 10, y_base - 10, 180, 110), 2)
+    pygame.draw.rect(fenetre, (100, 100, 100), (x_base - 10, y_base - 10, 180, 130), 2)
 
     for i, ligne in enumerate(infos):
         c_txt = COULEUR_TEXTE
         if "AUTO" in ligne and pilote_auto_actif: c_txt = COULEUR_AUTO
+        if "SON" in ligne and not sound_ok: c_txt = (255, 50, 50)
         fenetre.blit(police.render(ligne, True, c_txt), (x_base, y_base + i*25))
 
     msg = ""
