@@ -14,7 +14,7 @@ except:
 # --- FENETRE ---
 L, H = 1200, 700
 fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("Simulateur - Contrôle Gaz par Crans")
+pygame.display.set_caption("Simulateur - Stabilisateur Actif")
 
 # --- RESSOURCES ---
 dossier = os.path.dirname(os.path.abspath(__file__))
@@ -92,8 +92,8 @@ moteur_allume = False
 flaps_sortis = False
 
 # GESTION POUSSEE
-niveau_poussee_reelle = 0.0 # Ce que fait le moteur (avec inertie)
-target_poussee = 0.0        # Ce que demande le pilote (la manette)
+niveau_poussee_reelle = 0.0 
+target_poussee = 0.0        
 
 # DÉCOR
 decor_sol = []
@@ -118,9 +118,9 @@ GRAVITE = 0.18
 PUISSANCE_MOTEUR = 1.0     
 FRICTION_AIR = 0.998       
 FRICTION_VERTICALE = 0.96  
-ACCEL_ROTATION = 0.08      
-MAX_ROTATION = 2.0         
-FRICTION_ROTATION = 0.94   
+ACCEL_ROTATION = 0.15      # Rotation vive
+MAX_ROTATION = 2.5         
+FRICTION_ROTATION = 0.80   
 COEFF_PORTANCE = 0.0018    
 COEFF_TRAINEE_MONTEE = 0.002 
 
@@ -228,8 +228,6 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, poussee_pct):
     bar_h = 20
     pygame.draw.rect(surface, (10, 10, 10), (bar_x, bar_y, bar_w, bar_h))
     pygame.draw.rect(surface, (60, 60, 60), (bar_x, bar_y, bar_w, bar_h), 1)
-    
-    # 20 Segments (donc 1 segment = 5%)
     nb_segments = 20
     segments_allumes = int((poussee_pct / 100) * nb_segments)
     largeur_seg = (bar_w / nb_segments) - 2
@@ -258,21 +256,18 @@ while True:
             if event.key == pygame.K_f:
                 flaps_sortis = not flaps_sortis
             
-            # --- CONTRÔLE GAZ PAR CRANS (NOUVEAU) ---
             if moteur_allume:
                 if event.key == pygame.K_RIGHT:
-                    target_poussee += 5.0 # +5% (Une case)
+                    target_poussee += 5.0 
                 if event.key == pygame.K_LEFT:
-                    target_poussee -= 5.0 # -5% (Une case)
-                
-                # Bornes
+                    target_poussee -= 5.0 
                 target_poussee = max(0.0, min(100.0, target_poussee))
 
     touches = pygame.key.get_pressed()
     zoom_cible = max(0.5, min(2.0, zoom_cible))
     zoom += (zoom_cible - zoom) * 0.1
 
-    # --- CONTROLE MANCHE ---
+    # --- CONTROLE STABILISÉ ---
     target_rotation = 0
     action_manche = False 
     pilote_auto_actif = False
@@ -285,18 +280,24 @@ while True:
         action_manche = True
     
     if action_manche:
+        # Rotation Active
         if target_rotation > vitesse_rotation_actuelle:
             vitesse_rotation_actuelle += ACCEL_ROTATION
         elif target_rotation < vitesse_rotation_actuelle:
             vitesse_rotation_actuelle -= ACCEL_ROTATION
     else:
-        vitesse_rotation_actuelle *= 0.85 
-        if vitesse_kph > V_DECOLLAGE and not en_decrochage and abs(angle) < 1.0:
-            pilote_auto_actif = True
-            angle = 0 
-            vy *= 0.90 
-            if abs(vy) < 0.2: vy = 0 
+        # --- STABILISATEUR (Retour à plat) ---
+        vitesse_rotation_actuelle *= 0.60 # On arrête de tourner
+        
+        # Si on est en l'air, on ramène le nez à 0°
+        if vitesse_kph > V_DECOLLAGE and not en_decrochage:
+            angle *= 0.90 # Le nez descend doucement vers 0
             
+            # Si on est presque à plat, on verrouille
+            if abs(angle) < 1.0:
+                angle = 0
+                pilote_auto_actif = True
+        
     angle += vitesse_rotation_actuelle
 
     # --- LIMITATION ANGLE ---
@@ -307,22 +308,21 @@ while True:
         angle = -45
         vitesse_rotation_actuelle = 0
 
-    # --- MOTEUR & THRUST (Physique) ---
-    # Si le moteur est coupé, la cible de poussée devient 0
+    # --- MOTEUR & THRUST & SON ---
     if not moteur_allume:
         target_poussee = 0.0
         
-    # Lissage du mouvement de l'aiguille (inertie moteur)
     if niveau_poussee_reelle < target_poussee:
         niveau_poussee_reelle += 0.5 
     elif niveau_poussee_reelle > target_poussee:
         niveau_poussee_reelle -= 0.8 
         
-    # Son moteur
+    # SON CONTINU
     if son_moteur:
-        if niveau_poussee_reelle > 5:
-            if son_moteur.get_num_channels() == 0: son_moteur.play(loops=-1)
-            vol = 0.2 + (niveau_poussee_reelle / 100.0) * 0.8 
+        if moteur_allume:
+            if son_moteur.get_num_channels() == 0: 
+                son_moteur.play(loops=-1)
+            vol = 0.3 + (niveau_poussee_reelle / 100.0) * 0.7
             son_moteur.set_volume(vol)
         else:
             son_moteur.stop()
@@ -362,50 +362,50 @@ while True:
     elif vitesse_kph > seuil_decrochage + 20:
         en_decrochage = False
 
-    vy += GRAVITE
-
+    # --- PHYSIQUE DE VOL ET MAINTIEN ALTITUDE ---
     if pilote_auto_actif:
-        vy -= GRAVITE
-
-    portance = 0
-    friction_actuelle = FRICTION_AIR
-    
-    if flaps_sortis:
-        friction_actuelle = 0.995 
-        coeff_p = 0.0050 
+        # MODE STABILISÉ (VERROUILLAGE)
+        vy = 0 # On force la vitesse verticale à 0 pour ne pas monter/descendre
+        vx *= FRICTION_AIR # On garde juste le frottement de l'air
     else:
-        coeff_p = COEFF_PORTANCE 
+        # MODE MANUEL (PHYSIQUE NORMALE)
+        vy += GRAVITE
+        
+        portance = 0
+        friction_actuelle = FRICTION_AIR
+        
+        if flaps_sortis:
+            friction_actuelle = 0.995 
+            coeff_p = 0.0050 
+        else:
+            coeff_p = COEFF_PORTANCE 
 
-    if not en_decrochage:
-        seuil_portance = 60 if flaps_sortis else 100
-        if vitesse_kph > seuil_portance: 
-            angle_attaque = abs(angle)
-            if angle_attaque > 5:
-                vx *= 0.999 
-                vy *= 0.999
-            
-            if angle > -10: 
-                base_lift = 0.05 if flaps_sortis else 0
-                factor = (angle + 2) if flaps_sortis else angle
-                if factor < 0: factor = 0
+        if not en_decrochage:
+            seuil_portance = 60 if flaps_sortis else 100
+            if vitesse_kph > seuil_portance: 
+                angle_attaque = abs(angle)
+                if angle_attaque > 5:
+                    vx *= 0.999 
+                    vy *= 0.999
                 
-                # Aide descente (coupure portance si piqué)
-                if angle < 0: factor *= 0.1 
-                    
-                portance = abs(vx) * (factor * coeff_p) + (abs(vx) * base_lift * 0.01)
-            
-            vx *= friction_actuelle
-            vy *= FRICTION_VERTICALE
-    else:
-        vx *= 0.99
-        vy *= 0.99
-        if angle > 0: angle -= 0.4 
-    
-    # Aide descente (gravité extra si angle < 0)
-    if angle < 0 and not pilote_auto_actif:
-        vy += 0.08 
+                if angle > -10: 
+                    base_lift = 0.05 if flaps_sortis else 0
+                    factor = (angle + 2.0) if flaps_sortis else (angle + 2.0)
+                    if factor < 0: factor = 0
+                    if angle < -5: factor *= 0.2 
+                    portance = abs(vx) * (factor * coeff_p) + (abs(vx) * base_lift * 0.01)
+                
+                vx *= friction_actuelle
+                vy *= FRICTION_VERTICALE
+        else:
+            vx *= 0.99
+            vy *= 0.99
+            if angle > 0: angle -= 0.4 
+        
+        if angle < 0: vy += 0.08 
 
-    vy -= portance
+        vy -= portance
+
     world_x += vx
     world_y += vy
     
