@@ -14,15 +14,15 @@ except:
 # --- FENETRE ---
 L, H = 1200, 700
 fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("Simulateur - Réparé")
+pygame.display.set_caption("Simulateur - Herbe Detaillée & Image Nette")
 
-# --- DIAGNOSTIC ---
+# --- RESSOURCES ---
 dossier = os.path.dirname(os.path.abspath(__file__))
 images_ok = False
 son_moteur = None
 son_alarme = None
 
-# 1. IMAGES (Correction .png / .jpg)
+# 1. IMAGES
 try:
     path_arret = os.path.join(dossier, "avion_arret.png")
     path_marche = os.path.join(dossier, "avion_marche.png")
@@ -30,25 +30,12 @@ try:
     img_avion_normal_base = pygame.image.load(path_arret).convert_alpha()
     img_avion_feu_base = pygame.image.load(path_marche).convert_alpha()
     
-    # On cherche l'image du mur du son (peu importe l'extension)
-    img_mur_son_base = img_avion_feu_base # Par défaut
-    for nom_img in ["avion_mur du son .png", "avion_mur du son .jpg"]:
-        p = os.path.join(dossier, nom_img)
-        if os.path.exists(p):
-            img_mur_son_base = pygame.image.load(p).convert_alpha() # .convert_alpha gère mieux la transparence
-            print(f"Image mur du son chargée : {nom_img}")
-            break
-            
     images_ok = True
 except Exception as e:
     print(f"Erreur Images: {e}")
 
 # 2. SONS
-
-# A. MOTEUR (Correction : ajout de moteur_neuf.wav)
-# Liste complète des noms possibles
 chemins_moteur = ["moteur.mp3", "moteur.wav", "moteur_neuf.wav", "Moteur.ogg"]
-
 for nom in chemins_moteur:
     p = os.path.join(dossier, nom)
     if os.path.exists(p):
@@ -56,15 +43,10 @@ for nom in chemins_moteur:
             son_moteur = pygame.mixer.Sound(p)
             son_moteur.set_volume(0.4)
             son_moteur.play(loops=-1)
-            print(f"✅ SUCCÈS : Moteur chargé ({nom})")
+            print(f"✅ Moteur chargé : {nom}")
             break
-        except Exception as e: 
-            print(f"Fichier {nom} trouvé mais erreur : {e}")
+        except: pass
 
-if not son_moteur:
-    print("❌ ATTENTION : Aucun fichier son trouvé dans le dossier !")
-
-# B. ALARME
 try:
     p_alarme = os.path.join(dossier, "alarme_decrochage.wav")
     if os.path.exists(p_alarme):
@@ -73,23 +55,32 @@ try:
 except: pass
 
 
-# --- CONFIGURATION ---
-COULEUR_CIEL_HAUT = (5, 10, 25)    
-COULEUR_CIEL_BAS = (100, 140, 200) 
-COULEUR_SOL = (50, 60, 50)         
-COULEUR_INSTRUMENT = (20, 20, 20)  
-COULEUR_AIGUILLE = (200, 50, 50)
-COULEUR_TEXTE = (255, 255, 255)
-COULEUR_AUTO = (0, 180, 255)
-COULEUR_ALERTE = (255, 0, 0)
+# --- PALETTE GRAPHIQUE ---
+# Ciel
+CIEL_HAUT = (10, 20, 40)      
+CIEL_BAS  = (135, 206, 235)   
 
-police = pygame.font.SysFont("arial", 14, bold=True)
-police_compteur = pygame.font.SysFont("arial", 12)
-police_grosse = pygame.font.SysFont("arial", 30, bold=True)
+# Sol (Nouvelle palette herbe)
+SOL_HERBE_BASE = (34, 100, 34)  # Vert moyen
+SOL_HERBE_FONCE = (20, 60, 20)  # Touffes sombres
+SOL_HERBE_CLAIR = (50, 120, 50) # Touffes claires
+
+SOL_PISTE = (50, 50, 55)      
+SOL_MARQUAGE = (240, 240, 240)
+
+# HUD
+HUD_VERT = (0, 255, 100)     
+TXT_BLANC = (255, 255, 255)
+ALERTE_ROUGE = (255, 50, 50)
+
+# Polices
+police = pygame.font.SysFont("consolas", 16, bold=True)
+police_hud = pygame.font.SysFont("consolas", 20, bold=True)
+police_grosse = pygame.font.SysFont("arial", 40, bold=True)
 
 # VARIABLES
 world_y = 0      
-world_x = 0
+world_x = 0      
 vx, vy = 0, 0
 angle = 0        
 vitesse_rotation_actuelle = 0 
@@ -103,9 +94,21 @@ zoom_cible = 1.0
 mur_du_son_franchi = False 
 flash_timer = 0 
 
+# GÉNÉRATION DU DÉCOR (HERBE)
+# On crée des centaines de petits rectangles de "texture" qui vont défiler
+decor_sol = []
+for _ in range(150):
+    w = random.randint(20, 100)       # Largeur de la touffe
+    h = random.randint(4, 15)         # Hauteur
+    x_offset = random.randint(0, 2000) # Position relative
+    y_offset = random.randint(0, 800)  # Distance depuis l'horizon
+    # Couleur aléatoire (sombre ou claire)
+    couleur = SOL_HERBE_FONCE if random.random() > 0.5 else SOL_HERBE_CLAIR
+    decor_sol.append([x_offset, y_offset, w, h, couleur])
+
 particules = []
-for _ in range(40): 
-    particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 1.5), random.randint(1, 2)])
+for _ in range(50): 
+    particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 2.0), random.randint(1, 3)])
 
 # PHYSIQUE
 V_DECOLLAGE = 220
@@ -125,44 +128,34 @@ COEFF_TRAINEE_MONTEE = 0.002
 horloge = pygame.time.Clock()
 
 def obtenir_couleur_ciel(alt):
-    plafond = 15000 
+    plafond = 20000 
     ratio = min(max(alt, 0), plafond) / plafond
-    r = int(COULEUR_CIEL_BAS[0] * (1 - ratio) + COULEUR_CIEL_HAUT[0] * ratio)
-    g = int(COULEUR_CIEL_BAS[1] * (1 - ratio) + COULEUR_CIEL_HAUT[1] * ratio)
-    b = int(COULEUR_CIEL_BAS[2] * (1 - ratio) + COULEUR_CIEL_HAUT[2] * ratio)
+    r = int(CIEL_BAS[0] * (1 - ratio) + CIEL_HAUT[0] * ratio)
+    g = int(CIEL_BAS[1] * (1 - ratio) + CIEL_HAUT[1] * ratio)
+    b = int(CIEL_BAS[2] * (1 - ratio) + CIEL_HAUT[2] * ratio)
     return (r, g, b)
 
-def dessiner_anemometre(surface, x, y, vitesse):
-    rayon = 70
-    pygame.draw.circle(surface, (50, 50, 50), (x, y), rayon + 4)
-    pygame.draw.circle(surface, COULEUR_INSTRUMENT, (x, y), rayon)
-    for v in range(0, 3001, 250):
-        ratio = v / 3000
-        ang_rad = math.radians(135 + (ratio * 270))
-        x1 = x + math.cos(ang_rad) * (rayon - 10)
-        y1 = y + math.sin(ang_rad) * (rayon - 10)
-        x2 = x + math.cos(ang_rad) * rayon
-        y2 = y + math.sin(ang_rad) * rayon
-        epaisseur = 2 if v % 1000 == 0 else 1
-        col = (255, 255, 255) if v < V_VNE else (255, 0, 0)
-        pygame.draw.line(surface, col, (x1, y1), (x2, y2), epaisseur)
-        if v % 1000 == 0 and v != 0:
-            lbl = police_compteur.render(str(v//1000), True, (200, 200, 200))
-            xr = x + math.cos(ang_rad) * (rayon - 22) - 3
-            yr = y + math.sin(ang_rad) * (rayon - 22) - 5
-            surface.blit(lbl, (xr, yr))
-    v_aff = min(vitesse, 3000)
-    ratio_v = v_aff / 3000
-    ang_aiguille = math.radians(135 + (ratio_v * 270))
-    xa = x + math.cos(ang_aiguille) * (rayon - 15)
-    ya = y + math.sin(ang_aiguille) * (rayon - 15)
-    pygame.draw.line(surface, COULEUR_AIGUILLE, (x, y), (xa, ya), 3)
-    pygame.draw.circle(surface, (100, 100, 100), (x, y), 5) 
-    txt_spd = police.render(f"{int(vitesse)}", True, (255, 255, 255))
-    rect_spd = txt_spd.get_rect(center=(x, y + 30))
-    surface.blit(txt_spd, rect_spd)
-    lbl = police_compteur.render("KPH x1000", True, (150, 150, 150))
-    surface.blit(lbl, (x - 25, y - 30))
+def dessiner_hud_cercle(surface, x, y, valeur, max_val, label):
+    rayon = 60
+    # Fond
+    s = pygame.Surface((rayon*2, rayon*2), pygame.SRCALPHA)
+    pygame.draw.circle(s, (0, 20, 0, 150), (rayon, rayon), rayon)
+    surface.blit(s, (x-rayon, y-rayon))
+    # Contour
+    pygame.draw.circle(surface, HUD_VERT, (x, y), rayon, 2)
+    # Aiguille
+    angle_aig = 135 + (valeur / max_val) * 270
+    rad = math.radians(angle_aig)
+    x_fin = x + math.cos(rad) * (rayon - 10)
+    y_fin = y + math.sin(rad) * (rayon - 10)
+    pygame.draw.line(surface, ALERTE_ROUGE, (x, y), (x_fin, y_fin), 3)
+    # Texte
+    txt = police_hud.render(str(int(valeur)), True, TXT_BLANC)
+    rect = txt.get_rect(center=(x, y + 20))
+    surface.blit(txt, rect)
+    # Label
+    lbl = police.render(label, True, HUD_VERT)
+    surface.blit(lbl, (x - 20, y - 30))
 
 while True:
     dt = horloge.tick(60) / 1000.0 
@@ -204,14 +197,13 @@ while True:
             
     angle += vitesse_rotation_actuelle
 
-    # --- LOGIQUE SONORE (SIMPLE) ---
+    # --- LOGIQUE SONORE ---
     if son_moteur:
         if touches[pygame.K_RIGHT]:
             son_moteur.set_volume(0.8) # Fort
         else:
             son_moteur.set_volume(0.4) # Normal
 
-    # Moteur Physique
     postcombustion = False
     if touches[pygame.K_RIGHT]:
         postcombustion = True
@@ -219,7 +211,7 @@ while True:
         vx += math.cos(rad) * PUISSANCE_MOTEUR
         vy -= math.sin(rad) * PUISSANCE_MOTEUR
 
-    # Alarme (Simple)
+    # Alarme
     if en_decrochage:
         if not alarme_playing and son_alarme:
             son_alarme.play(loops=-1)
@@ -229,10 +221,10 @@ while True:
             son_alarme.stop()
             alarme_playing = False
 
-    # --- LOGIQUE VISUELLE MUR DU SON (SANS SON) ---
+    # Visuel Mur du son
     if vitesse_kph > V_MACH1:
         if not mur_du_son_franchi:
-            flash_timer = 10 
+            flash_timer = 8 
             mur_du_son_franchi = True
     elif vitesse_kph < V_MACH1 - 50:
         mur_du_son_franchi = False
@@ -270,48 +262,98 @@ while True:
     world_x += vx
     world_y += vy
     
+    # --- REBOND ---
     if -world_y <= 0:
-        world_y = 0
-        en_decrochage = False 
-        if vy > 0: 
-            vy = -vy * 0.15 
-            vx *= 0.98 
+        # Est-on sur la piste ? 
+        sur_piste = -500 < world_x < 5500
+        
+        # Le sol est plus dur sur la piste
+        seuil_rebond = 1.0 if sur_piste else 1.5 
+        
+        if vy > seuil_rebond: 
+            coef = 0.5 if sur_piste else 0.3
+            vy = -vy * coef 
+            vx *= 0.95 
+            world_y = 0.1 
+            en_decrochage = False
+        else:
+            world_y = 0
+            vy = 0
+            vx *= 0.98 if sur_piste else 0.90 # Freine plus fort dans l'herbe
+            en_decrochage = False
+            
     altitude = -world_y
 
     # --- DESSIN ---
     fenetre.fill(obtenir_couleur_ciel(altitude))
     
-    # Particules
+    # 1. Particules (Ciel)
     if vitesse_kph > 50:
         for p in particules:
             p[0] -= (vitesse_kph * 0.05 * p[2]) * zoom 
             if p[0] < 0:
                 p[0] = L + random.randint(0, 100)
                 p[1] = random.randint(0, H)
-            taille_visuelle = max(1, int(p[3] * zoom))
-            col_p = (200, 200, 220) 
-            pygame.draw.circle(fenetre, col_p, (int(p[0]), int(p[1])), taille_visuelle)
+            longueur = max(2, int(vitesse_kph / 100))
+            pygame.draw.line(fenetre, (255, 255, 255), (p[0], p[1]), (p[0]-longueur, p[1]), 1)
 
-    # Sol
-    grid_gap = int(150 * zoom) 
-    offset_sol = int(world_x % grid_gap)
+    # 2. LE SOL (AMÉLIORÉ)
     pos_sol_y = (H // 2) + (altitude * zoom) 
-
+    
     if pos_sol_y < H:
-        pygame.draw.rect(fenetre, COULEUR_SOL, (-100, pos_sol_y + 10, L+200, H))
-        for i in range(-grid_gap, L + grid_gap, grid_gap):
-            x_ligne = i - offset_sol
-            pygame.draw.line(fenetre, (70, 80, 70), (x_ligne, pos_sol_y + 10), (x_ligne + (80*zoom), pos_sol_y + 10), max(1, int(4*zoom)))
-
-    # Avion
-    if images_ok:
-        if vitesse_kph > V_MACH1:
-            img_actuelle = img_mur_son_base
-        elif postcombustion:
-            img_actuelle = img_avion_feu_base
-        else:
-            img_actuelle = img_avion_normal_base
+        # A. Fond herbe global
+        pygame.draw.rect(fenetre, SOL_HERBE_BASE, (-100, pos_sol_y, L+200, H))
+        
+        # B. Texture herbe qui défile
+        # Le "pattern" se répète tous les 2000 pixels
+        largeur_motif = 2000 
+        offset_herbe = int(world_x % largeur_motif)
+        
+        # On dessine 2 fois le motif pour couvrir l'écran si nécessaire
+        for i in range(-1, 2):
+            base_x = (i * largeur_motif * zoom) - (offset_herbe * zoom) + (L/2)
             
+            # On n'affiche que si c'est visible
+            if base_x + (largeur_motif*zoom) > 0 and base_x < L:
+                for patch in decor_sol:
+                    px = base_x + (patch[0] * zoom)
+                    py = pos_sol_y + (patch[1] * zoom)
+                    pw = patch[2] * zoom
+                    ph = patch[3] * zoom
+                    # Dessin du rectangle de texture
+                    pygame.draw.rect(fenetre, patch[4], (px, py, pw, ph))
+
+        # C. LA PISTE (Par dessus l'herbe)
+        debut_piste_ecran = (0 - world_x) * zoom + (L/2)
+        longueur_piste_ecran = 5000 * zoom
+        rect_piste = pygame.Rect(debut_piste_ecran, pos_sol_y, longueur_piste_ecran, H)
+        
+        # On ne dessine la piste que si elle est à l'écran
+        if rect_piste.colliderect((0,0,L,H)):
+            pygame.draw.rect(fenetre, SOL_PISTE, rect_piste)
+            
+            # Marquages
+            # Ligne blanche continue haut de piste
+            pygame.draw.rect(fenetre, SOL_MARQUAGE, (debut_piste_ecran, pos_sol_y, longueur_piste_ecran, 4*zoom))
+            
+            # Bandes centrales
+            nb_bandes = 50
+            for i in range(nb_bandes):
+                bx = debut_piste_ecran + (i * 100 * zoom)
+                bw = 50 * zoom
+                bh = 10 * zoom
+                pygame.draw.rect(fenetre, SOL_MARQUAGE, (bx, pos_sol_y + 20*zoom, bw, bh))
+                
+            # Peigne seuil
+            for i in range(10):
+                px = debut_piste_ecran + (10 * zoom)
+                py = pos_sol_y + (i * 10 * zoom) + 10
+                pygame.draw.rect(fenetre, SOL_MARQUAGE, (px, py, 40*zoom, 5*zoom))
+
+
+    # 3. Avion
+    if images_ok:
+        img_actuelle = img_avion_feu_base if postcombustion else img_avion_normal_base
         new_w = max(10, int(90 * zoom))
         new_h = max(5, int(35 * zoom))
         img_scaled = pygame.transform.scale(img_actuelle, (new_w, new_h))
@@ -320,57 +362,45 @@ while True:
         fenetre.blit(avion_rot, rect_rot)
     else:
         pts = [(L//2+(30*zoom), H//2), (L//2-(10*zoom), H//2-(10*zoom)), (L//2-(10*zoom), H//2+(10*zoom))]
-        pygame.draw.polygon(fenetre, (150, 150, 150), pts)
+        pygame.draw.polygon(fenetre, (100, 100, 100), pts)
 
-    # FLASH
+    # 4. Flash Blanc (Passage mur du son)
     if flash_timer > 0:
         s_flash = pygame.Surface((L, H))
         s_flash.fill((255, 255, 255))
-        alpha = int((flash_timer / 10) * 180) 
+        alpha = int((flash_timer / 8) * 150) 
         s_flash.set_alpha(alpha)
         fenetre.blit(s_flash, (0, 0))
         flash_timer -= 1
 
-    dessiner_anemometre(fenetre, 100, H - 100, vitesse_kph)
-
-    vario = -vy * 1.5 
-    mach = vitesse_kph / 1225.0 
+    # 5. HUD
+    dessiner_hud_cercle(fenetre, 100, H - 100, vitesse_kph, 3000, "KPH")
+    dessiner_hud_cercle(fenetre, 250, H - 100, altitude, 5000, "ALT")
     
     infos = [
-        f"ALT  : {int(altitude)} FT", 
-        f"MACH : {mach:.2f}",
-        f"ZOOM : x{zoom:.2f}",
+        f"MACH : {(vitesse_kph/1225):.2f}",
         f"AUTO : {'ON' if pilote_auto_actif else 'OFF'}",
     ]
-
-    x_base = L - 200
-    y_base = H - 150
-    s = pygame.Surface((180, 130))
-    s.set_alpha(100)
-    s.fill((0, 0, 0))
-    fenetre.blit(s, (x_base - 10, y_base - 10))
-    pygame.draw.rect(fenetre, (100, 100, 100), (x_base - 10, y_base - 10, 180, 130), 2)
-
     for i, ligne in enumerate(infos):
-        c_txt = COULEUR_TEXTE
-        if "AUTO" in ligne and pilote_auto_actif: c_txt = COULEUR_AUTO
-        if "MACH" in ligne and vitesse_kph > V_MACH1: c_txt = (255, 200, 0)
-        fenetre.blit(police.render(ligne, True, c_txt), (x_base, y_base + i*25))
+        c_txt = HUD_VERT
+        if "AUTO" in ligne and pilote_auto_actif: c_txt = TXT_BLANC
+        fenetre.blit(police.render(ligne, True, c_txt), (L - 150, H - 80 + i*20))
 
+    # Messages
     msg = ""
-    c_msg = COULEUR_AUTO
+    c_msg = HUD_VERT
     if en_decrochage:
-        msg = "!! STALL !!"
-        c_msg = COULEUR_ALERTE
+        msg = "!! DECROCHAGE !!"
+        c_msg = ALERTE_ROUGE
     elif vitesse_kph > V_MACH1:
-         msg = "SUPERSONIC"
+         msg = "MACH 1 SUPERSONIC"
          c_msg = (255, 255, 0)
     elif pilote_auto_actif and abs(vy) < 1.0 and altitude > 50:
-        msg = "STABLE"
+        msg = "PILOTE AUTO ACTIF"
 
     if msg:
         txt_msg = police_grosse.render(msg, True, c_msg)
-        rect_msg = txt_msg.get_rect(center=(L//2, H//2 - 120))
+        rect_msg = txt_msg.get_rect(center=(L//2, H//2 - 150))
         fenetre.blit(txt_msg, rect_msg)
 
     pygame.display.flip()
