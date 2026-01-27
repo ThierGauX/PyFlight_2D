@@ -6,53 +6,74 @@ import random
 # --- INITIALISATION ---
 pygame.init()
 try:
-    # Réglages audio compatibles Linux
     pygame.mixer.pre_init(44100, -16, 2, 2048)
     pygame.mixer.init()
-except Exception as e:
-    print(f"Attention audio: {e}")
+except: 
+    print("Erreur initialisation module son")
 
 # --- FENETRE ---
 L, H = 1200, 700
 fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("Simulateur - Final")
+pygame.display.set_caption("Simulateur - Réparé")
 
-# --- RESSOURCES ---
+# --- DIAGNOSTIC ---
 dossier = os.path.dirname(os.path.abspath(__file__))
 images_ok = False
-sound_ok = False
+son_moteur = None
+son_alarme = None
 
-# 1. IMAGES
+# 1. IMAGES (Correction .png / .jpg)
 try:
-    chemin_arret = os.path.join(dossier, "avion_arret.png")
-    chemin_marche = os.path.join(dossier, "avion_marche.png")
+    path_arret = os.path.join(dossier, "avion_arret.png")
+    path_marche = os.path.join(dossier, "avion_marche.png")
     
-    img_avion_normal_base = pygame.image.load(chemin_arret).convert_alpha()
-    img_avion_feu_base = pygame.image.load(chemin_marche).convert_alpha()
+    img_avion_normal_base = pygame.image.load(path_arret).convert_alpha()
+    img_avion_feu_base = pygame.image.load(path_marche).convert_alpha()
+    
+    # On cherche l'image du mur du son (peu importe l'extension)
+    img_mur_son_base = img_avion_feu_base # Par défaut
+    for nom_img in ["avion_mur du son .png", "avion_mur du son .jpg"]:
+        p = os.path.join(dossier, nom_img)
+        if os.path.exists(p):
+            img_mur_son_base = pygame.image.load(p).convert_alpha() # .convert_alpha gère mieux la transparence
+            print(f"Image mur du son chargée : {nom_img}")
+            break
+            
     images_ok = True
 except Exception as e:
     print(f"Erreur Images: {e}")
 
-# 2. SON (On cherche le fichier généré en priorité)
-# Liste des noms possibles
-noms_sons = ["moteur_neuf.wav", "Moteur.wav", "moteur.ogg"] 
-son_moteur = None
+# 2. SONS
 
-for nom in noms_sons:
-    chemin_test = os.path.join(dossier, nom)
-    if os.path.exists(chemin_test):
+# A. MOTEUR (Correction : ajout de moteur_neuf.wav)
+# Liste complète des noms possibles
+chemins_moteur = ["moteur.mp3", "moteur.wav", "moteur_neuf.wav", "Moteur.ogg"]
+
+for nom in chemins_moteur:
+    p = os.path.join(dossier, nom)
+    if os.path.exists(p):
         try:
-            print(f"Essai chargement son : {nom}...")
-            son_moteur = pygame.mixer.Sound(chemin_test)
+            son_moteur = pygame.mixer.Sound(p)
+            son_moteur.set_volume(0.4)
             son_moteur.play(loops=-1)
-            son_moteur.set_volume(0.3) # Un peu moins fort
-            sound_ok = True
-            print(">>> SUCCÈS : MOTEUR ACTIVÉ ! <<<")
+            print(f"✅ SUCCÈS : Moteur chargé ({nom})")
             break
-        except Exception as e:
-            print(f"Fichier {nom} illisible : {e}")
+        except Exception as e: 
+            print(f"Fichier {nom} trouvé mais erreur : {e}")
 
-# --- COULEURS ---
+if not son_moteur:
+    print("❌ ATTENTION : Aucun fichier son trouvé dans le dossier !")
+
+# B. ALARME
+try:
+    p_alarme = os.path.join(dossier, "alarme_decrochage.wav")
+    if os.path.exists(p_alarme):
+        son_alarme = pygame.mixer.Sound(p_alarme)
+        son_alarme.set_volume(0.5)
+except: pass
+
+
+# --- CONFIGURATION ---
 COULEUR_CIEL_HAUT = (5, 10, 25)    
 COULEUR_CIEL_BAS = (100, 140, 200) 
 COULEUR_SOL = (50, 60, 50)         
@@ -60,32 +81,37 @@ COULEUR_INSTRUMENT = (20, 20, 20)
 COULEUR_AIGUILLE = (200, 50, 50)
 COULEUR_TEXTE = (255, 255, 255)
 COULEUR_AUTO = (0, 180, 255)
+COULEUR_ALERTE = (255, 0, 0)
 
 police = pygame.font.SysFont("arial", 14, bold=True)
 police_compteur = pygame.font.SysFont("arial", 12)
 police_grosse = pygame.font.SysFont("arial", 30, bold=True)
 
-# --- VARIABLES ---
+# VARIABLES
 world_y = 0      
 world_x = 0
 vx, vy = 0, 0
 angle = 0        
 vitesse_rotation_actuelle = 0 
 en_decrochage = False 
+alarme_playing = False 
 altitude = 0 
 vitesse_kph = 0
 pilote_auto_actif = False
 zoom = 1.0          
 zoom_cible = 1.0    
+mur_du_son_franchi = False 
+flash_timer = 0 
 
 particules = []
 for _ in range(40): 
     particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 1.5), random.randint(1, 2)])
 
-# --- CONFIG PHYSIQUE ---
+# PHYSIQUE
 V_DECOLLAGE = 220
 V_DECROCHAGE = 160
 V_VNE = 2500 
+V_MACH1 = 1225 
 GRAVITE = 0.18             
 PUISSANCE_MOTEUR = 1.0     
 FRICTION_AIR = 0.998       
@@ -178,16 +204,38 @@ while True:
             
     angle += vitesse_rotation_actuelle
 
-    # --- MOTEUR & SON ---
+    # --- LOGIQUE SONORE (SIMPLE) ---
+    if son_moteur:
+        if touches[pygame.K_RIGHT]:
+            son_moteur.set_volume(0.8) # Fort
+        else:
+            son_moteur.set_volume(0.4) # Normal
+
+    # Moteur Physique
     postcombustion = False
     if touches[pygame.K_RIGHT]:
         postcombustion = True
         rad = math.radians(angle)
         vx += math.cos(rad) * PUISSANCE_MOTEUR
         vy -= math.sin(rad) * PUISSANCE_MOTEUR
-        if sound_ok and son_moteur: son_moteur.set_volume(0.8)
+
+    # Alarme (Simple)
+    if en_decrochage:
+        if not alarme_playing and son_alarme:
+            son_alarme.play(loops=-1)
+            alarme_playing = True
     else:
-        if sound_ok and son_moteur: son_moteur.set_volume(0.3)
+        if alarme_playing and son_alarme:
+            son_alarme.stop()
+            alarme_playing = False
+
+    # --- LOGIQUE VISUELLE MUR DU SON (SANS SON) ---
+    if vitesse_kph > V_MACH1:
+        if not mur_du_son_franchi:
+            flash_timer = 10 
+            mur_du_son_franchi = True
+    elif vitesse_kph < V_MACH1 - 50:
+        mur_du_son_franchi = False
 
     # --- PHYSIQUE ---
     altitude = -world_y 
@@ -233,6 +281,7 @@ while True:
     # --- DESSIN ---
     fenetre.fill(obtenir_couleur_ciel(altitude))
     
+    # Particules
     if vitesse_kph > 50:
         for p in particules:
             p[0] -= (vitesse_kph * 0.05 * p[2]) * zoom 
@@ -243,6 +292,7 @@ while True:
             col_p = (200, 200, 220) 
             pygame.draw.circle(fenetre, col_p, (int(p[0]), int(p[1])), taille_visuelle)
 
+    # Sol
     grid_gap = int(150 * zoom) 
     offset_sol = int(world_x % grid_gap)
     pos_sol_y = (H // 2) + (altitude * zoom) 
@@ -253,8 +303,15 @@ while True:
             x_ligne = i - offset_sol
             pygame.draw.line(fenetre, (70, 80, 70), (x_ligne, pos_sol_y + 10), (x_ligne + (80*zoom), pos_sol_y + 10), max(1, int(4*zoom)))
 
+    # Avion
     if images_ok:
-        img_actuelle = img_avion_feu_base if postcombustion else img_avion_normal_base
+        if vitesse_kph > V_MACH1:
+            img_actuelle = img_mur_son_base
+        elif postcombustion:
+            img_actuelle = img_avion_feu_base
+        else:
+            img_actuelle = img_avion_normal_base
+            
         new_w = max(10, int(90 * zoom))
         new_h = max(5, int(35 * zoom))
         img_scaled = pygame.transform.scale(img_actuelle, (new_w, new_h))
@@ -264,6 +321,15 @@ while True:
     else:
         pts = [(L//2+(30*zoom), H//2), (L//2-(10*zoom), H//2-(10*zoom)), (L//2-(10*zoom), H//2+(10*zoom))]
         pygame.draw.polygon(fenetre, (150, 150, 150), pts)
+
+    # FLASH
+    if flash_timer > 0:
+        s_flash = pygame.Surface((L, H))
+        s_flash.fill((255, 255, 255))
+        alpha = int((flash_timer / 10) * 180) 
+        s_flash.set_alpha(alpha)
+        fenetre.blit(s_flash, (0, 0))
+        flash_timer -= 1
 
     dessiner_anemometre(fenetre, 100, H - 100, vitesse_kph)
 
@@ -275,7 +341,6 @@ while True:
         f"MACH : {mach:.2f}",
         f"ZOOM : x{zoom:.2f}",
         f"AUTO : {'ON' if pilote_auto_actif else 'OFF'}",
-        f"SON  : {'OK' if sound_ok else 'NON'}"
     ]
 
     x_base = L - 200
@@ -289,14 +354,17 @@ while True:
     for i, ligne in enumerate(infos):
         c_txt = COULEUR_TEXTE
         if "AUTO" in ligne and pilote_auto_actif: c_txt = COULEUR_AUTO
-        if "SON" in ligne and not sound_ok: c_txt = (255, 50, 50)
+        if "MACH" in ligne and vitesse_kph > V_MACH1: c_txt = (255, 200, 0)
         fenetre.blit(police.render(ligne, True, c_txt), (x_base, y_base + i*25))
 
     msg = ""
     c_msg = COULEUR_AUTO
     if en_decrochage:
         msg = "!! STALL !!"
-        c_msg = (255, 0, 0)
+        c_msg = COULEUR_ALERTE
+    elif vitesse_kph > V_MACH1:
+         msg = "SUPERSONIC"
+         c_msg = (255, 255, 0)
     elif pilote_auto_actif and abs(vy) < 1.0 and altitude > 50:
         msg = "STABLE"
 
