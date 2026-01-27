@@ -1,133 +1,141 @@
-import pygame
+import customtkinter as ctk
 import sys
 import os
-import random
-import subprocess 
+import subprocess
+from PIL import Image
 
-# --- INITIALISATION ---
-pygame.init()
-L, H = 1200, 700
-fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("AERO ACE - Launcher")
+# --- CONFIGURATION DU DESIGN ---
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("dark-blue")
 
-# --- COULEURS ---
-BLEU_NUIT = (10, 20, 40)
-BLEU_CIEL = (100, 180, 220)
-BLANC = (255, 255, 255)
-ORANGE = (255, 140, 0)
-GRIS_BOUTON = (40, 50, 60)
-GRIS_HOVER = (60, 70, 80)
+# Palette de couleurs "PyFlight"
+COL_FOND = "#1a1a2e"       # Bleu nuit très sombre
+COL_SIDEBAR = "#16213e"    # Bleu marine
+COL_BOUTON = "#0f3460"     # Bleu royal
+COL_ACCENT = "#e94560"     # Rouge/Rose (pour Quitter)
+COL_VERTE = "#228B22"      # Vert (pour Jouer)
+COL_TEXTE = "#eaeaea"      # Blanc cassé
 
-# --- POLICES ---
-try:
-    font_titre = pygame.font.SysFont("impact", 100)
-    font_sous_titre = pygame.font.SysFont("arial", 30, bold=True)
-    font_bouton = pygame.font.SysFont("arial", 40, bold=True)
-except:
-    font_titre = pygame.font.SysFont(None, 100)
-    font_sous_titre = pygame.font.SysFont(None, 30)
-    font_bouton = pygame.font.SysFont(None, 40)
+class MenuPyFlight(ctk.CTk):
+    def __init__(self):
+        super().__init__()
 
-# --- EFFET DE FOND ---
-nuages = []
-for _ in range(20):
-    nuages.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 2.0), random.randint(50, 150)])
-
-def dessiner_fond_anime():
-    # Dégradé de ciel
-    for y in range(H):
-        r = int(BLEU_NUIT[0] * (1 - y/H) + BLEU_CIEL[0] * (y/H))
-        g = int(BLEU_NUIT[1] * (1 - y/H) + BLEU_CIEL[1] * (y/H))
-        b = int(BLEU_NUIT[2] * (1 - y/H) + BLEU_CIEL[2] * (y/H))
-        pygame.draw.line(fenetre, (r, g, b), (0, y), (L, y))
-
-    # Nuages
-    for n in nuages:
-        n[0] -= n[2]
-        if n[0] < -150:
-            n[0] = L + 50
-            n[1] = random.randint(0, H)
+        # Configuration Fenêtre
+        self.title("Launcher - PyFlight")
+        self.geometry("900x600")
+        self.resizable(False, False)
         
-        alpha_s = pygame.Surface((n[3]*2, n[3]), pygame.SRCALPHA)
-        pygame.draw.ellipse(alpha_s, (255, 255, 255, 50), (0, 0, n[3]*2, n[3]))
-        fenetre.blit(alpha_s, (n[0], n[1]))
+        # Configuration Grille (1 ligne, 2 colonnes)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
-# --- CLASSE BOUTON ---
-class Bouton:
-    def __init__(self, text, x, y, w, h, action_cmd=None):
-        self.rect = pygame.Rect(x, y, w, h)
-        self.text = text
-        self.action_cmd = action_cmd
-        self.is_hovered = False
-
-    def draw(self, surface):
-        pos = pygame.mouse.get_pos()
-        self.is_hovered = self.rect.collidepoint(pos)
-
-        color = GRIS_HOVER if self.is_hovered else GRIS_BOUTON
-        border_col = ORANGE if self.is_hovered else BLANC
-
-        pygame.draw.rect(surface, (0, 0, 0, 100), (self.rect.x + 5, self.rect.y + 5, self.rect.w, self.rect.h), border_radius=15)
-        pygame.draw.rect(surface, color, self.rect, border_radius=15)
-        pygame.draw.rect(surface, border_col, self.rect, 3, border_radius=15)
-
-        txt_surf = font_bouton.render(self.text, True, BLANC)
-        txt_rect = txt_surf.get_rect(center=self.rect.center)
-        surface.blit(txt_surf, txt_rect)
-
-    def check_click(self):
-        if self.is_hovered:
-            return True
-        return False
-
-# --- CONFIGURATION ---
-bouton_jouer = Bouton("DÉCOLLER", L//2 - 125, 300, 250, 80, "game.py")
-bouton_quitter = Bouton("QUITTER", L//2 - 125, 420, 250, 80)
-
-clock = pygame.time.Clock()
-
-# --- BOUCLE PRINCIPALE ---
-running = True
-while running:
-    dt = clock.tick(60)
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+        # --- GAUCHE : SIDEBAR (TITRE & INFO) ---
+        self.frame_left = ctk.CTkFrame(self, width=300, corner_radius=0, fg_color=COL_SIDEBAR)
+        self.frame_left.grid(row=0, column=0, sticky="nswe")
         
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                if bouton_jouer.check_click():
-                    print("Lancement du simulateur...")
-                    pygame.quit()
-                    
-                    # --- CORRECTION DU CHEMIN ---
-                    # On cherche game.py exactement dans le même dossier que ce fichier menu.py
-                    dossier_courant = os.path.dirname(os.path.abspath(__file__))
-                    chemin_jeu = os.path.join(dossier_courant, "game.py")
-                    
-                    try:
-                        subprocess.run([sys.executable, chemin_jeu]) 
-                    except Exception as e:
-                        print(f"Erreur lors du lancement : {e}")
-                    sys.exit() 
+        # Logo / Titre (Modifié : Plus de 2D)
+        self.lbl_titre = ctk.CTkLabel(self.frame_left, text="PyFlight", 
+                                      font=ctk.CTkFont(family="Impact", size=64),
+                                      text_color=COL_TEXTE)
+        self.lbl_titre.place(relx=0.5, rely=0.2, anchor="center")
 
-                if bouton_quitter.check_click():
-                    running = False
+        self.lbl_sous_titre = ctk.CTkLabel(self.frame_left, text="SIMULATEUR DE VOL", 
+                                           font=ctk.CTkFont(family="Arial", size=14, weight="bold"),
+                                           text_color="#536878")
+        self.lbl_sous_titre.place(relx=0.5, rely=0.32, anchor="center")
 
-    dessiner_fond_anime() 
+        # Ligne de décoration
+        self.ligne = ctk.CTkFrame(self.frame_left, height=2, width=150, fg_color=COL_ACCENT)
+        self.ligne.place(relx=0.5, rely=0.36, anchor="center")
 
-    titre = font_titre.render("AERO ACE", True, BLANC)
-    ombre = font_titre.render("AERO ACE", True, (0,0,0))
-    fenetre.blit(ombre, (L//2 - titre.get_width()//2 + 5, 85))
-    fenetre.blit(titre, (L//2 - titre.get_width()//2, 80))
+        # Statut du système (Décoration)
+        self.lbl_status = ctk.CTkLabel(self.frame_left, text="SYSTEME: ONLINE\nMOTEUR: PRET\nMETEO: CLAIR",
+                                       font=ctk.CTkFont(family="Consolas", size=12),
+                                       text_color="gray", justify="left")
+        self.lbl_status.place(relx=0.5, rely=0.85, anchor="center")
 
-    sous_titre = font_sous_titre.render("ULTIMATE FLIGHT SIMULATOR", True, ORANGE)
-    fenetre.blit(sous_titre, (L//2 - sous_titre.get_width()//2, 180))
+        # --- DROITE : BOUTONS D'ACTION ---
+        self.frame_right = ctk.CTkFrame(self, corner_radius=0, fg_color=COL_FOND)
+        self.frame_right.grid(row=0, column=1, sticky="nswe")
+        
+        # Centrage vertical des boutons
+        self.frame_buttons = ctk.CTkFrame(self.frame_right, fg_color="transparent")
+        self.frame_buttons.place(relx=0.5, rely=0.5, anchor="center")
 
-    bouton_jouer.draw(fenetre)
-    bouton_quitter.draw(fenetre)
+        # 1. BOUTON JOUER (Gros et Vert)
+        self.btn_play = ctk.CTkButton(self.frame_buttons, text="DÉCOLLER", 
+                                      font=ctk.CTkFont(size=24, weight="bold"),
+                                      height=70, width=350,
+                                      corner_radius=35, # Bords très ronds
+                                      fg_color=COL_VERTE, hover_color="#2ecc71",
+                                      command=self.lancer_jeu)
+        self.btn_play.pack(pady=20)
 
-    pygame.display.flip()
+        # 2. BOUTON INFOS (Classique)
+        self.btn_info = ctk.CTkButton(self.frame_buttons, text="MANUEL DE PILOTAGE", 
+                                      font=ctk.CTkFont(size=18),
+                                      height=50, width=350,
+                                      corner_radius=25,
+                                      fg_color=COL_BOUTON, hover_color="#16213e",
+                                      command=self.ouvrir_info)
+        self.btn_info.pack(pady=10)
 
-pygame.quit()
+        # 3. BOUTON QUITTER (Rouge discret)
+        self.btn_quit = ctk.CTkButton(self.frame_buttons, text="QUITTER", 
+                                      font=ctk.CTkFont(size=18),
+                                      height=50, width=350,
+                                      corner_radius=25,
+                                      fg_color="transparent", border_width=2, border_color=COL_ACCENT,
+                                      text_color=COL_ACCENT, hover_color=COL_ACCENT,
+                                      command=self.quitter)
+        self.btn_quit.pack(pady=30)
+
+    # --- FONCTIONS ---
+
+    def lancer_jeu(self):
+        self.destroy() # Ferme le menu
+        # Cherche game.py dans le même dossier
+        dossier_courant = os.path.dirname(os.path.abspath(__file__))
+        chemin_jeu = os.path.join(dossier_courant, "game.py")
+        
+        try:
+            subprocess.run([sys.executable, chemin_jeu])
+        except Exception as e:
+            print(f"Erreur : Impossible de lancer game.py. {e}")
+        sys.exit()
+
+    def ouvrir_info(self):
+        # Création d'une fenêtre Pop-up stylée
+        info = ctk.CTkToplevel(self)
+        info.title("Manuel de Vol")
+        info.geometry("450x450")
+        info.resizable(False, False)
+        info.attributes("-topmost", True)
+        info.configure(fg_color=COL_FOND)
+
+        ctk.CTkLabel(info, text="COMMANDES DE VOL", font=("Impact", 25), text_color=COL_TEXTE).pack(pady=20)
+
+        # Liste des commandes
+        commandes = [
+            ("FLÈCHES HAUT/BAS", "Contrôle du manche (Tangage)"),
+            ("FLÈCHES GAUCHE/DROITE", "Contrôle des gaz (Puissance)"),
+            ("TOUCHE [ A ]", "Démarrer / Couper Moteur"),
+            ("TOUCHE [ F ]", "Sortir / Rentrer Volets"),
+            ("TOUCHE [ ECHAP ]", "Quitter la simulation")
+        ]
+
+        for touche, desc in commandes:
+            f = ctk.CTkFrame(info, fg_color="transparent")
+            f.pack(fill="x", padx=30, pady=8)
+            ctk.CTkLabel(f, text=touche, font=("Arial", 12, "bold"), text_color="#4CC9F0", width=180, anchor="w").pack(side="left")
+            ctk.CTkLabel(f, text=desc, font=("Arial", 12), text_color="white", anchor="w").pack(side="left")
+
+        ctk.CTkButton(info, text="COMPRIS", fg_color=COL_BOUTON, command=info.destroy).pack(pady=30)
+
+    def quitter(self):
+        self.destroy()
+        sys.exit()
+
+if __name__ == "__main__":
+    app = MenuPyFlight()
+    app.mainloop()
