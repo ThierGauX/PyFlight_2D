@@ -2,6 +2,7 @@ import pygame
 import math
 import os
 import random
+import datetime # Pour l'heure réelle
 
 # --- INITIALISATION ---
 pygame.init()
@@ -53,11 +54,25 @@ except: pass
 
 
 # --- PALETTE GRAPHIQUE ---
-CIEL_HAUT = (10, 20, 40)      
-CIEL_BAS  = (135, 206, 235)   
-SOL_HERBE_BASE = (34, 100, 34)
-SOL_HERBE_FONCE = (20, 60, 20)
-SOL_HERBE_CLAIR = (50, 120, 50)
+# Couleurs de base (définitions)
+C_CIEL_JOUR_BAS = (135, 206, 235)
+C_CIEL_JOUR_HAUT = (10, 20, 40)
+C_CIEL_NUIT_BAS = (20, 20, 40)
+C_CIEL_NUIT_HAUT = (0, 0, 10)
+C_CIEL_COUCHER_BAS = (255, 100, 50)
+C_CIEL_COUCHER_HAUT = (50, 20, 40)
+
+C_SOL_JOUR_FONCE = (20, 60, 20)
+C_SOL_JOUR_CLAIR = (50, 120, 50)
+C_SOL_NUIT_FONCE = (5, 15, 5)
+C_SOL_NUIT_CLAIR = (10, 30, 10)
+
+# Variables globales de couleur (seront mises à jour)
+CIEL_HAUT = C_CIEL_JOUR_HAUT      
+CIEL_BAS  = C_CIEL_JOUR_BAS   
+SOL_HERBE_BASE = (34, 100, 34) 
+SOL_HERBE_FONCE = C_SOL_JOUR_FONCE
+SOL_HERBE_CLAIR = C_SOL_JOUR_CLAIR
 SOL_PISTE = (50, 50, 55)      
 SOL_MARQUAGE = (240, 240, 240)
 
@@ -90,6 +105,11 @@ zoom_cible = 1.0
 
 moteur_allume = False 
 flaps_sortis = False
+lumiere_allume = False # Landing Light
+
+# CYCLE JOUR / NUIT (TEMPS RÉEL)
+heure_actuelle = 12.0 # Heure décimale (0.0 - 24.0)
+est_nuit = False
 
 # GESTION POUSSEE
 niveau_poussee_reelle = 0.0 
@@ -97,13 +117,15 @@ target_poussee = 0.0
 
 # DÉCOR
 decor_sol = []
+# On stocke juste la position et la taille, la couleur sera calculée dynamiquement
 for _ in range(150):
     w = random.randint(20, 100)
     h = random.randint(4, 15)
     x_offset = random.randint(0, 2000)
     y_offset = random.randint(0, 800)
-    couleur = SOL_HERBE_FONCE if random.random() > 0.5 else SOL_HERBE_CLAIR
-    decor_sol.append([x_offset, y_offset, w, h, couleur])
+    # Type 0 = FONCE, Type 1 = CLAIR
+    type_herbe = 0 if random.random() > 0.5 else 1
+    decor_sol.append([x_offset, y_offset, w, h, type_herbe])
 
 particules = []
 for _ in range(50): 
@@ -115,26 +137,84 @@ V_DECROCHAGE = 85          # Vitesse de décrochage (Stall speed)
 V_VNE = 300                # Vitesse à ne jamais dépasser
 V_MACH1 = 1225             # Mur du son (sécurité pour le code)
 GRAVITE = 0.12             # Force de gravité
-PUISSANCE_MOTEUR = 0.45    # Puissance du moteur Lycoming IO-360
+PUISSANCE_MOTEUR = 0.35    # Puissance réduite (était 0.45)
 FRICTION_AIR = 0.992       # Traînée aérodynamique globale
-FRICTION_VERTICALE = 0.96  # Amortissement des mouvements verticaux (Celle qui manquait !)
-ACCEL_ROTATION = 0.08      # Sensibilité du manche
-MAX_ROTATION = 1.8         # Débattement maximum des gouvernes
-COEFF_PORTANCE = 0.0035    # Portance de l'aile haute du Cessna
+FRICTION_VERTICALE = 0.96  
+ACCEL_ROTATION = 0.04      # Sensibilité réduite (était 0.08)
+MAX_ROTATION = 1.8         
+COEFF_PORTANCE = 0.0015    # Portance réduite (était 0.0035)
 COEFF_TRAINEE_MONTEE = 0.004
 
 horloge = pygame.time.Clock()
 
+def lerp_color(c1, c2, t):
+    t = max(0.0, min(1.0, t))
+    return (
+        int(c1[0] + (c2[0] - c1[0]) * t),
+        int(c1[1] + (c2[1] - c1[1]) * t),
+        int(c1[2] + (c2[2] - c1[2]) * t)
+    )
+
+def mettre_a_jour_couleurs(heure):
+    global CIEL_BAS, CIEL_HAUT, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, SOL_HERBE_BASE, est_nuit
+    
+    # Cycle 24h
+    # 00-06h: Nuit
+    # 06-08h: Aube
+    # 08-18h: Jour
+    # 18-20h: Crépuscule
+    # 20-24h: Nuit (Sombre++)
+    
+    if 6 <= heure < 8: # AUBE
+        est_nuit = False
+        ratio = (heure - 6) / 2
+        CIEL_BAS = lerp_color(C_CIEL_NUIT_BAS, C_CIEL_JOUR_BAS, ratio)
+        CIEL_HAUT = lerp_color(C_CIEL_NUIT_HAUT, C_CIEL_JOUR_HAUT, ratio)
+        SOL_HERBE_FONCE = lerp_color(C_SOL_NUIT_FONCE, C_SOL_JOUR_FONCE, ratio)
+        SOL_HERBE_CLAIR = lerp_color(C_SOL_NUIT_CLAIR, C_SOL_JOUR_CLAIR, ratio)
+        
+    elif 8 <= heure < 18: # PLEIN JOUR
+        est_nuit = False
+        CIEL_BAS = C_CIEL_JOUR_BAS
+        CIEL_HAUT = C_CIEL_JOUR_HAUT
+        SOL_HERBE_FONCE = C_SOL_JOUR_FONCE
+        SOL_HERBE_CLAIR = C_SOL_JOUR_CLAIR
+        
+    elif 18 <= heure < 20: # CRÉPUSCULE
+        est_nuit = False
+        # 18h-19h: Orange
+        # 19h-20h: Nuit
+        if heure < 19:
+            ratio = (heure - 18)
+            CIEL_BAS = lerp_color(C_CIEL_JOUR_BAS, C_CIEL_COUCHER_BAS, ratio)
+            CIEL_HAUT = lerp_color(C_CIEL_JOUR_HAUT, C_CIEL_COUCHER_HAUT, ratio)
+            SOL_HERBE_FONCE = lerp_color(C_SOL_JOUR_FONCE, C_SOL_NUIT_FONCE, ratio * 0.5)
+            SOL_HERBE_CLAIR = lerp_color(C_SOL_JOUR_CLAIR, C_SOL_NUIT_CLAIR, ratio * 0.5)
+        else:
+            ratio = (heure - 19)
+            CIEL_BAS = lerp_color(C_CIEL_COUCHER_BAS, C_CIEL_NUIT_BAS, ratio)
+            CIEL_HAUT = lerp_color(C_CIEL_COUCHER_HAUT, C_CIEL_NUIT_HAUT, ratio)
+            SOL_HERBE_FONCE = lerp_color(C_SOL_JOUR_FONCE, C_SOL_NUIT_FONCE, 0.5 + ratio * 0.5)
+            SOL_HERBE_CLAIR = lerp_color(C_SOL_JOUR_CLAIR, C_SOL_NUIT_CLAIR, 0.5 + ratio * 0.5)
+            
+    else: # NUIT
+        est_nuit = True
+        CIEL_BAS = C_CIEL_NUIT_BAS
+        CIEL_HAUT = C_CIEL_NUIT_HAUT
+        SOL_HERBE_FONCE = C_SOL_NUIT_FONCE
+        SOL_HERBE_CLAIR = C_SOL_NUIT_CLAIR
+        
+    SOL_HERBE_BASE = lerp_color(SOL_HERBE_FONCE, SOL_HERBE_CLAIR, 0.5)
+
+
 def obtenir_couleur_ciel(alt):
+    # Fondu avec l'altitude (plus sombre en haut)
     plafond = 20000 
     ratio = min(max(alt, 0), plafond) / plafond
-    r = int(CIEL_BAS[0] * (1 - ratio) + CIEL_HAUT[0] * ratio)
-    g = int(CIEL_BAS[1] * (1 - ratio) + CIEL_HAUT[1] * ratio)
-    b = int(CIEL_BAS[2] * (1 - ratio) + CIEL_HAUT[2] * ratio)
-    return (r, g, b)
+    return lerp_color(CIEL_BAS, CIEL_HAUT, ratio)
 
 # --- DASHBOARD EXPERT ---
-def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, poussee_pct):
+def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec):
     h_dash = 140
     y_base = H - h_dash
     
@@ -201,13 +281,19 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, pouss
     val_g = police_valeur.render(f"{g_force:.1f} G", True, HUD_VERT)
     surface.blit(lbl_g, (x_ecran + 140, y_ecran + 10))
     surface.blit(val_g, (x_ecran + 140, y_ecran + 30))
+    
+    # Heure (Réelle) - Déplacée pour ne pas chevaucher les G
+    heures = int(heure_dec)
+    minutes = int((heure_dec - heures) * 60)
+    lbl_time = police_label.render(f"FRANCE {heures:02d}:{minutes:02d}", True, HUD_ORANGE)
+    surface.blit(lbl_time, (x_ecran + 80, y_ecran + 70))
 
     # 4. PANNEAU DROITE
-    x_ctrl = L - 460
+    x_ctrl = L - 480 # Agrandi pour loger le bouton LIGHT
     y_ctrl = y_base + 20
     def dessiner_voyant(label, etat, x, y, col_on=HUD_VERT, col_off=HUD_ROUGE):
         couleur = col_on if etat else col_off
-        pygame.draw.rect(surface, (20, 20, 20), (x, y, 100, 30))
+        pygame.draw.rect(surface, (20, 20, 20), (x, y, 90, 30))
         pygame.draw.rect(surface, couleur, (x, y, 10, 30))
         txt_etat = "ON" if etat else "OFF"
         if label == "FLAPS": txt_etat = "EXT" if etat else "RET"
@@ -217,14 +303,15 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, pouss
         surface.blit(val, (x + 15, y + 16))
 
     dessiner_voyant("MOTEUR (A)", moteur, x_ctrl, y_ctrl)
-    dessiner_voyant("FLAPS (F)", flaps, x_ctrl + 110, y_ctrl, col_on=HUD_ORANGE, col_off=HUD_VERT)
-    dessiner_voyant("AUTOPILOT", auto, x_ctrl + 220, y_ctrl, col_on=(0, 200, 255), col_off=(50, 50, 50))
-    dessiner_voyant("FREINS (B)", freins, x_ctrl + 330, y_ctrl, col_on=HUD_ROUGE, col_off=(50, 50, 50))
+    dessiner_voyant("FLAPS (F)", flaps, x_ctrl + 100, y_ctrl, col_on=HUD_ORANGE, col_off=HUD_VERT)
+    dessiner_voyant("PILOTE", auto, x_ctrl + 200, y_ctrl, col_on=(0, 200, 255), col_off=(50, 50, 50))
+    dessiner_voyant("FREINS (B)", freins, x_ctrl + 300, y_ctrl, col_on=HUD_ROUGE, col_off=(50, 50, 50))
+    dessiner_voyant("LIGHT (L)", lumiere, x_ctrl + 400, y_ctrl, col_on=(255, 255, 200), col_off=(50, 50, 50))
     
     # Barre Thrust
     bar_x = x_ctrl
     bar_y = y_ctrl + 50
-    bar_w = 320
+    bar_w = 400
     bar_h = 20
     pygame.draw.rect(surface, (10, 10, 10), (bar_x, bar_y, bar_w, bar_h))
     pygame.draw.rect(surface, (60, 60, 60), (bar_x, bar_y, bar_w, bar_h), 1)
@@ -243,6 +330,12 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, pouss
 
 while True:
     dt = horloge.tick(60) / 1000.0 
+    
+    # HEURE REELLE
+    now = datetime.datetime.now()
+    heure_actuelle = now.hour + now.minute / 60.0 + now.second / 3600.0
+    
+    mettre_a_jour_couleurs(heure_actuelle) 
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -255,6 +348,8 @@ while True:
                 moteur_allume = not moteur_allume
             if event.key == pygame.K_f:
                 flaps_sortis = not flaps_sortis
+            if event.key == pygame.K_l: # LANDING LIGHT
+                lumiere_allume = not lumiere_allume
             
             if moteur_allume:
                 if event.key == pygame.K_RIGHT:
@@ -267,11 +362,11 @@ while True:
     zoom_cible = max(0.5, min(2.0, zoom_cible))
     zoom += (zoom_cible - zoom) * 0.1
 
-    # --- CONTROLE STABILISÉ ---
+    # --- CONTROLE STABILISÉ (MODE FACILE) ---
     target_rotation = 0
     action_manche = False 
     pilote_auto_actif = False
-    freins_actifs = False # Variable pour les freins
+    freins_actifs = False 
 
     if touches[pygame.K_UP]:    
         target_rotation = -MAX_ROTATION
@@ -285,35 +380,46 @@ while True:
         freins_actifs = True
 
     if action_manche:
-        # Rotation Active (plus douce)
-        accel = ACCEL_ROTATION * 0.5 # On adoucit la réponse
+        # Rotation Active (Physique Améliorée)
+        # 1. Efficacité des gouvernes selon la vitesse (Plus on va vite, plus ça tourne)
+        efficacite_vitesse = min(1.0, max(0.1, vitesse_kph / V_DECOLLAGE))
+        
+        # 2. Poids du nez au sol (Difficile de lever le nez à basse vitesse)
+        facteur_sol = 1.0
+        if altitude < 5:
+            facteur_sol = 0.4 # Nez lourd
+            
+        accel = ACCEL_ROTATION * 0.5 * efficacite_vitesse * facteur_sol
+        
         if target_rotation > vitesse_rotation_actuelle:
             vitesse_rotation_actuelle += accel
         elif target_rotation < vitesse_rotation_actuelle:
             vitesse_rotation_actuelle -= accel
     else:
-        # --- STABILISATEUR (Retour à plat) ---
-        vitesse_rotation_actuelle *= 0.90 # Amortissement rotation
+        # --- STABILISATEUR RENFORCÉ (MODE FACILE) ---
+        vitesse_rotation_actuelle *= 0.85 # Amortissement fort
         
-        # Si on est en l'air, on ramène le nez à 0° mais beaucoup plus doucement
+        # Retour automatique à l'horizon plus agressif pour "faciliter" le vol
         if vitesse_kph > V_DECOLLAGE and not en_decrochage:
-            # On ne force le retour à plat que si on est proche de l'horizon, sinon on laisse l'avion sur sa trajectoire
-            if abs(angle) < 20:
-                angle *= 0.995 # Retour TRES doux vers l'horizon (plus réaliste)
+             # On ramène le nez à 0°
+            if abs(angle) > 0.1:
+                signe = -1 if angle > 0 else 1
+                vitesse_rotation_actuelle += signe * 0.02 # Aide au redressement
             
-            # Si on est presque à plat, on verrouille
-            if abs(angle) < 0.5 and abs(vitesse_rotation_actuelle) < 0.01:
+            if abs(angle) < 1.0 and abs(vitesse_rotation_actuelle) < 0.05:
                 angle = 0
+                vitesse_rotation_actuelle = 0
                 pilote_auto_actif = True
         
     angle += vitesse_rotation_actuelle
 
-    # --- LIMITATION ANGLE ---
-    if angle > 60:  # Un peu plus de liberté de tangage
-        angle = 60
+    # --- LIMITATION ANGLE (MODE FACILE) ---
+    LIMIT_ANGLE = 35
+    if angle > LIMIT_ANGLE:  
+        angle = LIMIT_ANGLE
         vitesse_rotation_actuelle = 0
-    if angle < -60:
-        angle = -60
+    if angle < -LIMIT_ANGLE:
+        angle = -LIMIT_ANGLE
         vitesse_rotation_actuelle = 0
 
     # --- MOTEUR & THRUST & SON ---
@@ -321,9 +427,9 @@ while True:
         target_poussee = 0.0
         
     if niveau_poussee_reelle < target_poussee:
-        niveau_poussee_reelle += 0.2  # Montée en régime lente
+        niveau_poussee_reelle += 0.2  
     elif niveau_poussee_reelle > target_poussee:
-        niveau_poussee_reelle -= 0.4  # Décélération par friction de l'hélice 
+        niveau_poussee_reelle -= 0.4   
         
     # SON CONTINU
     if son_moteur:
@@ -341,8 +447,8 @@ while True:
     vx += math.cos(rad) * puissance_instantanee
     vy -= math.sin(rad) * puissance_instantanee
 
-    # Alarme
-    if en_decrochage:
+    # Alarme (Moins sensible en mode facile)
+    if en_decrochage and altitude > 50: # On ne sonne pas au ras du sol
         if not alarme_playing and son_alarme:
             son_alarme.play(loops=-1)
             alarme_playing = True
@@ -357,74 +463,79 @@ while True:
     elif vitesse_kph < V_MACH1 - 50:
         mur_du_son_franchi = False
 
-    altitude = -world_y 
+    altitude = -world_y
+    
+    # CLAMPING ET SECURITE
+    vx = max(-150.0, min(150.0, vx))
+    vy = max(-150.0, min(150.0, vy))
+    if math.isnan(vx): vx = 0
+    if math.isnan(vy): vy = 0
+    
     vitesse_totale = math.sqrt(vx**2 + vy**2)
     vitesse_kph = int(vitesse_totale * 15)
     
-    # Planeur
-    seuil_decrochage = V_DECROCHAGE
-    if flaps_sortis: seuil_decrochage = 75 # Plus permissif avec les volets
+    # Planeur / Décrochage (Plus permissif en mode facile)
+    seuil_decrochage = V_DECROCHAGE - 10 
+    if flaps_sortis: seuil_decrochage = 65 
     
-    if vitesse_kph < seuil_decrochage and altitude > 10:
+    # Anti-Crash Sol
+    if altitude < 100 and vitesse_kph > 50:
+        en_decrochage = False
+    elif vitesse_kph < seuil_decrochage:
         en_decrochage = True
-    elif vitesse_kph > seuil_decrochage + 10:
+    else:
         en_decrochage = False
 
-    # --- PHYSIQUE DE VOL ET MAINTIEN ALTITUDE ---
+    # --- PHYSIQUE DE VOL ---
     if pilote_auto_actif:
-        # MODE STABILISÉ (VERROUILLAGE)
-        vy = 0 # On force la vitesse verticale à 0 pour ne pas monter/descendre
-        vx *= FRICTION_AIR # On garde juste le frottement de l'air
+        vy = 0 
+        vx *= FRICTION_AIR 
     else:
-        # MODE MANUEL (PHYSIQUE NORMALE)
         vy += GRAVITE
         
         portance = 0
         friction_actuelle = FRICTION_AIR
         
         if flaps_sortis:
-            friction_actuelle = 0.985  # Les volets créent beaucoup de traînée (freinage)
-            coeff_p = 0.0075           # Portance massivement augmentée
+            friction_actuelle = 0.985  
+            coeff_p = 0.0075           
         else:
             friction_actuelle = 0.992
             coeff_p = COEFF_PORTANCE
 
         if not en_decrochage:
-            # Portance réaliste : proportionnelle au carré de la vitesse
-            # Lift = Cl * 0.5 * rho * v^2 * S
-            # Ici simplifié en : k * v^2 * angle_factor
+            angle_incidence = angle + 2.0 
             
-            angle_incidence = angle + 2.0 # Angle d'attaque de l'aile par rapport au vent relatif
-            
-            # Facteur d'efficacité de l'aile selon l'angle
             lift_factor = angle_incidence * 0.1 
-            if lift_factor < 0: lift_factor *= 0.1 # Portance négative faible
-
-            # Calcul de la portance quadratique v^2
-            # On divise par un grand nombre pour normaliser car v^2 augmente très vite
-            portance_dynamique = (vitesse_totale**2) * coeff_p * lift_factor * 0.05
+            if lift_factor < 0: lift_factor *= 0.1 
             
-            # Application de la portance (perpendiculaire à la vitesse, ou simplifiée verticale ici)
+            densite_air = max(0.0, 1.0 - (altitude / 25000.0))
+
+            portance_dynamique = (vitesse_totale**2) * coeff_p * lift_factor * 0.05 * densite_air
+            
+            # EFFET DE SOL (Ground Effect)
+            # Bonus de portance quand on est près du sol (< 20m)
+            if altitude < 20:
+                bonus_sol = 1.0 + (1.0 - (altitude / 20.0)) * 0.25 # +25% max au ras du sol
+                portance_dynamique *= bonus_sol
+                
             portance = portance_dynamique
 
-            # Traînée induite (plus on porte, plus on freine)
             trainee_induite = abs(portance) * 0.1
             friction_actuelle -= trainee_induite * 0.01
 
             vx *= friction_actuelle
             vy *= FRICTION_VERTICALE
             
-            # Amortissement naturel des oscillations
             if abs(angle) < 5:
                 vx *= 0.9995 
                 vy *= 0.9995
         else:
-            # Décrochage = chute de pierre
             vx *= 0.99
             vy *= 0.99
-            if angle > 10: angle -= 0.5 # Le nez tombe
+            if angle > 10: angle -= 0.5 
         
-        if angle < 0: vy += 0.02 # Piqué accélère la chute
+        if angle < 0: vy += 0.02 
 
         vy -= portance
 
@@ -433,17 +544,12 @@ while True:
     
     # --- REBOND & IMMOBILISATION ---
     if -world_y <= 0:
-        # Au sol
         world_y = 0
         altitude = 0
-        
-        # Friction au sol (roulement des pneus)
-        friction_sol = 0.96 # Friction naturelle du tarmac/herbe
+        friction_sol = 0.96 
         
         if freins_actifs:
-            friction_sol = 0.85 # FREINAGE FORT
-            
-            # Effet visuel de piqué au freinage (suspension avant s'écrase)
+            friction_sol = 0.85 
             if vitesse_kph > 10:
                 angle = 1.5 
                 
@@ -453,10 +559,9 @@ while True:
             vx = 0
             vitesse_rotation_actuelle = 0
             
-        # Rebond simplifié
         if vy > 1.5: 
              vy = -vy * 0.3
-             world_y = 0.5 # Petit saut
+             world_y = 0.5 
         else:
             vy = 0
             en_decrochage = False
@@ -473,7 +578,13 @@ while True:
                 p[0] = L + random.randint(0, 100)
                 p[1] = random.randint(0, H)
             longueur = max(2, int(vitesse_kph / 100))
-            pygame.draw.line(fenetre, (255, 255, 255), (p[0], p[1]), (p[0]-longueur, p[1]), 1)
+            
+            px = p[0]
+            py = p[1]
+            px2 = p[0] - longueur
+            
+            if -1000 < px < 3000 and -1000 < py < 2000:
+                pygame.draw.line(fenetre, (255, 255, 255), (px, py), (px2, py), 1)
 
     pos_sol_y = (H // 2) + (altitude * zoom) 
     if pos_sol_y < H:
@@ -488,14 +599,16 @@ while True:
                     py = pos_sol_y + (patch[1] * zoom)
                     pw = patch[2] * zoom
                     ph = patch[3] * zoom
-                    pygame.draw.rect(fenetre, patch[4], (px, py, pw, ph))
-
+                    couleur_p = SOL_HERBE_FONCE if patch[4] == 0 else SOL_HERBE_CLAIR
+                    pygame.draw.rect(fenetre, couleur_p, (px, py, pw, ph))
+        
         debut_piste_ecran = (0 - world_x) * zoom + (L/2)
         longueur_piste_ecran = 5000 * zoom
         rect_piste = pygame.Rect(debut_piste_ecran, pos_sol_y, longueur_piste_ecran, H)
         
         if rect_piste.colliderect((0,0,L,H)):
             pygame.draw.rect(fenetre, SOL_PISTE, rect_piste)
+            # Marquages piste
             pygame.draw.rect(fenetre, SOL_MARQUAGE, (debut_piste_ecran, pos_sol_y, longueur_piste_ecran, 4*zoom))
             nb_bandes = 50
             for i in range(nb_bandes):
@@ -503,25 +616,43 @@ while True:
                 bw = 50 * zoom
                 bh = 10 * zoom
                 pygame.draw.rect(fenetre, SOL_MARQUAGE, (bx, pos_sol_y + 20*zoom, bw, bh))
-            for i in range(10):
-                px = debut_piste_ecran + (10 * zoom)
-                py = pos_sol_y + (i * 10 * zoom) + 10
-                pygame.draw.rect(fenetre, SOL_MARQUAGE, (px, py, 40*zoom, 5*zoom))
+            
+    # --- DESSIN AVION ---
+    # Selection image
+    img_avion = img_avion_feu_base if (postcombustion and moteur_allume) else img_avion_normal_base
+    
+    # Rotation
+    img_rot = pygame.transform.rotate(img_avion, angle)
+    rect_img = img_rot.get_rect(center=(L//2, H//2))
+    
+    # LANDING LIGHT (Phare)
+    if lumiere_allume:
+        # Création d'une surface pour le faisceau (transparente)
+        longueur_faisceau = 400
+        largeur_faisceau = 100
+        surf_light = pygame.Surface((longueur_faisceau, largeur_faisceau), pygame.SRCALPHA)
+    
+        p1 = (0, largeur_faisceau // 2)
+        p2 = (longueur_faisceau, 0)
+        p3 = (longueur_faisceau, largeur_faisceau)
+        pygame.draw.polygon(surf_light, (255, 255, 200, 40), [p1, p2, p3]) 
+        pygame.draw.polygon(surf_light, (255, 255, 220, 80), [p1, (longueur_faisceau*0.7, 20), (longueur_faisceau*0.7, 80)])
 
-    if images_ok:
-        img_actuelle = img_avion_feu_base if postcombustion else img_avion_normal_base
-        new_w = max(10, int(90 * zoom))
-        new_h = max(5, int(35 * zoom))
-        img_scaled = pygame.transform.scale(img_actuelle, (new_w, new_h))
-        avion_rot = pygame.transform.rotate(img_scaled, angle)
-        rect_rot = avion_rot.get_rect(center=(L // 2, H // 2))
-        fenetre.blit(avion_rot, rect_rot)
-    else:
-        pts = [(L//2+(30*zoom), H//2), (L//2-(10*zoom), H//2-(10*zoom)), (L//2-(10*zoom), H//2+(10*zoom))]
-        pygame.draw.polygon(fenetre, (100, 100, 100), pts)
+        faisceau_rot = pygame.transform.rotate(surf_light, angle)
+        
+        rad_a = math.radians(angle)
+        offset_x = math.cos(rad_a) * 50 
+        offset_y = -math.sin(rad_a) * 50
+        
+        rect_light = faisceau_rot.get_rect(center=(L//2 + offset_x + math.cos(rad_a)*200, H//2 + offset_y - math.sin(rad_a)*200))
+        fenetre.blit(faisceau_rot, rect_light)
 
-    dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, niveau_poussee_reelle)
-
+    fenetre.blit(img_rot, rect_img)
+    
+    # --- DASHBOARD ---
+    dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle)
+    
+    # Message Alerte
     msg = ""
     c_msg = HUD_ROUGE
     if en_decrochage:
