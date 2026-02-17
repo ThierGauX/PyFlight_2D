@@ -548,15 +548,18 @@ while True:
     world_y += vy
     
     # --- REBOND & IMMOBILISATION ---
+    # --- REBOND & IMMOBILISATION ---
     if -world_y <= 0:
         world_y = 0
         altitude = 0
-        friction_sol = 0.96 
+        
+        # Friction au sol (Roulage plus fluide, plus d'inertie)
+        friction_sol = 0.99 # Ça roule tout seul
         
         if freins_actifs:
-            friction_sol = 0.85 
+            friction_sol = 0.92 # Freinage efficace mais pas "mur de briques"
             if vitesse_kph > 10:
-                angle = 1.5 
+                angle = 1.0 # Le nez plonge un peu moins
                 
         vx *= friction_sol
         
@@ -564,8 +567,9 @@ while True:
             vx = 0
             vitesse_rotation_actuelle = 0
             
-        if vy > 1.5: 
-             vy = -vy * 0.3
+        # Rebond (Suspension plus môle)
+        if vy > 2.0: # On ne rebondit que si le choc est significatif
+             vy = -vy * 0.20 # Amortisseur efficace (absorbe 80% de l'énergie)
              world_y = 0.5 
         else:
             vy = 0
@@ -578,18 +582,50 @@ while True:
     
     if vitesse_kph > 50:
         for p in particules:
+            # Mouvement horizontal (existant)
             p[0] -= (vitesse_kph * 0.05 * p[2]) * zoom 
-            if p[0] < 0:
+            
+            # Mouvement vertical (NOUVEAU)
+            # Si on monte (vy < 0), les particules descendent (+=)
+            # On utilise vy pixels/frame. On applique le facteur zoom et un scalaire similaire à X
+            p[1] -= (vy * 20.0 * p[2]) * zoom
+
+            # Wrapping X
+            if p[0] < -100:
                 p[0] = L + random.randint(0, 100)
                 p[1] = random.randint(0, H)
-            longueur = max(2, int(vitesse_kph / 100))
+            
+            # Wrapping Y (Si elles sortent en haut ou en bas)
+            if p[1] < -100:
+                p[1] = H + random.randint(0, 100)
+            elif p[1] > H + 100:
+                p[1] = -random.randint(0, 100)
+
+            longueur = max(2, int(vitesse_kph / 50)) * zoom # Traits plus longs avec zoom
+            
+            # Orientation du trait selon le vecteur vitesse
+            # Si vx=100, vy=0 -> trait horizontal
+            # Si vx=100, vy=-10 (montée) -> trait légèrement incliné
             
             px = p[0]
             py = p[1]
-            px2 = p[0] - longueur
             
-            if -1000 < px < 3000 and -1000 < py < 2000:
-                pygame.draw.line(fenetre, (255, 255, 255), (px, py), (px2, py), 1)
+            # Normalisation (approximative pour perf)
+            # On veut un vecteur de taille 'longueur' opposé à la vitesse
+            norme = math.sqrt(vx**2 + vy**2)
+            if norme > 0.1:
+                dx = (vx / norme) * longueur
+                dy = (vy / norme) * longueur
+            else:
+                dx = longueur
+                dy = 0
+            
+            px2 = px - dx
+            py2 = py - dy
+            
+            # On ne dessine que si c'est dans l'écran (avec marge)
+            if -100 < px < L+100 and -100 < py < H+100:
+                pygame.draw.line(fenetre, (255, 255, 255), (px, py), (px2, py2), max(1, int(zoom)))
 
     pos_sol_y = (H // 2) + (altitude * zoom) 
     if pos_sol_y < H:
