@@ -3,6 +3,23 @@ import math
 import os
 import random
 import datetime # Pour l'heure réelle
+import argparse
+import sys
+
+# --- ARGUMENTS (Lancement depuis le Menu) ---
+parser = argparse.ArgumentParser()
+parser.add_argument("--time", type=str, default="real", help="Heure de départ (real ou 0-24)")
+parser.add_argument("--difficulty", type=str, default="easy", help="easy ou real")
+parser.add_argument("--volume", type=float, default=0.5, help="Volume global (0.0-1.0)")
+
+# On parse uniquement si on est lancé en tant que script principal
+args = None
+if __name__ == "__main__":
+    args, unknown = parser.parse_known_args()
+else:
+    # Valeurs par défaut si importé (ou pas de main)
+    args = argparse.Namespace(time="real", difficulty="easy", volume=0.5)
+
 
 # --- INITIALISATION ---
 pygame.init()
@@ -15,7 +32,7 @@ except:
 # --- FENETRE ---
 L, H = 1200, 700
 fenetre = pygame.display.set_mode((L, H))
-pygame.display.set_caption("Simulateur - Stabilisateur Actif")
+pygame.display.set_caption("Pyflight 2D")
 
 # --- RESSOURCES ---
 dossier = os.path.dirname(os.path.abspath(__file__))
@@ -41,7 +58,7 @@ for nom in chemins_moteur:
     if os.path.exists(p):
         try:
             son_moteur = pygame.mixer.Sound(p)
-            son_moteur.set_volume(0.4)
+            son_moteur.set_volume(args.volume)
             break
         except: pass
 
@@ -49,7 +66,7 @@ try:
     p_alarme = os.path.join(dossier, "alarme_decrochage.wav")
     if os.path.exists(p_alarme):
         son_alarme = pygame.mixer.Sound(p_alarme)
-        son_alarme.set_volume(0.5)
+        son_alarme.set_volume(args.volume)
 except: pass
 
 
@@ -99,7 +116,7 @@ en_decrochage = False
 alarme_playing = False 
 altitude = 0 
 vitesse_kph = 0
-pilote_auto_actif = False
+pilote_auto_actif = (args.difficulty == "easy")
 zoom = 1.0          
 zoom_cible = 1.0    
 
@@ -108,7 +125,16 @@ flaps_sortis = False
 lumiere_allume = False # Landing Light
 
 # CYCLE JOUR / NUIT (TEMPS RÉEL)
-heure_actuelle = 12.0 # Heure décimale (0.0 - 24.0)
+mode_temps_reel = (args.time == "real")
+offset_temps = 0
+if not mode_temps_reel:
+    try:
+        offset_temps = float(args.time)
+    except:
+        offset_temps = 12.0
+
+heure_actuelle = offset_temps if not mode_temps_reel else 12.0 # Si temps réel, sera mis à jour dans la boucle
+
 est_nuit = False
 
 # GESTION POUSSEE
@@ -331,9 +357,13 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
 while True:
     dt = horloge.tick(60) / 1000.0 
     
-    # HEURE REELLE
-    now = datetime.datetime.now()
-    heure_actuelle = now.hour + now.minute / 60.0 + now.second / 3600.0
+    if mode_temps_reel:
+        now = datetime.datetime.now()
+        heure_actuelle = now.hour + (now.minute / 60.0) + (now.second / 3600.0)
+    else:
+        # Mode Manuel
+        heure_actuelle = offset_temps
+
     
     mettre_a_jour_couleurs(heure_actuelle) 
 
@@ -417,6 +447,7 @@ while True:
                 pilote_auto_actif = True
         
     angle += vitesse_rotation_actuelle
+
 
     # --- LIMITATION ANGLE (MODE FACILE) ---
     LIMIT_ANGLE = 35
@@ -603,29 +634,17 @@ while True:
 
             longueur = max(2, int(vitesse_kph / 50)) * zoom # Traits plus longs avec zoom
             
-            # Orientation du trait selon le vecteur vitesse
-            # Si vx=100, vy=0 -> trait horizontal
-            # Si vx=100, vy=-10 (montée) -> trait légèrement incliné
-            
+            # --- MODIFICATION (Retour aux traits horizontaux blancs) ---
+            # On garde le mouvement vertical (p[1] change), mais le trait reste horizontal
             px = p[0]
             py = p[1]
-            
-            # Normalisation (approximative pour perf)
-            # On veut un vecteur de taille 'longueur' opposé à la vitesse
-            norme = math.sqrt(vx**2 + vy**2)
-            if norme > 0.1:
-                dx = (vx / norme) * longueur
-                dy = (vy / norme) * longueur
-            else:
-                dx = longueur
-                dy = 0
-            
-            px2 = px - dx
-            py2 = py - dy
+            px2 = px - longueur
+            py2 = py # Pas d'inclinaison verticale
             
             # On ne dessine que si c'est dans l'écran (avec marge)
             if -100 < px < L+100 and -100 < py < H+100:
                 pygame.draw.line(fenetre, (255, 255, 255), (px, py), (px2, py2), max(1, int(zoom)))
+
 
     pos_sol_y = (H // 2) + (altitude * zoom) 
     if pos_sol_y < H:
