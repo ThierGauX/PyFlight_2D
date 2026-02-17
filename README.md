@@ -6,46 +6,69 @@ Ce projet propose une expérience de vol immersive mêlant physique réaliste, g
 - **Gauthier :** Développement & Interface (Menu "Ultimate").
 - **Jules :** Design & Identité Visuelle.
 
+##  Nouveautés (Mise à jour Saisons)
+
+###  Saisons & Météo Dynamique
+Le monde change selon vos envies grâce au nouveau sélecteur de saison :
+*   **PRINTEMPS (Fleurs) :** Herbe vert tendre, ciel bleu doux, ambiance calme.
+*   **ÉTÉ (Vert) :** Couleurs vibrantes, ciel dégagé, chaleur.
+*   **AUTOMNE (Feuilles) :** Sol orange/brun, ciel orageux sombre, pluie battante.
+*   **HIVER (Neige) :** Sol blanc/gelé, ciel froid gris-bleu, tempête de neige massive.
+*   **TEMPÊTE (Vent) :** Effets de vent violent pour tester votre pilotage.
+
+###  Dashboard Hybride
+Un nouveau tableau de bord repensé pour la clarté et le style :
+*   **Overlay HUD :** Bandes de vitesse et d'altitude transparentes style "Chasseur".
+*   **Instruments Analogiques :** Cadrans classiques pour l'horizon artificiel et le variomètre.
+*   **Indicateurs Regroupés :** GEAR, FLAPS et BRAKES sont maintenant clairement visibles au-dessus du radar.
+
+###  Options & Cheats
+Nouveau menu "Gameplay" pour le fun :
+*   **Carburant Illimité :** Volez éternellement sans ravitailler.
+*   **Invincibilité (God Mode) :** Rebondissez sur le sol sans crash !
+
+---
+
 ##  Fonctionnalités Principales
 
-###  Physique & Réalisme
-* **Modèle de Vol Avancé :** Inertie, portance, traînée et décrochage simulés.
-* **Effet de Sol :** Décollage plus réaliste avec une "bulle d'air" près du sol.
-* **Roulage Fluide :** Système de freinage progressif et suspensions actives pour des atterrissages doux.
-* **Météo Temps Réel :** Synchronisation avec l'heure réelle (France) pour des cycles jour/nuit dynamiques.
+### Physique & Réalisme
+*   **Modèle de Vol Avancé :** Inertie, portance, traînée et décrochage simulés.
+*   **Effet de Sol :** Décollage plus réaliste avec une "bulle d'air" près du sol.
+*   **Roulage Fluide :** Système de freinage progressif et suspensions actives.
 
-###  Menu "Ultimate"
-* **Interface Pro :** Launcher moderne style "Aero" (Bleu nuit/Glass).
-* **Paramètres Complets :**
-    * **Difficulté :** Facile (Assisté) ou Réaliste.
-    * **Temps :** Réel (Horloge Système) ou Manuel (Curseur 0h-24h).
-    * **Volume :** Réglage précis du moteur.
-* **Lancement Direct :** Le jeu démarre instantanément avec vos préférences.
+### Menu "Ultimate"
+*   **Interface Pro :** Launcher moderne style "Aero" (Bleu nuit/Glass).
+*   **Paramètres Complets :** Difficulté, Heure (Réelle/Manuelle), Volume.
+*   **Lancement Direct :** Configuration instantanée.
 
-###  Immersion Visuelle
-* **Monde Infini :** Génération procédurale du terrain (herbe, piste) à l'infini.
-* **Zoom Dynamique :** Molette de souris pour passer d'une vue cockpit à une vue satellite (x0.1 à x5.0).
-* **Particules de Vitesse :** Traits blancs dynamiques qui suivent vos mouvements verticaux.
-* **Lumière d'Atterrissage :** Projecteur orientable pour les vols de nuit.
+### Immersion Visuelle
+*   **Monde Infini :** Génération procédurale du terrain.
+*   **Nuages Volumétriques :** Les nuages deviennent énormes à haute altitude (>1500m).
+*   **Particules Météo :** Pluie, Neige et Vent réagissent à la vitesse de l'avion.
+
+---
 
 ##  Commandes de Vol
 
 | Touche / Action | Fonction | Détails |
 | :--- | :--- | :--- |
-| **Flèche GAUCHE / DROITE** | **Gaz (Puissance)** | Gère la poussée du moteur. |
-| **SHIFT (Maj)** | **Plein Gaz** | Poussée maximale immédiate (Décollage d'urgence). |
-| **CTRL** | **Couper Gaz** | Arrêt moteur immédiat (Approche finale). |
 | **Flèche HAUT** | **Piquer (Descendre)** | Pousse le manche vers l'avant. |
 | **Flèche BAS** | **Cabrer (Monter)** | Tire le manche vers l'arrière. |
-| **ESPACE / B** | **Freins de Roue** | Ralentir au sol après l'atterrissage. |
-| **L** | **Lumière** | Allumer/Éteindre le phare d'atterrissage. |
+| **Flèche GAUCHE / DROITE** | **Gaz (Puissance)** | Gère la poussée du moteur. |
+| **ESPACE** | **Freins** | Ralentir au sol. |
+| **F** | **Volets (Flaps)** | Sortir/Rentrer les volets pour la portance. |
+| **G** | **Train d'Atterrissage** | Rentrer/Sortir le train (Gear). |
+| **L** | **Lumière** | Allumer/Éteindre le phare. |
 | **Molette SOURIS** | **Zoom Caméra** | Zoom avant/arrière fluide. |
+| **ECHAP** | **Quitter** | Retour au bureau. |
 
-##  Guide de Démarrage
+---
+
+##  Installation & Lancement
 
 ### Prérequis
-* Python 3.x installé.
-* Bibliothèques nécessaires :
+*   Python 3.x installé.
+*   Bibliothèques nécessaires :
     ```bash
     pip install pygame customtkinter pillow
     ```
