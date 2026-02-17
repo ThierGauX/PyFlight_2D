@@ -19,6 +19,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--time", type=str, default="real", help="Heure de départ (real ou 0-24)")
 parser.add_argument("--difficulty", type=str, default="easy", help="easy ou real")
 parser.add_argument("--volume", type=float, default=0.5, help="Volume global (0.0-1.0)")
+parser.add_argument("--no-hud", action="store_true", help="Desactiver HUD")
+parser.add_argument("--no-dash", action="store_true", help="Desactiver Dashboard Analogique")
+parser.add_argument("--no-clouds", action="store_true", help="Desactiver Nuages")
+parser.add_argument("--no-particles", action="store_true", help="Desactiver Particules")
+parser.add_argument("--no-atmo", action="store_true", help="Desactiver Atmosphere")
+parser.add_argument("--no-terrain", action="store_true", help="Desactiver Terrain Details")
+
+# Nouveaux Args
+parser.add_argument("--unlimited-fuel", action="store_true", help="Carburant illimité")
+parser.add_argument("--god-mode", action="store_true", help="Invincible")
+parser.add_argument("--fullscreen", action="store_true", help="Plein Ecran")
+parser.add_argument("--show-fps", action="store_true", help="Afficher FPS")
 
 # On parse uniquement si on est lancé en tant que script principal
 args = None
@@ -26,7 +38,10 @@ if __name__ == "__main__":
     args, unknown = parser.parse_known_args()
 else:
     # Valeurs par défaut si importé (ou pas de main)
-    args = argparse.Namespace(time="real", difficulty="easy", volume=0.5)
+    args = argparse.Namespace(time="real", difficulty="easy", volume=0.5, 
+                              no_hud=False, no_dash=False, no_clouds=False, 
+                              no_particles=False, no_atmo=False, no_terrain=False,
+                              unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False)
 
 
 # --- INITIALISATION ---
@@ -39,7 +54,11 @@ except:
 
 # --- FENETRE ---
 L, H = 1200, 700
-fenetre = pygame.display.set_mode((L, H))
+flags = 0
+if args.fullscreen:
+    flags = pygame.FULLSCREEN | pygame.SCALED
+    
+fenetre = pygame.display.set_mode((L, H), flags)
 pygame.display.set_caption("Pyflight 2D")
 
 # --- RESSOURCES ---
@@ -124,6 +143,11 @@ en_decrochage = False
 alarme_playing = False 
 altitude = 0 
 vitesse_kph = 0
+
+# HISTORIQUE POSITION (Map)
+position_history = []
+history_timer = 0
+
 pilote_auto_actif = (args.difficulty == "easy")
 zoom = 1.0          
 zoom_cible = 1.0    
@@ -695,6 +719,33 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     lbl_th_val = police_valeur.render(f"{int(poussee_pct)}%", True, (255, 255, 255))
     surface.blit(lbl_th_val, (L - 80, y_map))
 
+    # DESSIN HISTORIQUE SUR MAP
+    px_per_m = w_map / (20000 * 2) # Recalcul local si besoin, ou on utilise celui calculé plus haut
+    # On sait que center_map_x correspond à px_world
+    
+    if len(position_history) > 1:
+        points_map = []
+        for (hx, halt) in position_history:
+             dist = hx - px_world
+             if abs(dist) < 20000: # RANGE_MAP
+                 mx = center_map_x + (dist * px_per_m)
+                 # On doit scaler l'altitude aussi
+                 # h_rel = min(h_map - 20, alt * 0.02) -> c'est pour l'avion actuel
+                 # Pour l'historique, on utilise la même échelle verticale relative
+                 # Attention: le "haut" du radar n'est pas "absolu", il dépend de l'altitude actuelle ?
+                 # Non, "y_map+h_map-10" est le SOL (approximativement) dans la représentation actuelle de l'avion
+                 # Si on regarde l'avion: h_rel = alt * 0.02.
+                 # Donc Y_avion = Base - (alt * 0.02)
+                 
+                 hy_rel = min(h_map - 15, halt * 0.02)
+                 my = y_map + h_map - 10 - hy_rel
+                 points_map.append((mx, my))
+        
+        if len(points_map) > 1:
+            pygame.draw.lines(surface, (0, 255, 0), False, points_map, 1)
+
+
+
     # MANETTE GAZ (VISUELLE)
     # Un rectangle vertical avec un curseur
     x_thr = L - 30
@@ -1060,6 +1111,13 @@ while True:
             angle = 0
             fuel = 100.0
             moteur_allume = False
+            # Consommation carburant
+            if not args.unlimited_fuel:
+                fuel_flow = (niveau_poussee_reelle / 100.0) * 0.05
+                fuel -= fuel_flow
+                if fuel < 0: 
+                    fuel = 0
+                    moteur_allume = False
             niveau_poussee_reelle = 0
             
             # Respawn un peu avant la piste si on veut être gentil, ou à 0
@@ -1077,9 +1135,10 @@ while True:
     fenetre.fill(obtenir_couleur_ciel(altitude))
     
     # DESSIN NUAGES (ARRIÈRE PLAN)
-    for c in clouds:
-        c.update(vx)
-        c.draw(fenetre, world_x, -altitude, zoom)
+    if not args.no_clouds:
+        for c in clouds:
+            c.update(vx)
+            c.draw(fenetre, world_x, -altitude, zoom)
     
     # CONTIUE LE RESTE DU DESSIN (SOL, AVION)
     
@@ -1099,7 +1158,7 @@ while True:
             pygame.draw.circle(surface_fumee, (200, 200, 200, p_alpha), (radius, radius), radius)
             fenetre.blit(surface_fumee, (px - radius, py - radius))
 
-    if vitesse_kph > 50:
+    if not args.no_particles and vitesse_kph > 50:
         for p in particules:
             # Mouvement horizontal (existant)
             p[0] -= (vitesse_kph * 0.05 * p[2]) * zoom 
@@ -1133,6 +1192,14 @@ while True:
     for b in birds:
         b.update()
         b.draw(fenetre, world_x, -altitude, zoom)
+        
+    # MISE A JOUR HISTORIQUE
+    history_timer += 1
+    if history_timer > 10: # Tous les 10 ticks (env 6 fois par seconde à 60fps)
+        history_timer = 0
+        position_history.append((world_x, altitude))
+        if len(position_history) > 500: # Garde les 500 derniers points
+            position_history.pop(0)
 
 
     pos_sol_y = (H // 2) + (altitude * zoom) + offset_shake_y
@@ -1156,7 +1223,7 @@ while True:
         if largeur_motif_ecran < 1: largeur_motif_ecran = 1 
         nb_motifs_demi = int((L / 2) / largeur_motif_ecran) + 2
         
-        if alpha_sol > 20: # Ne dessine les détails que si visibles
+        if alpha_sol > 20 and not args.no_terrain: # Ne dessine les détails que si visibles
             for i in range(-nb_motifs_demi, nb_motifs_demi + 1):
                 base_x = (i * largeur_motif * zoom) - (offset_herbe * zoom) + (L/2) + offset_shake_x
                 if base_x + (largeur_motif*zoom) > 0 and base_x < L:
@@ -1213,7 +1280,7 @@ while True:
 
     # ATMOSPHERE HAUTE ALTITUDE
     # Si zoom très faible (haute altitude), on rajoute du voile
-    if zoom < 0.5:
+    if zoom < 0.5 and not args.no_atmo:
         alpha_atmo = int((1.0 - (zoom / 0.5)) * 100) # Max 100 alpha (plus subtil)
         s_atmo = pygame.Surface((L, H), pygame.SRCALPHA)
         s_atmo.fill((*CIEL_BAS, alpha_atmo)) # Voile couleur ciel
@@ -1265,11 +1332,36 @@ while True:
     
     # --- DASHBOARD ---
     # 1. Analogique (Bas)
-    dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, vy, angle)
+    if not args.no_dash:
+        # On doit passer position_history à la fonction
+        # Mais dessiner_dashboard n'a pas cet argument.
+        # Soit on l'ajoute, soit on le dessine APRES.
+        # Modifions dessiner_dashboard pour accepter *args ou utilisons une var globale si c'est plus simple ici ?
+        # Non, on va modifier l'appel.
+        # ATTENTION: dessiner_dashboard est défini plus haut, on doit update sa signature.
+        # Pour faire simple et éviter de casser la signature partout si on a oublié,
+        # je vais tricher légèrement : je dessine l'historique PAR DESSUS le dashboard ici, 
+        # MAIS le dashboard est une surface opaque...
+        # Donc je DOIS modifier dessiner_dashboard.
+        
+        # J'ai ajouté le code DANS dessiner_dashboard via le replace précédent, 
+        # mais j'ai besoin que `position_history` soit accessible dedans.
+        # Comme `position_history` est défini au niveau module (global), ça devrait marcher direcment 
+        # sans le passer en argument si je ne l'ai pas masqué.
+        # Python capture les globales.
+        
+        dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, vy, angle)
     
     # 2. HUD Overlay (Haut)
-    dessiner_hud_overlay(fenetre, vitesse_kph, altitude, angle, vy)
+    if not args.no_hud:
+        dessiner_hud_overlay(fenetre, vitesse_kph, altitude, angle, vy)
     
+    # 3. FPS Counter (Coin Haut Gauche)
+    if args.show_fps:
+        fps = int(horloge.get_fps())
+        lbl_fps = police_label.render(f"FPS: {fps}", True, (0, 255, 0))
+        fenetre.blit(lbl_fps, (10, 10))
+
     # Message Alerte
     msg = ""
     c_msg = HUD_ROUGE
