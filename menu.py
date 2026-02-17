@@ -52,6 +52,7 @@ class MenuPrincipal(ctk.CTk):
         # Variables Gameplay (Cheat / Fun)
         self.var_unlimited_fuel = ctk.BooleanVar(value=False)
         self.var_god_mode = ctk.BooleanVar(value=False)
+        self.var_aircraft = ctk.StringVar(value="cessna") # Default Aircraft
 
         # Variables Système
         self.var_fullscreen = ctk.BooleanVar(value=False)
@@ -164,7 +165,25 @@ class MenuPrincipal(ctk.CTk):
         if self.var_temps.get() == "real":
             self.slider_heure.configure(state="disabled")
 
-        # 3. MÉTÉO / SAISONS
+        # 3. MOYEN DE TRANSPORT (AVION)
+        f_avion = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        f_avion.pack(fill="x", padx=10, pady=10)
+        ctk.CTkLabel(f_avion, text="TYPE D'AVION", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+
+        def set_aircraft(val):
+            map_a = {
+                "Cessna (Standard)": "cessna",
+                "Chasseur (Rapide)": "fighter", 
+                "Gros Porteur (Lourd)": "cargo"
+            }
+            self.var_aircraft.set(map_a.get(val, "cessna"))
+
+        seg_avion = ctk.CTkOptionMenu(f_avion, values=["Cessna (Standard)", "Chasseur (Rapide)", "Gros Porteur (Lourd)"], command=set_aircraft)
+        seg_avion.pack(fill="x", pady=5)
+        seg_avion.set("Cessna (Standard)")
+
+
+        # 4. MÉTÉO / SAISONS
         f_season = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         f_season.pack(fill="x", padx=10, pady=10)
         ctk.CTkLabel(f_season, text="MÉTÉO & SAISON", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
@@ -243,6 +262,7 @@ class MenuPrincipal(ctk.CTk):
         # Args
         cmd.extend(["--difficulty", self.var_difficulte.get()])
         cmd.extend(["--volume", str(self.var_volume.get())])
+        cmd.extend(["--aircraft", self.var_aircraft.get()])
         
         if self.var_temps.get() == "real":
             cmd.extend(["--time", "real"])
