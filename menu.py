@@ -4,6 +4,14 @@ import os
 import subprocess
 from PIL import Image, ImageTk
 
+def resource_path(relative_path):
+    import os, sys
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 # --- CONFIGURATION DU DESIGN ---
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
@@ -31,6 +39,22 @@ class MenuPrincipal(ctk.CTk):
         self.var_temps = ctk.StringVar(value="real")
         self.var_heure_manuelle = ctk.DoubleVar(value=12.0)
         self.var_volume = ctk.DoubleVar(value=0.5)
+
+        # Variables Graphiques
+        self.var_show_hud = ctk.BooleanVar(value=True)
+        self.var_show_w_dashboard = ctk.BooleanVar(value=True) # Analog
+        self.var_show_clouds = ctk.BooleanVar(value=True)
+        self.var_show_particles = ctk.BooleanVar(value=True)
+        self.var_show_atmo = ctk.BooleanVar(value=True)
+        self.var_show_terrain = ctk.BooleanVar(value=True)
+
+        # Variables Gameplay (Cheat / Fun)
+        self.var_unlimited_fuel = ctk.BooleanVar(value=False)
+        self.var_god_mode = ctk.BooleanVar(value=False)
+
+        # Variables Système
+        self.var_fullscreen = ctk.BooleanVar(value=False)
+        self.var_show_fps = ctk.BooleanVar(value=False)
 
         # Layout Principal (2 Colonnes)
         self.grid_columnconfigure(0, weight=1) # Gauche (Visuel/Titre)
@@ -93,12 +117,16 @@ class MenuPrincipal(ctk.CTk):
         for widget in self.frame_menu.winfo_children():
             widget.destroy()
             
-        # En-tête
-        ctk.CTkLabel(self.frame_menu, text="CONFIGURATION", font=("Arial", 20, "bold"), text_color="gray").pack(pady=(50, 30))
+        # En-tête Fixe
+        ctk.CTkLabel(self.frame_menu, text="CONFIGURATION", font=("Arial", 20, "bold"), text_color="gray").pack(pady=(30, 10))
+
+        # Zone Défilante pour les options
+        scroll_frame = ctk.CTkScrollableFrame(self.frame_menu, fg_color="transparent", width=320)
+        scroll_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
         # 1. DIFFICULTÉ
-        f_diff = ctk.CTkFrame(self.frame_menu, fg_color="transparent")
-        f_diff.pack(fill="x", padx=20, pady=10)
+        f_diff = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        f_diff.pack(fill="x", padx=10, pady=10)
         ctk.CTkLabel(f_diff, text="MODE DE PILOTAGE", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
         
         def set_diff(val):
@@ -109,8 +137,8 @@ class MenuPrincipal(ctk.CTk):
         seg_diff.set("FACILE (Assisté)" if self.var_difficulte.get()=="easy" else "RÉALISTE")
         
         # 2. TEMPS / HEURE
-        f_time = ctk.CTkFrame(self.frame_menu, fg_color="transparent")
-        f_time.pack(fill="x", padx=20, pady=20)
+        f_time = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        f_time.pack(fill="x", padx=10, pady=10)
         ctk.CTkLabel(f_time, text="HEURE DU VOL", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
 
         def toggle_time():
@@ -137,16 +165,41 @@ class MenuPrincipal(ctk.CTk):
             self.slider_heure.configure(state="disabled")
 
         # 3. VOLUME
-        f_vol = ctk.CTkFrame(self.frame_menu, fg_color="transparent")
-        f_vol.pack(fill="x", padx=20, pady=10)
+        f_vol = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        f_vol.pack(fill="x", padx=10, pady=10)
         ctk.CTkLabel(f_vol, text="VOLUME MOTEUR", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
         ctk.CTkSlider(f_vol, from_=0.0, to=1.0, variable=self.var_volume).pack(fill="x", pady=5)
 
+        # 4. GAMEPLAY (Nouveau)
+        f_game = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        f_game.pack(fill="x", padx=10, pady=10)
+        ctk.CTkLabel(f_game, text="GAMEPLAY & CHEATS", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+        ctk.CTkCheckBox(f_game, text="Carburant Illimité", variable=self.var_unlimited_fuel).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_game, text="Invincibilité (God Mode)", variable=self.var_god_mode).pack(anchor="w", pady=2)
 
-        # BOUTON RETOUR
+        # 5. SYSTÈME (Nouveau)
+        f_sys = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        f_sys.pack(fill="x", padx=10, pady=10)
+        ctk.CTkLabel(f_sys, text="SYSTÈME", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+        ctk.CTkSwitch(f_sys, text="Plein Écran", variable=self.var_fullscreen).pack(anchor="w", pady=2)
+        ctk.CTkSwitch(f_sys, text="Afficher FPS", variable=self.var_show_fps).pack(anchor="w", pady=2)
+
+        # 6. GRAPHIQUES (Toggle)
+        f_gfx = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        f_gfx.pack(fill="x", padx=10, pady=10)
+        ctk.CTkLabel(f_gfx, text="AFFICHAGE", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+        
+        ctk.CTkCheckBox(f_gfx, text="HUD (Haut)", variable=self.var_show_hud).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_gfx, text="Tableau Bord (Bas)", variable=self.var_show_w_dashboard).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_gfx, text="Nuages", variable=self.var_show_clouds).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_gfx, text="Particules Vitesse", variable=self.var_show_particles).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_gfx, text="Atmosphere", variable=self.var_show_atmo).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_gfx, text="Details Terrain", variable=self.var_show_terrain).pack(anchor="w", pady=2)
+
+        # BOUTON RETOUR (HORS du ScrollFrame pour rester visible)
         ctk.CTkButton(self.frame_menu, text="RETOUR", command=self.creer_menu_principal,
                       font=("Arial", 14, "bold"), height=40, width=280,
-                      fg_color="transparent", border_width=1, border_color="gray", hover_color="#334155").pack(side="bottom", pady=30)
+                      fg_color="transparent", border_width=1, border_color="gray", hover_color="#334155").pack(side="bottom", pady=20)
 
 
     def lancer_jeu(self):
@@ -167,6 +220,20 @@ class MenuPrincipal(ctk.CTk):
             cmd.extend(["--time", "real"])
         else:
             cmd.extend(["--time", str(self.var_heure_manuelle.get())])
+            
+        # Args Graphiques
+        if not self.var_show_hud.get(): cmd.append("--no-hud")
+        if not self.var_show_w_dashboard.get(): cmd.append("--no-dash")
+        if not self.var_show_clouds.get(): cmd.append("--no-clouds")
+        if not self.var_show_particles.get(): cmd.append("--no-particles")
+        if self.var_show_atmo.get() is False: cmd.append("--no-atmo")
+        if self.var_show_terrain.get() is False: cmd.append("--no-terrain")
+        
+        # Args Gameplay / Systeme
+        if self.var_unlimited_fuel.get(): cmd.append("--unlimited-fuel")
+        if self.var_god_mode.get(): cmd.append("--god-mode")
+        if self.var_fullscreen.get(): cmd.append("--fullscreen")
+        if self.var_show_fps.get(): cmd.append("--show-fps")
             
         print(f"Lancement de : {cmd}")
         subprocess.run(cmd)
