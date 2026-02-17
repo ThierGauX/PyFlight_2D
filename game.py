@@ -31,6 +31,7 @@ parser.add_argument("--unlimited-fuel", action="store_true", help="Carburant ill
 parser.add_argument("--god-mode", action="store_true", help="Invincible")
 parser.add_argument("--fullscreen", action="store_true", help="Plein Ecran")
 parser.add_argument("--show-fps", action="store_true", help="Afficher FPS")
+parser.add_argument("--season", type=str, default="summer", help="Saison: summer, rain, snow, wind")
 
 # On parse uniquement si on est lancé en tant que script principal
 args = None
@@ -41,7 +42,8 @@ else:
     args = argparse.Namespace(time="real", difficulty="easy", volume=0.5, 
                               no_hud=False, no_dash=False, no_clouds=False, 
                               no_particles=False, no_atmo=False, no_terrain=False,
-                              unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False)
+                              unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False,
+                              season="summer")
 
 
 # --- INITIALISATION ---
@@ -120,6 +122,40 @@ SOL_HERBE_CLAIR = C_SOL_JOUR_CLAIR
 SOL_PISTE = (50, 50, 55)      
 SOL_MARQUAGE = (240, 240, 240)
 
+# AJUSTEMENT SAISON
+# AJUSTEMENT SAISON
+# AJUSTEMENT SAISON
+if args.season == "snow":
+    # AMBIANCE HIVER (Neige avec un peu de vert)
+    SOL_HERBE_BASE = (200, 220, 210)    # Blanc verdatre
+    SOL_HERBE_FONCE = (150, 170, 160)   
+    SOL_HERBE_CLAIR = (230, 250, 240)   
+    SOL_PISTE = (140, 140, 150)         
+    
+    CIEL_BAS = (190, 200, 210)          
+    CIEL_HAUT = (100, 110, 130)         
+
+elif args.season in ["rain", "autumn"]:
+    # AMBIANCE AUTOMNE (Feuilles mortes / Pluie)
+    SOL_HERBE_BASE = (139, 69, 19)      # Saddle Brown
+    SOL_HERBE_FONCE = (101, 67, 33)     # Dark Brown
+    SOL_HERBE_CLAIR = (205, 133, 63)    # Peru (Orange/Brun)
+    SOL_PISTE = (60, 60, 65)            
+    
+    CIEL_BAS = (80, 90, 100)             
+    CIEL_HAUT = (30, 35, 45)            
+
+elif args.season == "spring":
+    # AMBIANCE PRINTEMPS (Jaune / Vert tendre)
+    SOL_HERBE_BASE = (154, 205, 50)     # Yellow Green
+    SOL_HERBE_FONCE = (85, 107, 47)     # Olive Drab
+    SOL_HERBE_CLAIR = (173, 255, 47)    # Green Yellow
+    
+    # Ciel clair mais doux
+    CIEL_BAS = (176, 224, 230)          
+    CIEL_HAUT = (70, 130, 180)
+
+
 # COULEURS COCKPIT
 DASH_BG = (30, 32, 36)         
 DASH_PANEL = (10, 10, 12)      
@@ -193,7 +229,14 @@ for _ in range(150):
 contrails = [] # Liste des traînées de condensation [x, y, life]
 
 particules = []
-for _ in range(50): 
+particules = []
+nb_particules = 300 # Beaucoup plus de particules (Pluie/Neige)
+if args.season in ["summer", "spring"] and not args.season == "wind":
+    nb_particules = 50 # Peu de particules en été/printemps (juste un peu de pollen/vent ?)
+if args.no_particles: nb_particules = 0
+
+for _ in range(nb_particules): 
+    # x, y, speed_factor, type/size
     particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 2.0), random.randint(1, 3)])
 
 # --- CLOUDS & BIRDS & RUNWAYS ---
@@ -206,7 +249,12 @@ class Cloud:
         self.x = float(random.randint(-5000, 5000)) if random_start else 6000.0
         self.y = float(random.randint(-3000, -200)) # Plus haut
         self.depth = random.uniform(0.1, 0.9) 
-        self.scale = random.uniform(1.0, 3.0) * self.depth
+        
+        # Scale: plus gros si plus haut
+        base_scale_max = 3.0
+        if self.y < -1500: base_scale_max = 6.0 # TRES GROS NUAGE HAUTE ALTITUDE
+        
+        self.scale = random.uniform(1.0, base_scale_max) * self.depth
         
         # Generation Image Nuage (Pre-render)
         w_cloud = int(random.randint(150, 300) * self.scale)
@@ -746,8 +794,24 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
 
 
 
-    # MANETTE GAZ (VISUELLE)
-    # Un rectangle vertical avec un curseur
+    surface.blit(lbl_th_val, (L - 80, y_map))
+
+    # INDICATEURS REPOSITIONNES (AU-DESSUS DE RADAR/THR)
+    y_ind = y_map - 40
+    # GEAR
+    c_gear = (0, 200, 0)
+    pygame.draw.circle(surface, c_gear, (L - 260, y_ind), 5)
+    surface.blit(police_label.render("GEAR", True, (200, 200, 200)), (L - 250, y_ind - 7))
+    
+    # FLAPS
+    c_flaps = (0, 200, 0) if flaps else (50, 50, 50)
+    pygame.draw.circle(surface, c_flaps, (L - 180, y_ind), 5)
+    surface.blit(police_label.render("FLAPS", True, (200, 200, 200)), (L - 170, y_ind - 7))
+
+    # BRAKE
+    c_brake = (200, 50, 50) if freins else (50, 50, 50)
+    pygame.draw.circle(surface, c_brake, (L - 100, y_ind), 5)
+    surface.blit(police_label.render("BRAKE", True, (200, 200, 200)), (L - 90, y_ind - 7))
     x_thr = L - 30
     y_thr = y_map
     w_thr = 15
@@ -762,23 +826,6 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     pygame.draw.rect(surface, (200, 200, 200), (x_thr - 5, pos_y_manette - 5, w_thr + 10, 10))
     pygame.draw.line(surface, (50, 50, 50), (x_thr - 5, pos_y_manette), (x_thr + w_thr + 5, pos_y_manette), 1)
 
-    
-    # INDICATEURS CLASSIQUES (Lampes)
-    # GEAR
-    y_lamps = y_base + 60
-    pygame.draw.circle(surface, (0, 200, 0), (L - 350, y_lamps), 6)
-    surface.blit(police_label.render("GEAR", True, (200,200,200)), (L - 340, y_lamps - 8))
-    
-    # FLAPS
-    c_flaps = (0, 200, 0) if flaps else (40, 40, 40)
-    pygame.draw.circle(surface, c_flaps, (L - 250, y_lamps), 6)
-    surface.blit(police_label.render("FLAPS", True, (200,200,200)), (L - 240, y_lamps - 8))
-    
-    # BRAKES
-    c_brakes = (200, 0, 0) if freins else (40, 40, 40)
-    pygame.draw.circle(surface, c_brakes, (L - 150, y_lamps), 6)
-    surface.blit(police_label.render("BRAKE", True, (200,200,200)), (L - 140, y_lamps - 8))
-    
     lbl_ti = police_valeur.render(f"{int(heure_dec):02d}:{int((heure_dec%1)*60):02d}", True, HUD_VERT)
     surface.blit(lbl_ti, (L - 80, y_map + 20))
 
@@ -1158,35 +1205,47 @@ while True:
             pygame.draw.circle(surface_fumee, (200, 200, 200, p_alpha), (radius, radius), radius)
             fenetre.blit(surface_fumee, (px - radius, py - radius))
 
-    if not args.no_particles and vitesse_kph > 50:
+    if not args.no_particles:
         for p in particules:
-            # Mouvement horizontal (existant)
+            # P[0]=x, p[1]=y, p[2]=speed_factor, p[3]=type(size)
+            
+            # Gestion Mouvement selon type (Wind, Rain, Snow)
+            if args.season == "snow":
+                p[1] += 2.0 * zoom # Tombe doucement
+                p[0] -= (vitesse_kph * 0.05 + math.sin(p[1]*0.05)*2 - 2) * zoom # Flotte + vent léger
+            elif args.season in ["rain", "autumn"]:
+                p[1] += 15.0 * zoom # Tombe vite
+                p[0] -= (vitesse_kph * 0.05 - 5) * zoom # Vent
+            else:
+                # Vent / Vitesse (Classique)
+                # p[1] ne bouge pas VERTICALEMENT (fixé précédement)
+                # sauf si on veut simuler des particules d'air
+                pass 
+
+            # Wrapping
+            if p[1] > H: p[1] = -10
+            
+            # Vitesse horizontale relative avion
             p[0] -= (vitesse_kph * 0.05 * p[2]) * zoom 
-            
-            # Mouvement vertical (DESACTIVE SUR DEMANDE)
-            # p[1] -= (vy * 20.0 * p[2]) * zoom
 
-            # Wrapping X
-            if p[0] < -100:
-                p[0] = L + random.randint(0, 100)
-                p[1] = random.randint(0, H)
+            if p[0] < -100: p[0] = L + 100
             
-            # Wrapping Y (Juste garde-fou)
-            if p[1] < -100: p[1] = H
-            elif p[1] > H + 100: p[1] = 0
-
-            longueur = max(2, int(vitesse_kph / 50)) * zoom # Traits plus longs avec zoom
-            
-            # --- MODIFICATION (Retour aux traits horizontaux blancs) ---
-            # On garde le mouvement vertical (p[1] change), mais le trait reste horizontal
+            # Dessin
             px = p[0]
             py = p[1]
-            px2 = px - longueur
-            py2 = py # Pas d'inclinaison verticale
             
-            # On ne dessine que si c'est dans l'écran (avec marge)
-            if -100 < px < L+100 and -100 < py < H+100:
-                pygame.draw.line(fenetre, (255, 255, 255), (px, py), (px2, py2), max(1, int(zoom)))
+            # On ne dessine que si dans l'écran
+            if -50 < px < L+50 and -50 < py < H+50:
+                if args.season == "snow":
+                     pygame.draw.circle(fenetre, (255, 255, 255), (px, py), max(1, 2*zoom))
+                elif args.season in ["rain", "autumn"]:
+                     # Trait bleu penché
+                     pygame.draw.line(fenetre, (100, 100, 150), (px, py), (px - 5*zoom, py + 10*zoom), 1)
+                else:
+                     # Trait blanc (vent)
+                     if vitesse_kph > 50:
+                         px2 = px - (20 * zoom * p[2])
+                         pygame.draw.line(fenetre, (255, 255, 255), (px, py), (px2, py), max(1, int(zoom)))
 
     # DESSIN OISEAUX
     for b in birds:
