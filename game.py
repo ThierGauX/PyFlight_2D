@@ -342,7 +342,7 @@ while True:
             pygame.quit()
             exit()
         elif event.type == pygame.MOUSEWHEEL:
-            zoom_cible += event.y * 0.1 
+            zoom_cible += event.y * 0.2 # Zoom plus rapide 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_a:
                 moteur_allume = not moteur_allume
@@ -352,15 +352,19 @@ while True:
                 lumiere_allume = not lumiere_allume
             
             if moteur_allume:
+                if event.key == pygame.K_LSHIFT: # PLEIN GAZ
+                    target_poussee = 100.0
+                if event.key == pygame.K_LCTRL: # COUPER GAZ
+                    target_poussee = 0.0
                 if event.key == pygame.K_RIGHT:
-                    target_poussee += 5.0 
+                    target_poussee += 10.0 # Plus rapide
                 if event.key == pygame.K_LEFT:
-                    target_poussee -= 5.0 
+                    target_poussee -= 10.0 
                 target_poussee = max(0.0, min(100.0, target_poussee))
 
     touches = pygame.key.get_pressed()
-    zoom_cible = max(0.5, min(2.0, zoom_cible))
-    zoom += (zoom_cible - zoom) * 0.1
+    zoom_cible = max(0.1, min(5.0, zoom_cible)) # Plage de zoom ÉNORME
+    zoom += (zoom_cible - zoom) * 0.05 # Plus fluide
 
     # --- CONTROLE STABILISÉ (MODE FACILE) ---
     target_rotation = 0
@@ -386,8 +390,9 @@ while True:
         
         # 2. Poids du nez au sol (Difficile de lever le nez à basse vitesse)
         facteur_sol = 1.0
-        if altitude < 5:
-            facteur_sol = 0.4 # Nez lourd
+        # On adoucit la contrainte : progressif de 0 à 10m
+        if altitude < 10:
+            facteur_sol = 0.5 + (altitude / 10.0) * 0.5 # 50% min authority -> 100%
             
         accel = ACCEL_ROTATION * 0.5 * efficacite_vitesse * facteur_sol
         
@@ -427,9 +432,9 @@ while True:
         target_poussee = 0.0
         
     if niveau_poussee_reelle < target_poussee:
-        niveau_poussee_reelle += 0.2  
+        niveau_poussee_reelle += 1.0  # Montée en régime BEAUCOUP plus rapide
     elif niveau_poussee_reelle > target_poussee:
-        niveau_poussee_reelle -= 0.4   
+        niveau_poussee_reelle -= 1.0   
         
     # SON CONTINU
     if son_moteur:
@@ -513,10 +518,10 @@ while True:
 
             portance_dynamique = (vitesse_totale**2) * coeff_p * lift_factor * 0.05 * densite_air
             
-            # EFFET DE SOL (Ground Effect)
-            # Bonus de portance quand on est près du sol (< 20m)
-            if altitude < 20:
-                bonus_sol = 1.0 + (1.0 - (altitude / 20.0)) * 0.25 # +25% max au ras du sol
+            # EFFET DE SOL (Ground Effect) - ADOUCI
+            # Bonus de portance plus progressif (30m au lieu de 20m, max +15% au lieu de +25%)
+            if altitude < 30:
+                bonus_sol = 1.0 + (1.0 - (altitude / 30.0)) * 0.15 
                 portance_dynamique *= bonus_sol
                 
             portance = portance_dynamique
@@ -591,7 +596,14 @@ while True:
         pygame.draw.rect(fenetre, SOL_HERBE_BASE, (-100, pos_sol_y, L+200, H))
         largeur_motif = 2000 
         offset_herbe = int(world_x % largeur_motif)
-        for i in range(-1, 2):
+        
+        # Calcul du nombre de motifs nécessaires pour remplir l'écran
+        largeur_motif_ecran = largeur_motif * zoom
+        if largeur_motif_ecran < 1: largeur_motif_ecran = 1 # Sécurité
+        
+        nb_motifs_demi = int((L / 2) / largeur_motif_ecran) + 2
+        
+        for i in range(-nb_motifs_demi, nb_motifs_demi + 1):
             base_x = (i * largeur_motif * zoom) - (offset_herbe * zoom) + (L/2)
             if base_x + (largeur_motif*zoom) > 0 and base_x < L:
                 for patch in decor_sol:
@@ -618,33 +630,45 @@ while True:
                 pygame.draw.rect(fenetre, SOL_MARQUAGE, (bx, pos_sol_y + 20*zoom, bw, bh))
             
     # --- DESSIN AVION ---
+    # --- DESSIN AVION ---
     # Selection image
-    img_avion = img_avion_feu_base if (postcombustion and moteur_allume) else img_avion_normal_base
+    img_base = img_avion_feu_base if (postcombustion and moteur_allume) else img_avion_normal_base
+    
+    # Redimensionnement (Zoom)
+    # On limite la taille min pour qu'on voie toujours un point
+    w_new = int(img_base.get_width() * zoom)
+    h_new = int(img_base.get_height() * zoom)
+    if w_new < 2: w_new = 2
+    if h_new < 2: h_new = 2
+    
+    img_scaled = pygame.transform.scale(img_base, (w_new, h_new))
     
     # Rotation
-    img_rot = pygame.transform.rotate(img_avion, angle)
+    img_rot = pygame.transform.rotate(img_scaled, angle)
     rect_img = img_rot.get_rect(center=(L//2, H//2))
     
     # LANDING LIGHT (Phare)
     if lumiere_allume:
         # Création d'une surface pour le faisceau (transparente)
-        longueur_faisceau = 400
-        largeur_faisceau = 100
-        surf_light = pygame.Surface((longueur_faisceau, largeur_faisceau), pygame.SRCALPHA)
+        # Scale du faisceau avec le zoom aussi sinon ça fait bizarre
+        w_f = int(400 * zoom)
+        h_f = int(100 * zoom)
+        
+        surf_light = pygame.Surface((w_f, h_f), pygame.SRCALPHA)
     
-        p1 = (0, largeur_faisceau // 2)
-        p2 = (longueur_faisceau, 0)
-        p3 = (longueur_faisceau, largeur_faisceau)
+        p1 = (0, h_f // 2)
+        p2 = (w_f, 0)
+        p3 = (w_f, h_f)
         pygame.draw.polygon(surf_light, (255, 255, 200, 40), [p1, p2, p3]) 
-        pygame.draw.polygon(surf_light, (255, 255, 220, 80), [p1, (longueur_faisceau*0.7, 20), (longueur_faisceau*0.7, 80)])
+        pygame.draw.polygon(surf_light, (255, 255, 220, 80), [p1, (w_f*0.7, 20*zoom), (w_f*0.7, h_f-(20*zoom))])
 
         faisceau_rot = pygame.transform.rotate(surf_light, angle)
         
         rad_a = math.radians(angle)
-        offset_x = math.cos(rad_a) * 50 
-        offset_y = -math.sin(rad_a) * 50
+        offset_x = math.cos(rad_a) * 50 * zoom # Scale offset
+        offset_y = -math.sin(rad_a) * 50 * zoom
         
-        rect_light = faisceau_rot.get_rect(center=(L//2 + offset_x + math.cos(rad_a)*200, H//2 + offset_y - math.sin(rad_a)*200))
+        rect_light = faisceau_rot.get_rect(center=(L//2 + offset_x + math.cos(rad_a)*200*zoom, H//2 + offset_y - math.sin(rad_a)*200*zoom))
         fenetre.blit(faisceau_rot, rect_light)
 
     fenetre.blit(img_rot, rect_img)
