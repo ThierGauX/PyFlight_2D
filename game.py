@@ -690,8 +690,27 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
              pygame.draw.rect(surface, (180, 180, 180), (mx, y_map+h_map-12, 10, 4))
              
     # Infos Textes (THRUST)
-    lbl_th = police_label.render(f"THR {int(poussee_pct)}%", True, HUD_ORANGE)
-    surface.blit(lbl_th, (L - 80, y_map))
+    lbl_th = police_label.render(f"THR", True, HUD_ORANGE)
+    surface.blit(lbl_th, (L - 80, y_map - 20))
+    lbl_th_val = police_valeur.render(f"{int(poussee_pct)}%", True, (255, 255, 255))
+    surface.blit(lbl_th_val, (L - 80, y_map))
+
+    # MANETTE GAZ (VISUELLE)
+    # Un rectangle vertical avec un curseur
+    x_thr = L - 30
+    y_thr = y_map
+    w_thr = 15
+    h_thr = 100
+    
+    # Fond slot
+    pygame.draw.rect(surface, (20, 20, 20), (x_thr, y_thr, w_thr, h_thr))
+    pygame.draw.rect(surface, (100, 100, 100), (x_thr, y_thr, w_thr, h_thr), 1)
+    
+    # Curseur (Manette)
+    pos_y_manette = y_thr + h_thr - (h_thr * (poussee_pct / 100.0))
+    pygame.draw.rect(surface, (200, 200, 200), (x_thr - 5, pos_y_manette - 5, w_thr + 10, 10))
+    pygame.draw.line(surface, (50, 50, 50), (x_thr - 5, pos_y_manette), (x_thr + w_thr + 5, pos_y_manette), 1)
+
     
     # INDICATEURS CLASSIQUES (Lampes)
     # GEAR
@@ -873,8 +892,10 @@ while True:
     
     # Secousses Caméra
     # Secousses Caméra (REDUIT)
-    shake_amount = (vitesse_kph / V_VNE) * 0.5 + (niveau_poussee_reelle/100.0) * 0.2
-    if altitude < 20: shake_amount += 0.5 # Petite turbulence sol
+    shake_amount = 0
+    if moteur_allume:
+        shake_amount = (vitesse_kph / V_VNE) * 0.5 + (niveau_poussee_reelle/100.0) * 0.2
+        if altitude < 20: shake_amount += 0.5 # Petite turbulence sol
     
     vx += math.cos(rad) * puissance_instantanee
     vy -= math.sin(rad) * puissance_instantanee
@@ -1083,21 +1104,17 @@ while True:
             # Mouvement horizontal (existant)
             p[0] -= (vitesse_kph * 0.05 * p[2]) * zoom 
             
-            # Mouvement vertical (NOUVEAU)
-            # Si on monte (vy < 0), les particules descendent (+=)
-            # On utilise vy pixels/frame. On applique le facteur zoom et un scalaire similaire à X
-            p[1] -= (vy * 20.0 * p[2]) * zoom
+            # Mouvement vertical (DESACTIVE SUR DEMANDE)
+            # p[1] -= (vy * 20.0 * p[2]) * zoom
 
             # Wrapping X
             if p[0] < -100:
                 p[0] = L + random.randint(0, 100)
                 p[1] = random.randint(0, H)
             
-            # Wrapping Y (Si elles sortent en haut ou en bas)
-            if p[1] < -100:
-                p[1] = H + random.randint(0, 100)
-            elif p[1] > H + 100:
-                p[1] = -random.randint(0, 100)
+            # Wrapping Y (Juste garde-fou)
+            if p[1] < -100: p[1] = H
+            elif p[1] > H + 100: p[1] = 0
 
             longueur = max(2, int(vitesse_kph / 50)) * zoom # Traits plus longs avec zoom
             
@@ -1162,6 +1179,38 @@ while True:
                         else:
                             pygame.draw.rect(fenetre, couleur_p, (px, py, pw, ph))
 
+    # GESTION PISTES (RUNWAYS)
+    for piste_x in RUNWAYS:
+        debut_piste_ecran = (piste_x - world_x) * zoom + (L/2)
+        longueur_piste_ecran = 5000 * zoom # 5km de piste
+        rect_piste = pygame.Rect(debut_piste_ecran, pos_sol_y, longueur_piste_ecran, H)
+        
+        # Optimisation display
+        if rect_piste.colliderect((-500,0,L+1000,H)): # Large clipping
+            pygame.draw.rect(fenetre, SOL_PISTE, rect_piste)
+            # Marquages piste
+            pygame.draw.rect(fenetre, SOL_MARQUAGE, (debut_piste_ecran, pos_sol_y, longueur_piste_ecran, 4*zoom))
+            
+            # Bandes (Optimisé)
+            step_bandes = 100 * zoom
+            if step_bandes < 2: step_bandes = 2 # Eviter step trop petit
+            nb_bandes = int(longueur_piste_ecran / step_bandes)
+            
+            # On ne dessine que ce qui est visible
+            # Calcul range visible
+            start_i = 0
+            # Si debut_piste < 0, on skip des bandes
+            if debut_piste_ecran < 0:
+                start_i = int((-debut_piste_ecran) / step_bandes)
+            
+            for i in range(start_i, nb_bandes):
+                bx = debut_piste_ecran + (i * step_bandes)
+                if bx > L: break # Fin ecran
+                
+                bw = 50 * zoom
+                bh = 10 * zoom
+                pygame.draw.rect(fenetre, SOL_MARQUAGE, (bx, pos_sol_y + 20*zoom, bw, bh))
+
     # ATMOSPHERE HAUTE ALTITUDE
     # Si zoom très faible (haute altitude), on rajoute du voile
     if zoom < 0.5:
@@ -1169,31 +1218,6 @@ while True:
         s_atmo = pygame.Surface((L, H), pygame.SRCALPHA)
         s_atmo.fill((*CIEL_BAS, alpha_atmo)) # Voile couleur ciel
         fenetre.blit(s_atmo, (0, 0))
-        
-        # Gestion Multi-Pistes
-        for piste_x in RUNWAYS:
-            debut_piste_ecran = (piste_x - world_x) * zoom + (L/2)
-            longueur_piste_ecran = 5000 * zoom # 5km de piste
-            rect_piste = pygame.Rect(debut_piste_ecran, pos_sol_y, longueur_piste_ecran, H)
-            
-            if rect_piste.colliderect((-500,0,L+1000,H)): # Large clipping
-                pygame.draw.rect(fenetre, SOL_PISTE, rect_piste)
-                # Marquages piste
-                pygame.draw.rect(fenetre, SOL_MARQUAGE, (debut_piste_ecran, pos_sol_y, longueur_piste_ecran, 4*zoom))
-                
-                # Bandes (Optimisé)
-                step_bandes = 100 * zoom
-                if step_bandes < 1: step_bandes = 1
-                nb_bandes = int(longueur_piste_ecran / step_bandes)
-                
-                # On ne dessine que ce qui est visible
-                for i in range(nb_bandes):
-                    bx = debut_piste_ecran + (i * step_bandes)
-                    bw = 50 * zoom
-                    bh = 10 * zoom
-                    if -100 < bx < L+100:
-                        pygame.draw.rect(fenetre, SOL_MARQUAGE, (bx, pos_sol_y + 20*zoom, bw, bh))
-                pygame.draw.rect(fenetre, SOL_MARQUAGE, (bx, pos_sol_y + 20*zoom, bw, bh))
             
     # --- DESSIN AVION ---
     # --- DESSIN AVION ---
