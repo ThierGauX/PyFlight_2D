@@ -1,59 +1,60 @@
-# PyFlight 2D - Simulateur de Vol 
+# PyFlight 2D - Simulateur de Vol
 
-Bienvenue dans **PyFlight 2D**, un simulateur de vol développé en Python avec la bibliothèque Pygame.
+Bienvenue dans **PyFlight 2D**, un simulateur de vol avancé développé en Python avec **Pygame** et **CustomTkinter**.
+Ce projet propose une expérience de vol immersive mêlant physique réaliste, graphismes soignés et interface moderne.
 
+- **Gauthier :** Développement & Interface (Menu "Ultimate").
+- **Jules :** Design & Identité Visuelle.
 
-* **Gauthier :** Développement du Menu du jeu.
-* **Jules :** style de l'avion.
+##  Fonctionnalités Principales
 
-##  Fonctionnalités Nouvelles & Principales
+###  Physique & Réalisme
+* **Modèle de Vol Avancé :** Inertie, portance, traînée et décrochage simulés.
+* **Effet de Sol :** Décollage plus réaliste avec une "bulle d'air" près du sol.
+* **Roulage Fluide :** Système de freinage progressif et suspensions actives pour des atterrissages doux.
+* **Météo Temps Réel :** Synchronisation avec l'heure réelle (France) pour des cycles jour/nuit dynamiques.
 
-###  Physique & Pilotage
-* **Inertie Réaliste :** Les commandes sont "lourdes". L'avion ne tourne pas instantanément, simulant la masse d'un véritable appareil.
-* **Modèle de Vol "Chasseur" :**
-    * Vitesse de décollage : **~220 km/h**
-    * Vitesse maximale (VNE) : **2500 km/h** (Mach 2.0+)
-    * Simulation de la traînée induite (perte de vitesse en virage serré).
+###  Menu "Ultimate"
+* **Interface Pro :** Launcher moderne style "Aero" (Bleu nuit/Glass).
+* **Paramètres Complets :**
+    * **Difficulté :** Facile (Assisté) ou Réaliste.
+    * **Temps :** Réel (Horloge Système) ou Manuel (Curseur 0h-24h).
+    * **Volume :** Réglage précis du moteur.
+* **Lancement Direct :** Le jeu démarre instantanément avec vos préférences.
 
 ###  Immersion Visuelle
-* **Caméra Dynamique (ZOOM) :** Possibilité de zoomer/dézoomer fluide avec la souris pour observer les détails ou le terrain.
-* **Cockpit Analogique :** Anémomètre à aiguille fonctionnel en temps réel.
-* **Effets de Particules :** Système de poussières atmosphériques pour ressentir la vitesse.
-* **HUD Militaire :** Affichage tête haute du Mach, des G-Force et du Variomètre.
+* **Monde Infini :** Génération procédurale du terrain (herbe, piste) à l'infini.
+* **Zoom Dynamique :** Molette de souris pour passer d'une vue cockpit à une vue satellite (x0.1 à x5.0).
+* **Particules de Vitesse :** Traits blancs dynamiques qui suivent vos mouvements verticaux.
+* **Lumière d'Atterrissage :** Projecteur orientable pour les vols de nuit.
 
 ##  Commandes de Vol
 
-Le simulateur se joue au Clavier et à la Souris.
-
-| Touche / Action | Fonction | Effet Physique |
+| Touche / Action | Fonction | Détails |
 | :--- | :--- | :--- |
-| **Flèche DROITE** | **Postcombustion** | Accélère l'avion (Maintenir pour décoller). |
-| **Flèche BAS** | **Tirer le manche** | Le nez monte (**Cabrer**). Attention à la perte de vitesse !  |
-| **Flèche HAUT** | **Pousser le manche** | Le nez descend (**Piquer**) pour prendre de la vitesse.  |
-| **Molette SOURIS** | **Zoom Caméra** | **Haut :** Zoom Avant (Détails) <br> **Bas :** Zoom Arrière (Vue large). |
-| *(Aucune touche)* | **Auto-Pilot** | Activation automatique du mode **STABLE** (Maintien d'altitude). |
+| **Flèche GAUCHE / DROITE** | **Gaz (Puissance)** | Gère la poussée du moteur. |
+| **SHIFT (Maj)** | **Plein Gaz** | Poussée maximale immédiate (Décollage d'urgence). |
+| **CTRL** | **Couper Gaz** | Arrêt moteur immédiat (Approche finale). |
+| **Flèche HAUT** | **Piquer (Descendre)** | Pousse le manche vers l'avant. |
+| **Flèche BAS** | **Cabrer (Monter)** | Tire le manche vers l'arrière. |
+| **ESPACE / B** | **Freins de Roue** | Ralentir au sol après l'atterrissage. |
+| **L** | **Lumière** | Allumer/Éteindre le phare d'atterrissage. |
+| **Molette SOURIS** | **Zoom Caméra** | Zoom avant/arrière fluide. |
 
-##  Guide Rapide
-
-1.  **Au sol :** Maintenez la **Flèche DROITE**.
-2.  **Décollage :** Attendez **220 km/h**, puis appuyez doucement sur **BAS**. Ne tirez pas trop fort pour éviter de décrocher.
-3.  **En vol :** Utilisez la **Molette** de la souris pour ajuster la vue.
-4.  **Atterrissage :** Coupez les gaz, levez le nez pour freiner avec l'air (Aérofreinage) et touchez le sol doucement (< 5 m/s).
-
-##  Installation
+##  Guide de Démarrage
 
 ### Prérequis
 * Python 3.x installé.
-* Bibliothèque `pygame`.
-
-### Installation
-1.  Clonez ce dépôt ou téléchargez les fichiers `avion.py`, `avion_arret.png` et `avion_marche.png`.
-2.  Installez les dépendances via le terminal :
+* Bibliothèques nécessaires :
     ```bash
-    pip install pygame
+    pip install pygame customtkinter pillow
     ```
 
 ### Lancement
-Exécutez le script principal :
+Pour profiter de toutes les fonctionnalités (paramètres, météo...), lancez toujours le **Launcher** :
+
 ```bash
-python avion.py
+python menu.py
+```
+
+*Bon vol Commandant !*
