@@ -109,20 +109,19 @@ particules = []
 for _ in range(50): 
     particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 2.0), random.randint(1, 3)])
 
-# PHYSIQUE
-V_DECOLLAGE = 220
-V_DECROCHAGE = 160
-V_VNE = 2500 
-V_MACH1 = 1225 
-GRAVITE = 0.18             
-PUISSANCE_MOTEUR = 1.0     
-FRICTION_AIR = 0.998       
-FRICTION_VERTICALE = 0.96  
-ACCEL_ROTATION = 0.15      # Rotation vive
-MAX_ROTATION = 2.5         
-FRICTION_ROTATION = 0.80   
-COEFF_PORTANCE = 0.0018    
-COEFF_TRAINEE_MONTEE = 0.002 
+# --- PHYSIQUE TYPE CESSNA 172 ---
+V_DECOLLAGE = 100          # Vitesse de rotation (~55 kts)
+V_DECROCHAGE = 85          # Vitesse de décrochage (Stall speed)
+V_VNE = 300                # Vitesse à ne jamais dépasser
+V_MACH1 = 1225             # Mur du son (sécurité pour le code)
+GRAVITE = 0.12             # Force de gravité
+PUISSANCE_MOTEUR = 0.45    # Puissance du moteur Lycoming IO-360
+FRICTION_AIR = 0.992       # Traînée aérodynamique globale
+FRICTION_VERTICALE = 0.96  # Amortissement des mouvements verticaux (Celle qui manquait !)
+ACCEL_ROTATION = 0.08      # Sensibilité du manche
+MAX_ROTATION = 1.8         # Débattement maximum des gouvernes
+COEFF_PORTANCE = 0.0035    # Portance de l'aile haute du Cessna
+COEFF_TRAINEE_MONTEE = 0.004
 
 horloge = pygame.time.Clock()
 
@@ -135,7 +134,7 @@ def obtenir_couleur_ciel(alt):
     return (r, g, b)
 
 # --- DASHBOARD EXPERT ---
-def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, poussee_pct):
+def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, poussee_pct):
     h_dash = 140
     y_base = H - h_dash
     
@@ -148,7 +147,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, poussee_pct):
     rayon = 60
     pygame.draw.circle(surface, DASH_PANEL, (x_spd, y_inst), rayon)
     pygame.draw.circle(surface, (80, 80, 80), (x_spd, y_inst), rayon, 2)
-    max_speed = 7500
+    max_speed = 400
     for v in range(0, max_speed + 1, 1000):
         ang = 135 + (v / max_speed) * 270
         rad = math.radians(ang)
@@ -204,7 +203,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, poussee_pct):
     surface.blit(val_g, (x_ecran + 140, y_ecran + 30))
 
     # 4. PANNEAU DROITE
-    x_ctrl = L - 350
+    x_ctrl = L - 460
     y_ctrl = y_base + 20
     def dessiner_voyant(label, etat, x, y, col_on=HUD_VERT, col_off=HUD_ROUGE):
         couleur = col_on if etat else col_off
@@ -220,6 +219,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, poussee_pct):
     dessiner_voyant("MOTEUR (A)", moteur, x_ctrl, y_ctrl)
     dessiner_voyant("FLAPS (F)", flaps, x_ctrl + 110, y_ctrl, col_on=HUD_ORANGE, col_off=HUD_VERT)
     dessiner_voyant("AUTOPILOT", auto, x_ctrl + 220, y_ctrl, col_on=(0, 200, 255), col_off=(50, 50, 50))
+    dessiner_voyant("FREINS (B)", freins, x_ctrl + 330, y_ctrl, col_on=HUD_ROUGE, col_off=(50, 50, 50))
     
     # Barre Thrust
     bar_x = x_ctrl
@@ -271,6 +271,7 @@ while True:
     target_rotation = 0
     action_manche = False 
     pilote_auto_actif = False
+    freins_actifs = False # Variable pour les freins
 
     if touches[pygame.K_UP]:    
         target_rotation = -MAX_ROTATION
@@ -279,33 +280,40 @@ while True:
         target_rotation = MAX_ROTATION
         action_manche = True
     
+    # FREINS (Espace ou B)
+    if touches[pygame.K_SPACE] or touches[pygame.K_b]:
+        freins_actifs = True
+
     if action_manche:
-        # Rotation Active
+        # Rotation Active (plus douce)
+        accel = ACCEL_ROTATION * 0.5 # On adoucit la réponse
         if target_rotation > vitesse_rotation_actuelle:
-            vitesse_rotation_actuelle += ACCEL_ROTATION
+            vitesse_rotation_actuelle += accel
         elif target_rotation < vitesse_rotation_actuelle:
-            vitesse_rotation_actuelle -= ACCEL_ROTATION
+            vitesse_rotation_actuelle -= accel
     else:
         # --- STABILISATEUR (Retour à plat) ---
-        vitesse_rotation_actuelle *= 0.60 # On arrête de tourner
+        vitesse_rotation_actuelle *= 0.90 # Amortissement rotation
         
-        # Si on est en l'air, on ramène le nez à 0°
+        # Si on est en l'air, on ramène le nez à 0° mais beaucoup plus doucement
         if vitesse_kph > V_DECOLLAGE and not en_decrochage:
-            angle *= 0.90 # Le nez descend doucement vers 0
+            # On ne force le retour à plat que si on est proche de l'horizon, sinon on laisse l'avion sur sa trajectoire
+            if abs(angle) < 20:
+                angle *= 0.995 # Retour TRES doux vers l'horizon (plus réaliste)
             
             # Si on est presque à plat, on verrouille
-            if abs(angle) < 1.0:
+            if abs(angle) < 0.5 and abs(vitesse_rotation_actuelle) < 0.01:
                 angle = 0
                 pilote_auto_actif = True
         
     angle += vitesse_rotation_actuelle
 
     # --- LIMITATION ANGLE ---
-    if angle > 45: 
-        angle = 45
+    if angle > 60:  # Un peu plus de liberté de tangage
+        angle = 60
         vitesse_rotation_actuelle = 0
-    if angle < -45:
-        angle = -45
+    if angle < -60:
+        angle = -60
         vitesse_rotation_actuelle = 0
 
     # --- MOTEUR & THRUST & SON ---
@@ -313,9 +321,9 @@ while True:
         target_poussee = 0.0
         
     if niveau_poussee_reelle < target_poussee:
-        niveau_poussee_reelle += 0.5 
+        niveau_poussee_reelle += 0.2  # Montée en régime lente
     elif niveau_poussee_reelle > target_poussee:
-        niveau_poussee_reelle -= 0.8 
+        niveau_poussee_reelle -= 0.4  # Décélération par friction de l'hélice 
         
     # SON CONTINU
     if son_moteur:
@@ -355,11 +363,11 @@ while True:
     
     # Planeur
     seuil_decrochage = V_DECROCHAGE
-    if flaps_sortis: seuil_decrochage = 100 
+    if flaps_sortis: seuil_decrochage = 75 # Plus permissif avec les volets
     
     if vitesse_kph < seuil_decrochage and altitude > 10:
         en_decrochage = True
-    elif vitesse_kph > seuil_decrochage + 20:
+    elif vitesse_kph > seuil_decrochage + 10:
         en_decrochage = False
 
     # --- PHYSIQUE DE VOL ET MAINTIEN ALTITUDE ---
@@ -375,34 +383,48 @@ while True:
         friction_actuelle = FRICTION_AIR
         
         if flaps_sortis:
-            friction_actuelle = 0.995 
-            coeff_p = 0.0050 
+            friction_actuelle = 0.985  # Les volets créent beaucoup de traînée (freinage)
+            coeff_p = 0.0075           # Portance massivement augmentée
         else:
-            coeff_p = COEFF_PORTANCE 
+            friction_actuelle = 0.992
+            coeff_p = COEFF_PORTANCE
 
         if not en_decrochage:
-            seuil_portance = 60 if flaps_sortis else 100
-            if vitesse_kph > seuil_portance: 
-                angle_attaque = abs(angle)
-                if angle_attaque > 5:
-                    vx *= 0.999 
-                    vy *= 0.999
-                
-                if angle > -10: 
-                    base_lift = 0.05 if flaps_sortis else 0
-                    factor = (angle + 2.0) if flaps_sortis else (angle + 2.0)
-                    if factor < 0: factor = 0
-                    if angle < -5: factor *= 0.2 
-                    portance = abs(vx) * (factor * coeff_p) + (abs(vx) * base_lift * 0.01)
-                
-                vx *= friction_actuelle
-                vy *= FRICTION_VERTICALE
+            # Portance réaliste : proportionnelle au carré de la vitesse
+            # Lift = Cl * 0.5 * rho * v^2 * S
+            # Ici simplifié en : k * v^2 * angle_factor
+            
+            angle_incidence = angle + 2.0 # Angle d'attaque de l'aile par rapport au vent relatif
+            
+            # Facteur d'efficacité de l'aile selon l'angle
+            lift_factor = angle_incidence * 0.1 
+            if lift_factor < 0: lift_factor *= 0.1 # Portance négative faible
+
+            # Calcul de la portance quadratique v^2
+            # On divise par un grand nombre pour normaliser car v^2 augmente très vite
+            portance_dynamique = (vitesse_totale**2) * coeff_p * lift_factor * 0.05
+            
+            # Application de la portance (perpendiculaire à la vitesse, ou simplifiée verticale ici)
+            portance = portance_dynamique
+
+            # Traînée induite (plus on porte, plus on freine)
+            trainee_induite = abs(portance) * 0.1
+            friction_actuelle -= trainee_induite * 0.01
+
+            vx *= friction_actuelle
+            vy *= FRICTION_VERTICALE
+            
+            # Amortissement naturel des oscillations
+            if abs(angle) < 5:
+                vx *= 0.9995 
+                vy *= 0.9995
         else:
+            # Décrochage = chute de pierre
             vx *= 0.99
             vy *= 0.99
-            if angle > 0: angle -= 0.4 
+            if angle > 10: angle -= 0.5 # Le nez tombe
         
-        if angle < 0: vy += 0.08 
+        if angle < 0: vy += 0.02 # Piqué accélère la chute
 
         vy -= portance
 
@@ -411,26 +433,33 @@ while True:
     
     # --- REBOND & IMMOBILISATION ---
     if -world_y <= 0:
-        if not moteur_allume and vitesse_kph < 10:
-            vx = 0
-            vy = 0
-            vitesse_rotation_actuelle = 0
-            world_y = 0
-        else:
-            sur_piste = -500 < world_x < 5500
-            seuil_rebond = 1.0 if sur_piste else 1.5 
+        # Au sol
+        world_y = 0
+        altitude = 0
+        
+        # Friction au sol (roulement des pneus)
+        friction_sol = 0.96 # Friction naturelle du tarmac/herbe
+        
+        if freins_actifs:
+            friction_sol = 0.85 # FREINAGE FORT
             
-            if vy > seuil_rebond: 
-                coef = 0.5 if sur_piste else 0.3
-                vy = -vy * coef 
-                vx *= 0.95 
-                world_y = 0.1 
-                en_decrochage = False
-            else:
-                world_y = 0
-                vy = 0
-                vx *= 0.98 if sur_piste else 0.90 
-                en_decrochage = False
+            # Effet visuel de piqué au freinage (suspension avant s'écrase)
+            if vitesse_kph > 10:
+                angle = 1.5 
+                
+        vx *= friction_sol
+        
+        if abs(vx) < 0.1: 
+            vx = 0
+            vitesse_rotation_actuelle = 0
+            
+        # Rebond simplifié
+        if vy > 1.5: 
+             vy = -vy * 0.3
+             world_y = 0.5 # Petit saut
+        else:
+            vy = 0
+            en_decrochage = False
             
     altitude = -world_y
 
@@ -491,7 +520,7 @@ while True:
         pts = [(L//2+(30*zoom), H//2), (L//2-(10*zoom), H//2-(10*zoom)), (L//2-(10*zoom), H//2+(10*zoom))]
         pygame.draw.polygon(fenetre, (100, 100, 100), pts)
 
-    dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, niveau_poussee_reelle)
+    dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, niveau_poussee_reelle)
 
     msg = ""
     c_msg = HUD_ROUGE
