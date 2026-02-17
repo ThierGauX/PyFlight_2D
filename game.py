@@ -4,7 +4,9 @@ import os
 import random
 import datetime # Pour l'heure réelle
 import argparse
+import argparse
 import sys
+import array # Pour generation son
 
 def resource_path(relative_path):
     import os, sys
@@ -13,6 +15,22 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
+def generer_son_vent():
+    # Génération de bruit blanc simple (1 seconde)
+    freq = 44100
+    duration = 2.0 
+    n_samples = int(freq * duration)
+    # 16-bit signed (-32768 to 32767)
+    # On génère des valeurs aléatoires
+    # Stereo : L, R, L, R...
+    
+    # On va faire simple: un bytearray
+    # Mais Sound attend un buffer compatible.
+    # array 'h' = signed short (2 bytes)
+    buf = array.array('h', [int(random.gauss(0, 5000)) for _ in range(n_samples * 2)])
+    return pygame.mixer.Sound(buffer=buf)
+
 
 # --- ARGUMENTS (Lancement depuis le Menu) ---
 parser = argparse.ArgumentParser()
@@ -32,6 +50,7 @@ parser.add_argument("--god-mode", action="store_true", help="Invincible")
 parser.add_argument("--fullscreen", action="store_true", help="Plein Ecran")
 parser.add_argument("--show-fps", action="store_true", help="Afficher FPS")
 parser.add_argument("--season", type=str, default="summer", help="Saison: summer, rain, snow, wind")
+parser.add_argument("--aircraft", type=str, default="cessna", help="Type d'avion: cessna, fighter, cargo")
 
 # On parse uniquement si on est lancé en tant que script principal
 args = None
@@ -43,7 +62,37 @@ else:
                               no_hud=False, no_dash=False, no_clouds=False, 
                               no_particles=False, no_atmo=False, no_terrain=False,
                               unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False,
-                              season="summer")
+                              season="summer", aircraft="cessna")
+
+# AIRCRAFT CONFIGS
+AIRCRAFT_CONFIGS = {
+    "cessna": {
+        "mass": 1000.0,
+        "thrust_max": 3000.0,
+        "drag_factor": 0.008,      # Matches 0.992 friction
+        "lift_factor": 0.1,        # Scaled x0.15 -> 0.0015
+        "fuel_rate": 0.005,        # Matches 0.005 burn
+        "rot_speed": 2.0           # Scaled x0.02 -> 0.04
+    },
+    "fighter": {
+        "mass": 5000.0,
+        "thrust_max": 7500.0,      # ~2.5x thrust
+        "drag_factor": 0.004,      # Less drag (0.996)
+        "lift_factor": 0.07,       # Less lift/mass
+        "fuel_rate": 0.020,        # 4x fuel
+        "rot_speed": 3.0           # Agility
+    },
+    "cargo": {
+        "mass": 20000.0,
+        "thrust_max": 6000.0,      # 2x thrust but heavy
+        "drag_factor": 0.020,      # Draggy (0.98)
+        "lift_factor": 0.25,       # High lift
+        "fuel_rate": 0.015,        # 3x fuel
+        "rot_speed": 0.8           # Heavy controls
+    }
+}
+
+current_ac = AIRCRAFT_CONFIGS.get(args.aircraft, AIRCRAFT_CONFIGS["cessna"])
 
 
 # --- INITIALISATION ---
@@ -97,6 +146,14 @@ try:
         son_alarme = pygame.mixer.Sound(p_alarme)
         son_alarme.set_volume(args.volume)
 except: pass
+
+# 3. GENERATION SON VENT
+son_vent = None
+try:
+    son_vent = generer_son_vent()
+    son_vent.set_volume(0.0)
+except Exception as e:
+    print(f"Erreur Vent: {e}")
 
 
 # --- PALETTE GRAPHIQUE ---
@@ -342,8 +399,106 @@ class Bird:
 
 birds = [Bird() for _ in range(20)]
 
+birds = [Bird() for _ in range(20)]
 
-# --- AIRPORT & RUNWAY ---
+# --- MISSIONS & CHALLENGES ---
+class Ring:
+    def __init__(self, x, y, radius=50):
+        self.x = x
+        self.y = y
+        self.radius = radius
+        self.passed = False
+        
+    def draw(self, surface, cam_x, cam_y, zoom):
+        px = (self.x - cam_x) * zoom + (L/2)
+        py = (self.y - cam_y) * zoom + (H/2)
+        pr = self.radius * zoom
+        
+        if px < -pr or px > L+pr: return
+        
+        color = (255, 215, 0) # Gold
+        if self.passed: color = (0, 255, 0) # Green
+        
+        pygame.draw.circle(surface, color, (px, py), pr, 2)
+        # Inner glow
+        if not self.passed:
+            s = pygame.Surface((pr*2, pr*2), pygame.SRCALPHA)
+            pygame.draw.circle(s, (255, 215, 0, 50), (pr, pr), pr)
+            surface.blit(s, (px-pr, py-pr))
+
+class MissionManager:
+    def __init__(self):
+        self.active_mission = None # "rings", "landing", None
+        self.rings = []
+        self.score = 0
+        self.message = ""
+        self.timer_message = 0
+        self.target_landing_zone = None # (x_start, x_end)
+        
+    def start_rings_challenge(self):
+        self.active_mission = "rings"
+        self.rings = []
+        self.score = 0
+        self.message = "MISSION: RINGS CHALLENGE START!"
+        self.timer_message = 180 # 3 sec
+        # Generate rings
+        cx, cy = 2000, -500
+        for i in range(10):
+            self.rings.append(Ring(cx, cy, 60))
+            cx += 600
+            cy += random.randint(-100, 100)
+            
+    def start_landing_challenge(self):
+        self.active_mission = "landing"
+        self.score = 0
+        self.message = "MISSION: PRECISION LANDING!"
+        self.timer_message = 180
+        # Target zone: 2500m to 3000m
+        self.target_landing_zone = (2500, 3000)
+        
+    def update(self, plane_x, plane_y, plane_vx, plane_vy):
+        if self.active_mission == "rings":
+            for r in self.rings:
+                if not r.passed:
+                    # Check distance
+                    dist = math.sqrt((plane_x - r.x)**2 + (plane_y - r.y)**2)
+                    if dist < r.radius:
+                        r.passed = True
+                        self.score += 100
+                        self.message = f"RING PASSED! (+100) [{self.score}]"
+                        self.timer_message = 60
+                        
+        if self.timer_message > 0:
+            self.timer_message -= 1
+            
+    def draw(self, surface, cam_x, cam_y, zoom):
+        if self.active_mission == "rings":
+            for r in self.rings:
+                r.draw(surface, cam_x, cam_y, zoom)
+                
+        if self.active_mission == "landing":
+             if self.target_landing_zone:
+                 x1, x2 = self.target_landing_zone
+                 px1 = (x1 - cam_x) * zoom + (L/2)
+                 px2 = (x2 - cam_x) * zoom + (L/2)
+                 py = (0 - cam_y) * zoom + (H/2)
+                 
+                 if px2 > 0 and px1 < L:
+                     s = pygame.Surface(((x2-x1)*zoom, 20*zoom), pygame.SRCALPHA)
+                     s.fill((0, 255, 0, 100))
+                     surface.blit(s, (px1, py - 20*zoom))
+                     l = police_label.render("LAND HERE", True, (0, 255, 0))
+                     surface.blit(l, (px1, py - 40*zoom))
+
+        if self.timer_message > 0:
+             lbl = police_alarme.render(self.message, True, (255, 255, 0))
+             # Centered
+             r = lbl.get_rect(center=(L//2, H//4))
+             surface.blit(lbl, r)
+
+mission_manager = MissionManager()
+
+
 class Airport:
     def __init__(self, x_start, width):
         self.x_start = x_start
@@ -393,6 +548,22 @@ class Airport:
         lbl_27 = police_alarme.render("27", True, (200, 200, 200))
         surface.blit(lbl_27, (px + pw - 140*zoom, py + 100))
 
+        # ZONE RAVITAILLEMENT (REFUEL)
+        # Position: x=500, largeur=300
+        rz_x = 500
+        rz_w = 300
+        px_rz = (self.x_start + rz_x - cam_x) * zoom + (L/2)
+        if -200 < px_rz < L+200:
+            # Carré rouge transparent au sol
+            s_zone = pygame.Surface((rz_w*zoom, 20*zoom), pygame.SRCALPHA)
+            s_zone.fill((255, 0, 0, 100)) # Rouge semi-transp
+            surface.blit(s_zone, (px_rz, py + (H/2) - 10*zoom))
+            
+            # Texte "FUEL"
+            lbl_fuel = police_label.render("FUEL STATION", True, (255, 50, 50))
+            if zoom > 0.5:
+                surface.blit(lbl_fuel, (px_rz + 10*zoom, py + (H/2) - 30*zoom))
+
 MAIN_AIRPORT = Airport(0, 4000) # Piste de 4km partant de 0
 
 RUNWAYS = [0] # Pour compatibilité dashboard (radar)
@@ -400,7 +571,7 @@ RUNWAYS = [0] # Pour compatibilité dashboard (radar)
 # --- SYSTEMES AVION (Carburant, Dégâts) ---
 fuel = 100.0
 max_fuel = 100.0
-fuel_burn_rate = 0.005 # % par frame à pleins gaz
+fuel_burn_rate = current_ac["fuel_rate"] # % par frame à pleins gaz
 crashed = False
 crash_reason = ""
 game_over_timer = 0
@@ -420,12 +591,12 @@ V_DECROCHAGE = 85          # Vitesse de décrochage (Stall speed)
 V_VNE = 300                # Vitesse à ne jamais dépasser
 V_MACH1 = 1225             # Mur du son (sécurité pour le code)
 GRAVITE = 0.12             # Force de gravité
-PUISSANCE_MOTEUR = 0.35    # Puissance réduite (était 0.45)
-FRICTION_AIR = 0.992       # Traînée aérodynamique globale
+PUISSANCE_MOTEUR = current_ac["thrust_max"] / 8500.0
+FRICTION_AIR = 1.0 - current_ac["drag_factor"]
 FRICTION_VERTICALE = 0.96  
-ACCEL_ROTATION = 0.04      # Sensibilité réduite (était 0.08)
+ACCEL_ROTATION = current_ac["rot_speed"] * 0.02
 MAX_ROTATION = 1.8         
-COEFF_PORTANCE = 0.0015    # Portance réduite (était 0.0035)
+COEFF_PORTANCE = current_ac["lift_factor"] * 0.015
 COEFF_TRAINEE_MONTEE = 0.004
 
 horloge = pygame.time.Clock()
@@ -860,6 +1031,12 @@ while True:
             if event.key == pygame.K_l: # LANDING LIGHT
                 lumiere_allume = not lumiere_allume
             
+            # MISSIONS
+            if event.key == pygame.K_F1:
+                mission_manager.start_rings_challenge()
+            if event.key == pygame.K_F2:
+                mission_manager.start_landing_challenge()
+
             if moteur_allume:
                 if event.key == pygame.K_LSHIFT: # PLEIN GAZ
                     target_poussee = 100.0
@@ -953,9 +1130,9 @@ while True:
         conso = 0.001 + (niveau_poussee_reelle / 100.0) * fuel_burn_rate
         fuel -= conso
         if fuel < 0: fuel = 0
-    # Refuel au sol (Arrêté à la pompe... ou n'importe où sur la piste pour l'instant)
-    elif altitude < 5 and abs(vitesse_kph) < 5 and (0 <= world_x <= MAIN_AIRPORT.width):
-        fuel += 0.2 # Refuel rapide
+    # REFUELING (Zone 500-800)
+    elif altitude < 5 and abs(vitesse_kph) < 5 and (500 <= world_x <= 800):
+        fuel += 0.5 
         if fuel > max_fuel: fuel = max_fuel
 
     # SON CONTINU
@@ -967,6 +1144,15 @@ while True:
             son_moteur.set_volume(vol)
         else:
             son_moteur.stop()
+
+    # SON VENT DYNAMIQUE
+    if son_vent:
+        if son_vent.get_num_channels() == 0: son_vent.play(loops=-1)
+        # Volume prop à la vitesse (max 0.8)
+        ratio_v = min(1.0, (vitesse_kph / 400.0)) # 400kph = max vent
+        vol_wind = ratio_v * 0.5 # Max 50% volume
+        if args.season == "wind": vol_wind *= 2.0 # Plus fort en tempête
+        son_vent.set_volume(vol_wind * args.volume)
 
     postcombustion = (niveau_poussee_reelle > 90)
     puissance_instantanee = (niveau_poussee_reelle / 100.0) * PUISSANCE_MOTEUR
@@ -1092,6 +1278,9 @@ while True:
 
     world_x += vx
     world_y += vy
+    
+    # Update Missions
+    mission_manager.update(world_x, world_y, vx, vy)
     
     # --- CONTRAILS ---
     # ... (code existant inchangé, voir plus bas pour nettoyage si besoin)
@@ -1254,10 +1443,10 @@ while True:
         
     # MISE A JOUR HISTORIQUE
     history_timer += 1
-    if history_timer > 10: # Tous les 10 ticks (env 6 fois par seconde à 60fps)
+    if history_timer > 60: # Tous les 60 ticks (env 1 fois par seconde à 60fps)
         history_timer = 0
         position_history.append((world_x, altitude))
-        if len(position_history) > 500: # Garde les 500 derniers points
+        if len(position_history) > 2000: # Garde les 2000 derniers points (~33 min)
             position_history.pop(0)
 
 
@@ -1336,6 +1525,9 @@ while True:
                 bw = 50 * zoom
                 bh = 10 * zoom
                 pygame.draw.rect(fenetre, SOL_MARQUAGE, (bx, pos_sol_y + 20*zoom, bw, bh))
+
+    # MISSIONS DRAW
+    mission_manager.draw(fenetre, world_x, world_y, zoom)
 
     # ATMOSPHERE HAUTE ALTITUDE
     # Si zoom très faible (haute altitude), on rajoute du voile
