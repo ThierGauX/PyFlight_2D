@@ -38,6 +38,7 @@ class MenuPrincipal(ctk.CTk):
         self.var_difficulte = ctk.StringVar(value="easy")
         self.var_temps = ctk.StringVar(value="real")
         self.var_heure_manuelle = ctk.DoubleVar(value=12.0)
+        self.var_season = ctk.StringVar(value="summer") # sun/summer default
         self.var_volume = ctk.DoubleVar(value=0.5)
 
         # Variables Graphiques
@@ -158,33 +159,60 @@ class MenuPrincipal(ctk.CTk):
         def update_lbl(val):
             self.lbl_heure_val.configure(text=f"{int(val)}H")
 
-        self.slider_heure = ctk.CTkSlider(f_time, from_=0, to=24, number_of_steps=24, command=update_lbl,
-                                          variable=self.var_heure_manuelle)
+        self.slider_heure = ctk.CTkSlider(f_time, from_=0, to=23, number_of_steps=24, variable=self.var_heure_manuelle, command=update_lbl)
         self.slider_heure.pack(fill="x", pady=5)
         if self.var_temps.get() == "real":
             self.slider_heure.configure(state="disabled")
 
-        # 3. VOLUME
+        # 3. MÉTÉO / SAISONS
+        f_season = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        f_season.pack(fill="x", padx=10, pady=10)
+        ctk.CTkLabel(f_season, text="MÉTÉO & SAISON", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+
+        def set_season(val):
+            # Mapping nom -> value
+            map_s = {
+                "PRINTEMPS (Fleurs)": "spring",
+                "ÉTÉ (Vert)": "summer", 
+                "AUTOMNE (Feuilles)": "autumn", 
+                "HIVER (Neige)": "snow", 
+                "TEMPÊTE (Vent)": "wind"
+            }
+            self.var_season.set(map_s.get(val, "summer"))
+
+        # Inverse mapping for display
+        val_display = "ÉTÉ (Vert)"
+        if self.var_season.get() == "spring": val_display = "PRINTEMPS (Fleurs)"
+        elif self.var_season.get() == "autumn": val_display = "AUTOMNE (Feuilles)"
+        elif self.var_season.get() == "rain": val_display = "AUTOMNE (Feuilles)" # Legacy
+        elif self.var_season.get() == "snow": val_display = "HIVER (Neige)"
+        elif self.var_season.get() == "wind": val_display = "TEMPÊTE (Vent)"
+
+        seg_season = ctk.CTkOptionMenu(f_season, values=["PRINTEMPS (Fleurs)", "ÉTÉ (Vert)", "AUTOMNE (Feuilles)", "HIVER (Neige)", "TEMPÊTE (Vent)"], command=set_season)
+        seg_season.pack(fill="x", pady=5)
+        seg_season.set(val_display)
+
+        # 4. VOLUME
         f_vol = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         f_vol.pack(fill="x", padx=10, pady=10)
         ctk.CTkLabel(f_vol, text="VOLUME MOTEUR", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
         ctk.CTkSlider(f_vol, from_=0.0, to=1.0, variable=self.var_volume).pack(fill="x", pady=5)
 
-        # 4. GAMEPLAY (Nouveau)
+        # 5. GAMEPLAY (Cheat / Fun)
         f_game = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         f_game.pack(fill="x", padx=10, pady=10)
         ctk.CTkLabel(f_game, text="GAMEPLAY & CHEATS", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
         ctk.CTkCheckBox(f_game, text="Carburant Illimité", variable=self.var_unlimited_fuel).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_game, text="Invincibilité (God Mode)", variable=self.var_god_mode).pack(anchor="w", pady=2)
 
-        # 5. SYSTÈME (Nouveau)
+        # 6. SYSTÈME
         f_sys = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         f_sys.pack(fill="x", padx=10, pady=10)
         ctk.CTkLabel(f_sys, text="SYSTÈME", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
         ctk.CTkSwitch(f_sys, text="Plein Écran", variable=self.var_fullscreen).pack(anchor="w", pady=2)
         ctk.CTkSwitch(f_sys, text="Afficher FPS", variable=self.var_show_fps).pack(anchor="w", pady=2)
 
-        # 6. GRAPHIQUES (Toggle)
+        # 7. GRAPHIQUES
         f_gfx = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         f_gfx.pack(fill="x", padx=10, pady=10)
         ctk.CTkLabel(f_gfx, text="AFFICHAGE", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
@@ -234,7 +262,10 @@ class MenuPrincipal(ctk.CTk):
         if self.var_god_mode.get(): cmd.append("--god-mode")
         if self.var_fullscreen.get(): cmd.append("--fullscreen")
         if self.var_show_fps.get(): cmd.append("--show-fps")
-            
+
+        # Saison
+        cmd.extend(["--season", self.var_season.get()])
+        
         print(f"Lancement de : {cmd}")
         subprocess.run(cmd)
 
