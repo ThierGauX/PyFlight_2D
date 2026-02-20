@@ -248,6 +248,7 @@ zoom_cible = 1.0
 
 moteur_allume = False 
 flaps_sortis = False
+gear_sorti = True
 lumiere_allume = False # Landing Light
 
 # CYCLE JOUR / NUIT (TEMPS RÉEL)
@@ -766,7 +767,7 @@ def dessiner_hud_overlay(surface, vitesse, alt, angle_pitch, vy):
     pygame.draw.circle(surface, (255, 0, 0), (cx, cy), 3, 1)
 
 # --- DASHBOARD ANALOGIQUE (CLASSIC) ---
-def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch):
+def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch, gear):
     global fuel
     h_dash = 140
     y_base = H - h_dash
@@ -984,7 +985,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     # INDICATEURS REPOSITIONNES (AU-DESSUS DE RADAR/THR)
     y_ind = y_map - 40
     # GEAR
-    c_gear = (0, 200, 0)
+    c_gear = (0, 200, 0) if gear else (200, 50, 50)
     pygame.draw.circle(surface, c_gear, (L - 260, y_ind), 5)
     surface.blit(police_label.render("GEAR", True, (200, 200, 200)), (L - 250, y_ind - 7))
     
@@ -1042,6 +1043,8 @@ while True:
                 moteur_allume = not moteur_allume
             if event.key == pygame.K_f:
                 flaps_sortis = not flaps_sortis
+            if event.key == pygame.K_g:
+                gear_sorti = not gear_sorti
             if event.key == pygame.K_l: # LANDING LIGHT
                 lumiere_allume = not lumiere_allume
             
@@ -1258,6 +1261,10 @@ while True:
         else:
             friction_actuelle = 0.992
             coeff_p = COEFF_PORTANCE
+            
+        if not gear_sorti:
+            # Moins de traînée si le train est rentré (plus de vitesse)
+            friction_actuelle += 0.002
 
         if not en_decrochage:
             angle_incidence = angle + 2.0 
@@ -1318,6 +1325,10 @@ while True:
         if impact_vitesse_vert > crash_limit:
             crashed = True
             crash_reason = f"ATTERRISSAGE VIOLENT ({int(impact_vitesse_vert*200)} ft/min)"
+        elif not gear_sorti:
+            # Ventre au sol !
+            crashed = True
+            crash_reason = "CRASH: TRAIN D'ATTERRISSAGE RENTRÉ"
             
         # PITCH CHECK AU SOL
         if abs(angle) > 20:
@@ -1366,6 +1377,8 @@ while True:
             angle = 0
             fuel = args.fuel
             moteur_allume = False
+            gear_sorti = True
+            flaps_sortis = False
             # Consommation carburant
             if not args.unlimited_fuel:
                 fuel_flow = (niveau_poussee_reelle / 100.0) * 0.05
@@ -1620,7 +1633,7 @@ while True:
         # sans le passer en argument si je ne l'ai pas masqué.
         # Python capture les globales.
         
-        dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, portance, angle)
+        dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, portance, angle, gear_sorti)
     
     # 2. HUD Overlay (Haut)
     if not args.no_hud:

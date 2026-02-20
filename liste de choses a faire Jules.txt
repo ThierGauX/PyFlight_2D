@@ -1,0 +1,44 @@
+Salut Jules !
+
+Pour notre jeu Pyflight 2D, nous avons besoin d'images pour différents états de vol afin de représenter la physique et les interactions correctement. Voici la liste complète des images (sprites) qu'il faudra créer pour *chaque* avion.
+
+Les 3 avions concernés sont :
+1. Cessna (Standard)
+2. Fighter / Chasseur (Rapide)
+3. Cargo / Gros Porteur (Lourd)
+
+Pour CHACUN de ces avions, voici les 8 états nécessaires (Vue de Profil, face vers la droite) :
+
+=== ETATS SANS MOTEUR (À l'arrêt / Plané) ===
+1. Moteur éteint, Roues sorties, Flaps (volets) rentrés
+   -> (L'avion au sol, basique)
+
+2. Moteur éteint, Roues sorties, Flaps (volets) sortis
+   -> (L'avion au sol, freins/volets sortis)
+
+3. Moteur éteint, Roues rentrées, Flaps rentrés
+   -> (En vol plané, configuration lisse)
+
+4. Moteur éteint, Roues rentrées, Flaps sortis
+   -> (En vol plané, prêt à atterrir sur le ventre ou pour ralentir fort)
+
+=== ETATS AVEC MOTEUR (En vol / Décollage) ===
+5. Moteur allumé (Flamme/Hélice active), Roues sorties, Flaps rentrés
+   -> (Roulage au sol ou début de décollage)
+
+6. Moteur allumé (Flamme/Hélice active), Roues sorties, Flaps sortis
+   -> (Phase d'approche finale)
+
+7. Moteur allumé (Flamme/Hélice active), Roues rentrées, Flaps rentrés
+   -> (En vol de croisière normal)
+
+8. Moteur allumé (Flamme/Hélice active), Roues rentrées, Flaps sortis
+   -> (Vol à basse vitesse, manoeuvres serrées)
+
+
+RAPPEL AU TOTAL :
+- Il y a 8 images par avion.
+- Comme on a 3 avions, ça fait un total de 24 images.
+- Essaie de garder le fond des images transparent (PNG) !
+
+Merci d'avance pour le super boulot !
