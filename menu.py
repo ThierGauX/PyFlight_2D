@@ -53,6 +53,7 @@ class MenuPrincipal(ctk.CTk):
         self.var_unlimited_fuel = ctk.BooleanVar(value=False)
         self.var_god_mode = ctk.BooleanVar(value=False)
         self.var_aircraft = ctk.StringVar(value="cessna") # Default Aircraft
+        self.var_fuel_initial = ctk.DoubleVar(value=100.0)
 
         # Variables Système
         self.var_fullscreen = ctk.BooleanVar(value=False)
@@ -224,6 +225,13 @@ class MenuPrincipal(ctk.CTk):
         ctk.CTkCheckBox(f_game, text="Carburant Illimité", variable=self.var_unlimited_fuel).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_game, text="Invincibilité (God Mode)", variable=self.var_god_mode).pack(anchor="w", pady=2)
 
+        # Slider Carburant Initial
+        self.lbl_fuel = ctk.CTkLabel(f_game, text=f"Carburant Initial: {int(self.var_fuel_initial.get())}%", text_color="gray")
+        self.lbl_fuel.pack(anchor="w", pady=(10, 0))
+        def update_fuel_lbl(val):
+            self.lbl_fuel.configure(text=f"Carburant Initial: {int(val)}%")
+        ctk.CTkSlider(f_game, from_=10.0, to=100.0, variable=self.var_fuel_initial, command=update_fuel_lbl).pack(fill="x", pady=5)
+
         # 6. SYSTÈME
         f_sys = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         f_sys.pack(fill="x", padx=10, pady=10)
@@ -282,6 +290,7 @@ class MenuPrincipal(ctk.CTk):
         if self.var_god_mode.get(): cmd.append("--god-mode")
         if self.var_fullscreen.get(): cmd.append("--fullscreen")
         if self.var_show_fps.get(): cmd.append("--show-fps")
+        cmd.extend(["--fuel", str(self.var_fuel_initial.get())])
 
         # Saison
         cmd.extend(["--season", self.var_season.get()])

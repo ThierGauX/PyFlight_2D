@@ -51,6 +51,7 @@ parser.add_argument("--fullscreen", action="store_true", help="Plein Ecran")
 parser.add_argument("--show-fps", action="store_true", help="Afficher FPS")
 parser.add_argument("--season", type=str, default="summer", help="Saison: summer, rain, snow, wind")
 parser.add_argument("--aircraft", type=str, default="cessna", help="Type d'avion: cessna, fighter, cargo")
+parser.add_argument("--fuel", type=float, default=100.0, help="Carburant initial (%)")
 
 # On parse uniquement si on est lancé en tant que script principal
 args = None
@@ -62,7 +63,7 @@ else:
                               no_hud=False, no_dash=False, no_clouds=False, 
                               no_particles=False, no_atmo=False, no_terrain=False,
                               unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False,
-                              season="summer", aircraft="cessna")
+                              season="summer", aircraft="cessna", fuel=100.0)
 
 # AIRCRAFT CONFIGS
 AIRCRAFT_CONFIGS = {
@@ -569,7 +570,7 @@ MAIN_AIRPORT = Airport(0, 4000) # Piste de 4km partant de 0
 RUNWAYS = [0] # Pour compatibilité dashboard (radar)
 
 # --- SYSTEMES AVION (Carburant, Dégâts) ---
-fuel = 100.0
+fuel = args.fuel
 max_fuel = 100.0
 fuel_burn_rate = current_ac["fuel_rate"] # % par frame à pleins gaz
 crashed = False
@@ -765,7 +766,8 @@ def dessiner_hud_overlay(surface, vitesse, alt, angle_pitch, vy):
     pygame.draw.circle(surface, (255, 0, 0), (cx, cy), 3, 1)
 
 # --- DASHBOARD ANALOGIQUE (CLASSIC) ---
-def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, vy, angle_pitch):
+def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch):
+    global fuel
     h_dash = 140
     y_base = H - h_dash
     
@@ -866,46 +868,58 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     surface.blit(sf_alt, sf_alt.get_rect(center=(x_alt, y_inst + 30)))
     surface.blit(police_label.render("ALT", True, TXT_GRIS), (x_alt - 10, y_inst - 20))
 
-    # 4. VARIOMETRE (VSI)
+    # 4. INDICATEUR DE PORTANCE (LIFT)
     x_vsi = 600
     rayon_vsi = 50
     pygame.draw.circle(surface, (10, 10, 15), (x_vsi, y_inst), rayon_vsi)
     pygame.draw.circle(surface, (200, 200, 200), (x_vsi, y_inst), rayon_vsi, 2)
     
-    v_montee = -vy
-    val_climb = max(-20, min(20, v_montee * 2.0))
-    ang_vsi = 180 + (val_climb * 6)
+    val_lift = portance / 0.12 # 1G
+    val_lift = max(0.0, min(2.0, val_lift))
+    ang_vsi = 180 + (val_lift * 90)
     rv = math.radians(ang_vsi)
     pygame.draw.line(surface, (255, 255, 100), (x_vsi, y_inst), (x_vsi + math.cos(rv)*(rayon_vsi-5), y_inst + math.sin(rv)*(rayon_vsi-5)), 3)
-    surface.blit(police_label.render("V.S.", True, TXT_GRIS), (x_vsi - 10, y_inst + 10))
+    surface.blit(police_label.render("LIFT", True, TXT_GRIS), (x_vsi - 15, y_inst + 10))
     
     # 5. FUEL (JAUGE) - INTEGRATION
     x_fuel = 720
     rayon_fuel = 40
+    
+    # Fond et bordure
     pygame.draw.circle(surface, (10, 10, 15), (x_fuel, y_inst), rayon_fuel)
-    pygame.draw.circle(surface, (200, 200, 200), (x_fuel, y_inst), rayon_fuel, 2)
+    pygame.draw.circle(surface, (150, 150, 160), (x_fuel, y_inst), rayon_fuel, 2)
     
-    # Aiguille Fuel (E -> F)
-    # E = -135 deg, F = -45 deg (Arc de 90 deg en haut/gauche ?)
-    # Faisons simple: E = 225 deg (bas gauche), F = 315 deg (bas droit) -> range 90
-    # Ou classique: E = 180 (gauche), F = 0 (droite) -> range 180 (Haut)
-    # Allons pour: E = 220, F = 320
+    # Dessin des zones (Vert, Jaune, Rouge) en arc de cercle
+    # E = 220, F = 320
+    arc_rect = pygame.Rect(x_fuel - rayon_fuel + 5, y_inst - rayon_fuel + 5, rayon_fuel * 2 - 10, rayon_fuel * 2 - 10)
     
+    # Zone Verte (100% à 50%) -> 320 à 270 deg
+    pygame.draw.arc(surface, (50, 200, 50), arc_rect, math.radians(-40), math.radians(10), 4)  # Pygame arc dessine de droite(0) en tournant CCW. Donc -40 (=320) à 10 (=370->10) pour Pygame.
+    # Zone Jaune (50% à 20%) -> 270 à 240 deg
+    pygame.draw.arc(surface, (200, 200, 50), arc_rect, math.radians(-90), math.radians(-40), 4) # -> -90(=270) à -40(=320)
+    # Zone Rouge (20% à 0%) -> 240 à 220 deg
+    pygame.draw.arc(surface, (200, 50, 50), arc_rect, math.radians(-140), math.radians(-90), 4) # -> -140(=220) à -90(=270)
+    
+    # Texte central FUEL
+    lbl_f = police_label.render("FUEL", True, TXT_GRIS)
+    surface.blit(lbl_f, (x_fuel - 15, y_inst - 10))
+    
+    # Aiguille Fuel
     pct_fuel = fuel / 100.0
     ang_fuel = 220 + pct_fuel * 100
     rf = math.radians(ang_fuel)
     
-    c_f_aig = (255, 255, 255)
-    if fuel < 20: c_f_aig = (255, 50, 50)
+    c_f_aig = (255, 255, 255) if fuel >= 20 else (255, 50, 50)
+    pygame.draw.line(surface, c_f_aig, (x_fuel, y_inst), (x_fuel + math.cos(rf)*(rayon_fuel-10), y_inst + math.sin(rf)*(rayon_fuel-10)), 3)
     
-    pygame.draw.line(surface, c_f_aig, (x_fuel, y_inst), (x_fuel + math.cos(rf)*(rayon_fuel-5), y_inst + math.sin(rf)*(rayon_fuel-5)), 2)
-    
-    lbl_f = police_label.render("FUEL", True, TXT_GRIS)
-    surface.blit(lbl_f, (x_fuel - 15, y_inst + 10))
-    lbl_e = police_label.render("E", True, (200, 50, 50))
-    surface.blit(lbl_e, (x_fuel - 20, y_inst + 15))
-    lbl_full = police_label.render("F", True, (200, 200, 200))
-    surface.blit(lbl_full, (x_fuel + 15, y_inst + 15))
+    # Cache central pour l'aiguille
+    pygame.draw.circle(surface, (50, 50, 50), (x_fuel, y_inst), 5)
+
+    # Affichage digital propre
+    pygame.draw.rect(surface, (0, 0, 0), (x_fuel - 20, y_inst + 25, 40, 15))
+    pygame.draw.rect(surface, c_f_aig, (x_fuel - 20, y_inst + 25, 40, 15), 1)
+    lbl_val = police_label.render(f"{int(fuel)}%", True, c_f_aig)
+    surface.blit(lbl_val, lbl_val.get_rect(center=(x_fuel, y_inst + 32)))
 
 
     # 6. RADAR / MAP
@@ -1126,8 +1140,13 @@ while True:
         
     # Consommation Fuel
     if moteur_allume:
-        # Conso basale + conso poussée
-        conso = 0.001 + (niveau_poussee_reelle / 100.0) * fuel_burn_rate
+        # Conso basale + conso poussée exponentielle pour la postcombustion
+        # Plus on pousse la manette, plus la consommation augmente de façon non linéaire
+        facteur_poussee = (niveau_poussee_reelle / 100.0)
+        # Quadrique pour simuler une consommation disproportionnée à haut régime
+        # x2.5 burn rate if full throttle, only basal rate if idle
+        conso = 0.001 + (facteur_poussee**2 * 2.5) * fuel_burn_rate
+        
         fuel -= conso
         if fuel < 0: fuel = 0
     # REFUELING (Zone 500-800)
@@ -1224,13 +1243,13 @@ while True:
         en_decrochage = False
 
     # --- PHYSIQUE DE VOL ---
+    portance = 0
     if pilote_auto_actif:
         vy = 0 
         vx *= FRICTION_AIR 
     else:
         vy += GRAVITE
         
-        portance = 0
         friction_actuelle = FRICTION_AIR
         
         if flaps_sortis:
@@ -1345,7 +1364,7 @@ while True:
             world_y = 0
             vx, vy = 0, 0
             angle = 0
-            fuel = 100.0
+            fuel = args.fuel
             moteur_allume = False
             # Consommation carburant
             if not args.unlimited_fuel:
@@ -1601,7 +1620,7 @@ while True:
         # sans le passer en argument si je ne l'ai pas masqué.
         # Python capture les globales.
         
-        dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, vy, angle)
+        dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, portance, angle)
     
     # 2. HUD Overlay (Haut)
     if not args.no_hud:
