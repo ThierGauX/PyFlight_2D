@@ -89,4 +89,6 @@ python menu.py
 - Consommation dynamique de carburant basée de façon quadratique sur l'utilisation de la manette des gaz
 - Refonte graphique de la jauge de carburant analogique du tableau de bord (suppression des indicateurs E et F pour plus de clarté)
 - Implémentation du train d'atterrissage rétractable (Touche G) avec impact sur la physique (vitesse) et gestion des crashs (atterrissage sur le ventre)
-- Création d'une liste détaillée des variations de sprites nécessaires pour le design de chaque appareil (liste de choses a faire Jules.txt)
+- Création d'une liste détaillée des variations de sprites et d'effets sonores nécessaires pour chaque appareil (liste de choses a faire Jules.txt)
+- Ajout d'améliorations visuelles (gouttes de pluie dynamiques sur l'écran, suppression des villes)
+- Refonte du système de ravitaillement : aéroports espacés tous les 75km, piste de 6km affichée entièrement sur le radar, et obligation de s'arrêter pour refuel (touche R)

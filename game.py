@@ -272,18 +272,23 @@ target_poussee = 0.0
 # DÉCOR
 decor_sol = []
 # On stocke juste la position et la taille, la couleur sera calculée dynamiquement
-for _ in range(150):
+for _ in range(250): # Un peu plus de patches
     w = random.randint(20, 100)
     h = random.randint(4, 15)
-    x_offset = random.randint(0, 2000)
+    x_offset = random.randint(0, 4000) # Etalé sur 4km au lieu de 2km pour diversité
     y_offset = random.randint(0, 800)
     # Type 0 = FONCE, Type 1 = CLAIR, Type 2 = ARBRE
     r = random.random()
     if r < 0.45: type_decor = 0
-    elif r < 0.9: type_decor = 1
+    elif r < 0.90: type_decor = 1
     else: type_decor = 2 # Arbre
-    
+        
     decor_sol.append([x_offset, y_offset, w, h, type_decor])
+
+# GENERATION AEROPORTS
+# (Déplacé après la déclaration de la classe Airport)
+airports = []
+RUNWAYS = []
 
 contrails = [] # Liste des traînées de condensation [x, y, life]
 
@@ -550,25 +555,27 @@ class Airport:
         lbl_27 = police_alarme.render("27", True, (200, 200, 200))
         surface.blit(lbl_27, (px + pw - 140*zoom, py + 100))
 
-        # ZONE RAVITAILLEMENT (REFUEL)
+            # ZONE RAVITAILLEMENT (REFUEL)
         # Position: x=500, largeur=300
         rz_x = 500
         rz_w = 300
         px_rz = (self.x_start + rz_x - cam_x) * zoom + (L/2)
         if -200 < px_rz < L+200:
-            # Carré rouge transparent au sol
+            # Carré jaune transparent au sol pour le refuel manuel
             s_zone = pygame.Surface((rz_w*zoom, 20*zoom), pygame.SRCALPHA)
-            s_zone.fill((255, 0, 0, 100)) # Rouge semi-transp
+            s_zone.fill((255, 200, 0, 100)) # Jaune semi-transp
             surface.blit(s_zone, (px_rz, py + (H/2) - 10*zoom))
             
             # Texte "FUEL"
-            lbl_fuel = police_label.render("FUEL STATION", True, (255, 50, 50))
+            lbl_fuel = police_label.render("FUEL ZONE", True, (255, 200, 50))
             if zoom > 0.5:
                 surface.blit(lbl_fuel, (px_rz + 10*zoom, py + (H/2) - 30*zoom))
 
-MAIN_AIRPORT = Airport(0, 4000) # Piste de 4km partant de 0
-
-RUNWAYS = [0] # Pour compatibilité dashboard (radar)
+# (L'initialisation de MAIN_AIRPORT est remplacée par la boucle ci-dessous)
+for i in range(10): 
+    # Espacement de 75000 mètres, longueur divisée par 2 (12000 -> 6000 mètres)
+    airports.append(Airport(i * 75000, 6000))
+    RUNWAYS.append((i * 75000, 6000)) # Tuple: (début, longueur)
 
 # --- SYSTEMES AVION (Carburant, Dégâts) ---
 fuel = args.fuel
@@ -941,11 +948,24 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     RANGE_MAP = 20000 
     px_per_m = w_map / (RANGE_MAP * 2)
     
-    for rx in runways: 
+    for piste_data in runways: 
+        if isinstance(piste_data, tuple):
+            rx = piste_data[0]
+            rw = piste_data[1]
+        else:
+            rx = piste_data
+            rw = 6000
+            
         dist = rx - px_world
-        if abs(dist) < RANGE_MAP:
-             mx = center_map_x + (dist * px_per_m)
-             pygame.draw.rect(surface, (180, 180, 180), (mx, y_map+h_map-12, 10, 4))
+        if abs(dist) < RANGE_MAP or abs(dist + rw) < RANGE_MAP:
+             mx1 = center_map_x + (dist * px_per_m)
+             mx2 = center_map_x + ((dist + rw) * px_per_m)
+             # Limiter l'affichage aux bords de la map
+             mx1 = max(x_map, min(x_map + w_map, mx1))
+             mx2 = max(x_map, min(x_map + w_map, mx2))
+             rect_w = max(2, mx2 - mx1) # Même si on est zoomé, toujours dessiner au moins 2 px
+             
+             pygame.draw.rect(surface, (180, 180, 180), (mx1, y_map+h_map-12, rect_w, 4))
              
     # Infos Textes (THRUST)
     lbl_th = police_label.render(f"THR", True, HUD_ORANGE)
@@ -1152,10 +1172,29 @@ while True:
         
         fuel -= conso
         if fuel < 0: fuel = 0
-    # REFUELING (Zone 500-800)
-    elif altitude < 5 and abs(vitesse_kph) < 5 and (500 <= world_x <= 800):
-        fuel += 0.5 
-        if fuel > max_fuel: fuel = max_fuel
+
+    # REFUELING MANUEL (Touche R sur n'importe quel aéroport)
+    # L'avion doit être au sol (altitude < 5), presque arrêté, dans la zone 500-800 d'un des aéroports
+    can_refuel = False
+    if altitude < 5 and abs(vitesse_kph) < 10:
+        for piste_data in RUNWAYS:
+            if isinstance(piste_data, tuple):
+                piste_x = piste_data[0]
+            else: piste_x = piste_data
+            if piste_x + 500 <= world_x <= piste_x + 800:
+                can_refuel = True
+                break
+                
+    if can_refuel:
+        # Affichage du message dynamique
+        if not args.no_hud:
+            msg_refuel = "MAINTENEZ 'R' POUR FAIRE LE PLEIN"
+            lbl_r = police_alarme.render(msg_refuel, True, (255, 200, 0))
+            fenetre.blit(lbl_r, lbl_r.get_rect(center=(L//2, H//4 + 50)))
+            
+        if touches[pygame.K_r]:
+            fuel += 0.5 
+            if fuel > max_fuel: fuel = max_fuel
 
     # SON CONTINU
     if son_moteur:
@@ -1497,7 +1536,7 @@ while True:
             pygame.draw.rect(fenetre, SOL_HERBE_BASE, (-100, pos_sol_y, L+200, H))
         
         # Patchs
-        largeur_motif = 2000 
+        largeur_motif = 4000 # Elargi pour accomoder la ville
         offset_herbe = int(world_x % largeur_motif)
         largeur_motif_ecran = largeur_motif * zoom
         if largeur_motif_ecran < 1: largeur_motif_ecran = 1 
@@ -1514,6 +1553,7 @@ while True:
                         ph = patch[3] * zoom
                         # ... (Dessin patch)
                         couleur_p = SOL_HERBE_FONCE if patch[4] == 0 else SOL_HERBE_CLAIR
+                        
                         if patch[4] == 2: # ARBRE
                              if zoom > 0.2: # Arbres invisibles de très haut
                                 tronc_w = 4 * zoom
@@ -1527,36 +1567,9 @@ while True:
                             pygame.draw.rect(fenetre, couleur_p, (px, py, pw, ph))
 
     # GESTION PISTES (RUNWAYS)
-    for piste_x in RUNWAYS:
-        debut_piste_ecran = (piste_x - world_x) * zoom + (L/2)
-        longueur_piste_ecran = 5000 * zoom # 5km de piste
-        rect_piste = pygame.Rect(debut_piste_ecran, pos_sol_y, longueur_piste_ecran, H)
-        
-        # Optimisation display
-        if rect_piste.colliderect((-500,0,L+1000,H)): # Large clipping
-            pygame.draw.rect(fenetre, SOL_PISTE, rect_piste)
-            # Marquages piste
-            pygame.draw.rect(fenetre, SOL_MARQUAGE, (debut_piste_ecran, pos_sol_y, longueur_piste_ecran, 4*zoom))
-            
-            # Bandes (Optimisé)
-            step_bandes = 100 * zoom
-            if step_bandes < 2: step_bandes = 2 # Eviter step trop petit
-            nb_bandes = int(longueur_piste_ecran / step_bandes)
-            
-            # On ne dessine que ce qui est visible
-            # Calcul range visible
-            start_i = 0
-            # Si debut_piste < 0, on skip des bandes
-            if debut_piste_ecran < 0:
-                start_i = int((-debut_piste_ecran) / step_bandes)
-            
-            for i in range(start_i, nb_bandes):
-                bx = debut_piste_ecran + (i * step_bandes)
-                if bx > L: break # Fin ecran
-                
-                bw = 50 * zoom
-                bh = 10 * zoom
-                pygame.draw.rect(fenetre, SOL_MARQUAGE, (bx, pos_sol_y + 20*zoom, bw, bh))
+    for piste in airports:
+        # Piste.draw utilise la largeur de l'Airport (ici config à 12000)
+        piste.draw(fenetre, world_x, world_y, zoom)
 
     # MISSIONS DRAW
     mission_manager.draw(fenetre, world_x, world_y, zoom)
@@ -1657,6 +1670,23 @@ while True:
         txt_msg = police_alarme.render(msg, True, c_msg)
         rect_msg = txt_msg.get_rect(center=(L//2, H//2 - 100))
         fenetre.blit(txt_msg, rect_msg)
+
+    # --- PLUIE SUR LE COCKPIT ---
+    # Gouttes d'eau directement sur l'écran si saison de pluie
+    if args.season == "rain" and vitesse_kph > 20: # Il faut avancer pour écraser les gouttes
+        # Nombre de gouttes proportionnel à la vitesse
+        # On utilise une technique très simple : dessin de petites gouttes semi-transparentes aléatoires
+        nb_drops = int((vitesse_kph / V_VNE) * 5)
+        for _ in range(nb_drops):
+            dx = random.randint(0, L)
+            dy = random.randint(0, H)
+            # Trainées obliques
+            p2_x = dx - random.randint(5, 20)
+            p2_y = dy + random.randint(5, 20)
+            
+            s_drop = pygame.Surface((30, 30), pygame.SRCALPHA)
+            pygame.draw.line(s_drop, (200, 220, 255, 60), (15, 0), (15 - (dx-p2_x), p2_y-dy), 2)
+            fenetre.blit(s_drop, (dx-15, dy))
 
     # Fin de boucle
 
