@@ -1478,7 +1478,10 @@ while True:
             friction_actuelle += 0.002
 
         if not en_decrochage:
-            angle_incidence = angle + 2.0 
+            # On plafonne l'angle effectif pour la portance (évite des valeurs immenses en looping)
+            # L'angle d'attaque aérodynamique décroche au delà de ~20 degrés dans la réalité
+            effective_angle = max(-15, min(25, angle))
+            angle_incidence = effective_angle + 2.0 
             
             lift_factor = angle_incidence * 0.1 
             if lift_factor < 0: lift_factor *= 0.1 
@@ -1511,7 +1514,11 @@ while True:
         
         if angle < 0: vy += 0.02 
 
-        vy -= portance
+        # La portance s'applique perpendiculairement aux ailes
+        # (avant : vy -= portance, poussait toujours vers le ciel absolu)
+        rad_portance = math.radians(angle)
+        vx += -math.sin(rad_portance) * portance
+        vy -= math.cos(rad_portance) * portance
 
     # --- COLLISION HORIZONTALE AVEC LA MONTAGNE ---
     # On regarde si l'avion va rentrer "dans" un mur devant lui

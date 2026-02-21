@@ -112,3 +112,4 @@ python menu.py
 - Amélioration de la traînée de fumée : Dure 4x plus longtemps dans le ciel et part bien de la queue de l'avion
 - Correction de la traînée en pointillés : Génération dynamique des particules d'air basée sur la vitesse réelle pour un nuage continu parfait
 - Nouvel avion 'Acrobatique (Voltige)' : Très maniable, débloque la limite d'angle de tangage pour permettre des loopings complets (360°)
+- Correction de la physique de looping : La portance est désormais vectorisée (perpendiculaire aux ailes) et l'angle d'attaque est plafonné pour empêcher les sauts d'altitude irréalistes sur le dos.
