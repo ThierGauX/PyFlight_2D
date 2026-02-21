@@ -50,7 +50,8 @@ parser.add_argument("--god-mode", action="store_true", help="Invincible")
 parser.add_argument("--no-stall", action="store_true", help="Desactiver le décrochage")
 parser.add_argument("--no-gear-crash", action="store_true", help="Desactiver le crash train rentré")
 parser.add_argument("--no-wind", action="store_true", help="Desactiver le vent et turbulences")
-parser.add_argument("--auto-refuel", action="store_true", help="Ravitaillement automatique")
+parser.add_argument("--auto-refuel", action="store_true", help="Ravitaillement auto sur piste")
+parser.add_argument("--weather", type=str, default="clear", choices=["clear", "clouds", "fog"], help="Conditions météo")
 parser.add_argument("--terrain-intensity", type=float, default=1.0, help="Multiplicateur de hauteur du relief")
 parser.add_argument("--show-trail", action="store_true", help="Fumée acrobatique")
 parser.add_argument("--trail-color", type=str, default="white", help="Couleur de la traînée")
@@ -71,7 +72,9 @@ else:
                               no_hud=False, no_dash=False, no_clouds=False, 
                               no_particles=False, no_atmo=False, no_terrain=False,
                               unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False,
-                              season="summer", aircraft="cessna", fuel=100.0)
+                              season="summer", aircraft="cessna", fuel=100.0,
+                              no_stall=False, no_gear_crash=False, no_wind=False, auto_refuel=False,
+                              terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear")
 
 # AIRCRAFT CONFIGS
 AIRCRAFT_CONFIGS = {
@@ -121,11 +124,19 @@ except:
     print("Erreur initialisation module son")
 
 # --- FENETRE ---
-L, H = 1200, 700
-flags = 0
 if args.fullscreen:
-    flags = pygame.FULLSCREEN | pygame.SCALED
-    
+    # On récupère la résolution native du moniteur pour éviter la pixelisation
+    info = pygame.display.Info()
+    L, H = info.current_w, info.current_h
+    flags = pygame.FULLSCREEN
+else:
+    L, H = 1200, 700
+    flags = 0
+
+# Facteur d'échelle pour l'UI (basé sur la hauteur originale de 700)
+UI_SCALE = H / 700.0
+def s(v): return int(v * UI_SCALE)
+
 fenetre = pygame.display.set_mode((L, H), flags)
 pygame.display.set_caption("Pyflight 2D")
 
@@ -239,9 +250,9 @@ HUD_ORANGE = (255, 160, 0)
 TXT_GRIS = (150, 150, 150)     
 
 # Polices
-police_label = pygame.font.SysFont("arial", 12, bold=True)
-police_valeur = pygame.font.SysFont("consolas", 22, bold=True)
-police_alarme = pygame.font.SysFont("arial", 40, bold=True)
+police_label = pygame.font.SysFont("arial", int(12 * UI_SCALE), bold=True)
+police_valeur = pygame.font.SysFont("consolas", int(22 * UI_SCALE), bold=True)
+police_alarme = pygame.font.SysFont("arial", int(40 * UI_SCALE), bold=True)
 
 # VARIABLES
 world_y = 0      
@@ -267,16 +278,19 @@ flaps_sortis = False
 gear_sorti = True
 lumiere_allume = False # Landing Light
 
-# CYCLE JOUR / NUIT (TEMPS RÉEL)
+# CYCLE JOUR / NUIT (Heure et Cycle)
 mode_temps_reel = (args.time == "real")
-offset_temps = 0
-if not mode_temps_reel:
+mode_temps_dynamique = (args.time == "dynamic")
+offset_temps = 12.0
+if not mode_temps_reel and not mode_temps_dynamique:
     try:
         offset_temps = float(args.time)
     except:
         offset_temps = 12.0
 
-heure_actuelle = offset_temps if not mode_temps_reel else 12.0 # Si temps réel, sera mis à jour dans la boucle
+heure_actuelle = offset_temps if not mode_temps_reel else 12.0
+if mode_temps_dynamique:
+    heure_actuelle = 8.0 # On commence à 8h en dynamique par défaut
 
 est_nuit = False
 
@@ -347,15 +361,18 @@ class Cloud:
         self.scale = random.uniform(1.0, base_scale_max) * self.depth
         
         # Generation Image Nuage (Pre-render)
-        w_cloud = int(random.randint(150, 300) * self.scale)
-        h_cloud = int(random.randint(80, 150) * self.scale)
+        mult = 3.0 if args.weather == "clouds" else 1.0
+        w_cloud = int(random.randint(150, 300) * self.scale * mult)
+        h_cloud = int(random.randint(80, 150) * self.scale * mult)
         self.image = pygame.Surface((w_cloud, h_cloud), pygame.SRCALPHA)
         
-        base_color = random.randint(240, 255)
-        color = (base_color, base_color, base_color, 20 + int(40 * self.depth)) # Alpha tres faible pour douceur
+        base_color = random.randint(230, 255)
+        # Plus opaque si météo nuageuse
+        alpha_base = 60 if args.weather == "clouds" else 20
+        color = (base_color, base_color, base_color, alpha_base + int(40 * self.depth))
         
         # Puffs
-        num_puffs = random.randint(5, 10)
+        num_puffs = random.randint(10, 20) if args.weather == "clouds" else random.randint(5, 10)
         for _ in range(num_puffs):
             cx = random.randint(w_cloud//4, 3*w_cloud//4)
             cy = random.randint(h_cloud//4, 3*h_cloud//4)
@@ -390,12 +407,14 @@ class Cloud:
                 
             surface.blit(img_scaled, (px, py))
 
-clouds = [Cloud() for _ in range(40)] # Moins de nuages mais plus jolis
+# Plus de nuages si météo nuageuse
+num_clouds = 40 if args.weather != "clouds" else 80
+clouds = [Cloud() for _ in range(num_clouds)]
 
 class Bird:
-    def __init__(self):
-        self.x = 0.0
-        self.y = 0.0
+    def __init__(self, x=0.0, y=0.0):
+        self.x = x
+        self.y = y
         self.vx = 0.0
         self.vy = 0.0
         self.flap_timer = 0.0
@@ -517,9 +536,9 @@ class MissionManager:
                  py = (0 - cam_y) * zoom + (H/2)
                  
                  if px2 > 0 and px1 < L:
-                     s = pygame.Surface(((x2-x1)*zoom, 20*zoom), pygame.SRCALPHA)
-                     s.fill((0, 255, 0, 100))
-                     surface.blit(s, (px1, py - 20*zoom))
+                     s_mission = pygame.Surface(((x2-x1)*zoom, 20*zoom), pygame.SRCALPHA)
+                     s_mission.fill((0, 255, 0, 100))
+                     surface.blit(s_mission, (px1, py - 20*zoom))
                      l = police_label.render("LAND HERE", True, (0, 255, 0))
                      surface.blit(l, (px1, py - 40*zoom))
 
@@ -611,20 +630,20 @@ class Airport:
                     pygame.draw.circle(surface, c, (papi_x + idx*12*zoom, py - 6*zoom), max(1, int(3*zoom)))
 
             # ZONE RAVITAILLEMENT (REFUEL)
-        # Position: x=500, largeur=300
-        rz_x = 500
-        rz_w = 300
-        px_rz = (self.x_start + rz_x - cam_x) * zoom + (L/2)
-        if -200 < px_rz < L+200:
-            # Carré jaune transparent au sol pour le refuel manuel
-            s_zone = pygame.Surface((rz_w*zoom, 20*zoom), pygame.SRCALPHA)
-            s_zone.fill((255, 200, 0, 100)) # Jaune semi-transp
-            surface.blit(s_zone, (px_rz, py + (H/2) - 10*zoom))
+            rz_w = self.width
+            px_rz = (self.x_start - cam_x) * zoom + (L/2)
             
-            # Texte "FUEL"
-            lbl_fuel = police_label.render("FUEL ZONE", True, (255, 200, 50))
-            if zoom > 0.5:
-                surface.blit(lbl_fuel, (px_rz + 10*zoom, py + (H/2) - 30*zoom))
+            if px_rz + rz_w * zoom > 0 and px_rz < L:
+                # Carré jaune transparent au sol sur toute la longueur
+                s_zone = pygame.Surface((rz_w*zoom, 15*zoom), pygame.SRCALPHA)
+                s_zone.fill((255, 200, 0, 60)) 
+                surface.blit(s_zone, (px_rz, py - 10*zoom))
+                
+                # Texte "FUEL" répété tous les 2000m pour être sûr de le voir
+                if zoom > 0.4:
+                    for d in range(0, int(rz_w), 2000):
+                        lbl_fuel = police_label.render("FUEL ZONE", True, (255, 200, 50))
+                        surface.blit(lbl_fuel, (px_rz + d*zoom + 50*zoom, py - 30*zoom))
 
 # (L'initialisation de MAIN_AIRPORT est remplacée par la boucle ci-dessous)
 for i in range(10): 
@@ -780,10 +799,10 @@ def dessiner_hud_overlay(surface, vitesse, alt, angle_pitch, vy):
     C_BG = (0, 20, 10, 50)     # Fond TRES transparent
 
     # 1. GAUCHE: VITESSE (Speed Tape)
-    x_spd = 80
+    x_spd = s(80)
     y_center = H // 2
-    h_tape = 300
-    w_tape = 70
+    h_tape = s(300)
+    w_tape = s(70)
     
     # Fond Tape Vitesse
     s_tape_spd = pygame.Surface((w_tape, h_tape), pygame.SRCALPHA)
@@ -794,7 +813,7 @@ def dessiner_hud_overlay(surface, vitesse, alt, angle_pitch, vy):
     pygame.draw.line(surface, C_TXT, (x_spd - w_tape, y_center), (x_spd, y_center), 2)
     
     # Graduations Vitesse
-    px_per_knot = 3
+    px_per_knot = 3 * UI_SCALE
     start_v = int(vitesse - (h_tape // 2) / px_per_knot)
     end_v = int(vitesse + (h_tape // 2) / px_per_knot)
     
@@ -803,20 +822,20 @@ def dessiner_hud_overlay(surface, vitesse, alt, angle_pitch, vy):
         y_pos = y_center + dy
         if y_center - h_tape//2 < y_pos < y_center + h_tape//2:
             if v % 50 == 0:
-                pygame.draw.line(surface, C_TXT, (x_spd, y_pos), (x_spd - 20, y_pos), 2)
+                pygame.draw.line(surface, C_TXT, (x_spd, y_pos), (x_spd - s(20), y_pos), 2)
                 lbl = police_valeur.render(str(v), True, C_TXT)
-                surface.blit(lbl, (x_spd - 55, y_pos - 10))
+                surface.blit(lbl, (x_spd - s(55), y_pos - s(10)))
             else:
-                pygame.draw.line(surface, C_TXT, (x_spd, y_pos), (x_spd - 10, y_pos), 1)
+                pygame.draw.line(surface, C_TXT, (x_spd, y_pos), (x_spd - s(10), y_pos), 1)
 
     # Valeur Vitesse Actuelle
     lbl_vagne = police_valeur.render(f"{int(vitesse)}", True, C_TXT)
-    pygame.draw.rect(surface, (0, 0, 0), (x_spd + 15, y_center - 15, 50, 30))
-    pygame.draw.rect(surface, C_TXT, (x_spd + 15, y_center - 15, 50, 30), 2)
-    surface.blit(lbl_vagne, (x_spd + 22, y_center - 10))
+    pygame.draw.rect(surface, (0, 0, 0), (x_spd + s(15), y_center - s(15), s(50), s(30)))
+    pygame.draw.rect(surface, C_TXT, (x_spd + s(15), y_center - s(15), s(50), s(30)), 2)
+    surface.blit(lbl_vagne, (x_spd + s(22), y_center - s(10)))
 
     # 2. DROITE: ALTITUDE (Alt Tape)
-    x_alt = L - 80
+    x_alt = L - s(80)
     
     s_tape_alt = pygame.Surface((w_tape, h_tape), pygame.SRCALPHA)
     s_tape_alt.fill(C_BG)
@@ -824,7 +843,7 @@ def dessiner_hud_overlay(surface, vitesse, alt, angle_pitch, vy):
     
     pygame.draw.line(surface, C_TXT, (x_alt, y_center), (x_alt + w_tape, y_center), 2)
 
-    px_per_ft = 0.5 
+    px_per_ft = 0.5 * UI_SCALE
     start_alt = int(alt - (h_tape // 2) / px_per_ft)
     end_alt = int(alt + (h_tape // 2) / px_per_ft)
 
@@ -833,53 +852,54 @@ def dessiner_hud_overlay(surface, vitesse, alt, angle_pitch, vy):
         y_pos = y_center + dy
         if y_center - h_tape//2 < y_pos < y_center + h_tape//2:
             if a % 500 == 0:
-                pygame.draw.line(surface, C_TXT, (x_alt, y_pos), (x_alt + 20, y_pos), 2)
+                pygame.draw.line(surface, C_TXT, (x_alt, y_pos), (x_alt + s(20), y_pos), 2)
                 lbl = police_valeur.render(str(a), True, C_TXT)
-                surface.blit(lbl, (x_alt + 25, y_pos - 10))
+                surface.blit(lbl, (x_alt + s(25), y_pos - s(10)))
             else:
-                pygame.draw.line(surface, C_TXT, (x_alt, y_pos), (x_alt + 10, y_pos), 1)
+                pygame.draw.line(surface, C_TXT, (x_alt, y_pos), (x_alt + s(10), y_pos), 1)
 
     # Valeur Alt Actuelle
     lbl_a_act = police_valeur.render(f"{int(alt)}", True, C_TXT)
-    pygame.draw.rect(surface, (0, 0, 0), (x_alt - 60, y_center - 15, 55, 30))
-    pygame.draw.rect(surface, C_TXT, (x_alt - 60, y_center - 15, 55, 30), 2)
-    surface.blit(lbl_a_act, (x_alt - 55, y_center - 10))
+    pygame.draw.rect(surface, (0, 0, 0), (x_alt - s(60), y_center - s(15), s(55), s(30)))
+    pygame.draw.rect(surface, C_TXT, (x_alt - s(60), y_center - s(15), s(55), s(30)), 2)
+    surface.blit(lbl_a_act, (x_alt - s(55), y_center - s(10)))
 
     # 3. CENTRE: PITCH LADDER
-    pitch_px = angle_pitch * 5
+    pitch_spacing = s(5)
+    pitch_px = angle_pitch * pitch_spacing
     y_hor = y_center + pitch_px
     if 0 < y_hor < H:
-        pygame.draw.line(surface, C_INFO, (L/2 - 50, y_hor), (L/2 + 50, y_hor), 1) 
+        pygame.draw.line(surface, C_INFO, (L/2 - s(50), y_hor), (L/2 + s(50), y_hor), 1) 
     
     for p in range(-90, 90, 10):
         if p == 0: continue
-        dy = (angle_pitch - p) * 5
+        dy = (angle_pitch - p) * pitch_spacing
         y_l = y_center + dy
-        if y_center - 150 < y_l < y_center + 150:
-            w_l = 40 if p % 20 == 0 else 20
+        if y_center - s(150) < y_l < y_center + s(150):
+            w_l = s(40) if p % 20 == 0 else s(20)
             pygame.draw.line(surface, C_TXT, (L/2 - w_l, y_l), (L/2 + w_l, y_l), 1)
             if p % 20 == 0:
                 txt_p = police_label.render(str(p), True, C_TXT)
-                surface.blit(txt_p, (L/2 + w_l + 5, y_l - 5))
+                surface.blit(txt_p, (L/2 + w_l + s(5), y_l - s(5)))
 
     # Maquette Avion
     cx, cy = L // 2, H // 2
-    pygame.draw.circle(surface, (255, 0, 0), (cx, cy), 3, 1)
+    pygame.draw.circle(surface, (255, 0, 0), (cx, cy), s(3), 1)
 
 # --- DASHBOARD ANALOGIQUE (CLASSIC) ---
 def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch, gear, mtemp):
     global fuel
-    h_dash = 140
+    h_dash = s(140)
     y_base = H - h_dash
     
     # Fond Carbone / Tableau de bord
     pygame.draw.rect(surface, (40, 40, 45), (0, y_base, L, h_dash))
-    pygame.draw.line(surface, (80, 80, 90), (0, y_base), (L, y_base), 3)
+    pygame.draw.line(surface, (80, 80, 90), (0, y_base), (L, y_base), s(3))
 
     # 1. ANEMOMETRE (GAUCHE)
-    x_spd = 120
-    y_inst = y_base + 70
-    rayon = 60
+    x_spd = s(120)
+    y_inst = y_base + s(70)
+    rayon = s(60)
     
     # Cadran
     pygame.draw.circle(surface, (10, 10, 15), (x_spd, y_inst), rayon)
@@ -890,7 +910,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     for v in range(0, max_speed + 1, 50):
         ang = 135 + (v / max_speed) * 270
         rad = math.radians(ang)
-        p1 = (x_spd + math.cos(rad) * (rayon - 8), y_inst + math.sin(rad) * (rayon - 8))
+        p1 = (x_spd + math.cos(rad) * (rayon - s(8)), y_inst + math.sin(rad) * (rayon - s(8)))
         p2 = (x_spd + math.cos(rad) * rayon, y_inst + math.sin(rad) * rayon)
         lc = (255, 255, 255) if v % 100 == 0 else (150, 150, 150)
         w = 2 if v % 100 == 0 else 1
@@ -899,17 +919,17 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     val_aff = min(vitesse, max_speed)
     ang_aig = 135 + (val_aff / max_speed) * 270
     rad_aig = math.radians(ang_aig)
-    pygame.draw.line(surface, HUD_ORANGE, (x_spd, y_inst), (x_spd + math.cos(rad_aig) * (rayon-5), y_inst + math.sin(rad_aig) * (rayon-5)), 3)
+    pygame.draw.line(surface, HUD_ORANGE, (x_spd, y_inst), (x_spd + math.cos(rad_aig) * (rayon-s(5)), y_inst + math.sin(rad_aig) * (rayon-s(5))), s(3))
     
     sf_spd = police_valeur.render(f"{int(vitesse)}", True, (255, 255, 255))
-    surface.blit(sf_spd, sf_spd.get_rect(center=(x_spd, y_inst + 25)))
-    surface.blit(police_label.render("KTS", True, TXT_GRIS), (x_spd - 15, y_inst - 20))
+    surface.blit(sf_spd, sf_spd.get_rect(center=(x_spd, y_inst + s(25))))
+    surface.blit(police_label.render("KTS", True, TXT_GRIS), (x_spd - s(15), y_inst - s(20)))
 
     # 2. HORIZON ARTIFICIEL (CENTRE GAUCHE)
-    x_hor = 280
-    rayon_hor = 60
+    x_hor = s(280)
+    rayon_hor = s(60)
     
-    pitch_pixel = angle_pitch * 3 # Sensibilité
+    pitch_pixel = angle_pitch * (3 * UI_SCALE) # Sensibilité
     
     # Masque (Clip)
     s_hor = pygame.Surface((rayon_hor*2, rayon_hor*2))
@@ -921,119 +941,114 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     y_h_local = rayon_hor + pitch_pixel
     rect_sol_local = pygame.Rect(0, y_h_local, rayon_hor*2, rayon_hor*2)
     pygame.draw.rect(s_hor, (100, 60, 30), rect_sol_local) # Sol
-    pygame.draw.line(s_hor, (255, 255, 255), (0, y_h_local), (rayon_hor*2, y_h_local), 2) # Ligne
-    
-    # Masque Circulaire
-    mask = pygame.Surface((rayon_hor*2, rayon_hor*2), pygame.SRCALPHA)
-    pygame.draw.circle(mask, (0,0,0,255), (rayon_hor, rayon_hor), rayon_hor)
-    mask.set_colorkey((0,0,0))
-    # On blit le mask sur s_hor pour "trout" (inverse) -> non, plus simple:
-    # On crée une surface finale propre
-    s_final_hor = pygame.Surface((rayon_hor*2, rayon_hor*2), pygame.SRCALPHA)
-    pygame.draw.circle(s_final_hor, (255, 255, 255), (rayon_hor, rayon_hor), rayon_hor)
-    # Mode de blend pour garder que le cercle... un peu complexe en pygame pur vite fait
-    # Methode simple: on blit le carré s_hor et on redessine un cache par dessus (image png avec trou transparent ou 4 coins)
-    # Ici on va juste afficher le carré clippé dans le cercle principal du dashboard qui a un bord épais
+    pygame.draw.line(s_hor, (255, 255, 255), (0, y_h_local), (rayon_hor*2, y_h_local), s(2)) # Ligne
     
     # Pour faire simple et propre sans assets : On affiche le rect complet mais on dessine le contour par dessus
     surface.blit(s_hor, (x_hor - rayon_hor, y_inst - rayon_hor))
     
     # Repère Avion
-    pygame.draw.line(surface, HUD_ORANGE, (x_hor - 40, y_inst), (x_hor - 10, y_inst), 3)
-    pygame.draw.line(surface, HUD_ORANGE, (x_hor + 10, y_inst), (x_hor + 40, y_inst), 3)
-    pygame.draw.circle(surface, HUD_ORANGE, (x_hor, y_inst), 3)
+    pygame.draw.line(surface, HUD_ORANGE, (x_hor - s(40), y_inst), (x_hor - s(10), y_inst), s(3))
+    pygame.draw.line(surface, HUD_ORANGE, (x_hor + s(10), y_inst), (x_hor + s(40), y_inst), s(3))
+    pygame.draw.circle(surface, HUD_ORANGE, (x_hor, y_inst), s(3))
     
     # Contour cache misère (cercle épais autour)
-    pygame.draw.circle(surface, (40, 40, 45), (x_hor, y_inst), rayon_hor + 10, 10) 
-    pygame.draw.circle(surface, (50, 50, 60), (x_hor, y_inst), rayon_hor, 3)
+    pygame.draw.circle(surface, (40, 40, 45), (x_hor, y_inst), rayon_hor + s(10), s(10)) 
+    pygame.draw.circle(surface, (50, 50, 60), (x_hor, y_inst), rayon_hor, s(3))
 
 
     # 3. ALTIMETRE (CENTRE DROIT)
-    x_alt = 440
+    x_alt = s(440)
     pygame.draw.circle(surface, (10, 10, 15), (x_alt, y_inst), rayon)
-    pygame.draw.circle(surface, (200, 200, 200), (x_alt, y_inst), rayon, 2)
+    pygame.draw.circle(surface, (200, 200, 200), (x_alt, y_inst), rayon, s(2))
     
     # Aiguille 1000 ft
     val_1000 = (alt % 10000) / 10000.0
     ang_1000 = -90 + val_1000 * 360
     r1 = math.radians(ang_1000)
-    pygame.draw.line(surface, (255, 255, 255), (x_alt, y_inst), (x_alt + math.cos(r1)*40, y_inst + math.sin(r1)*40), 4)
+    pygame.draw.line(surface, (255, 255, 255), (x_alt, y_inst), (x_alt + math.cos(r1)*s(40), y_inst + math.sin(r1)*s(40)), s(4))
 
     # Aiguille 100 ft
     val_100 = (alt % 1000) / 1000.0
     ang_100 = -90 + val_100 * 360
     r2 = math.radians(ang_100)
-    pygame.draw.line(surface, (255, 255, 255), (x_alt, y_inst), (x_alt + math.cos(r2)*55, y_inst + math.sin(r2)*55), 2)
+    pygame.draw.line(surface, (255, 255, 255), (x_alt, y_inst), (x_alt + math.cos(r2)*s(55), y_inst + math.sin(r2)*s(55)), s(2))
     
     sf_alt = police_valeur.render(f"{int(alt)}", True, (200, 255, 200))
-    surface.blit(sf_alt, sf_alt.get_rect(center=(x_alt, y_inst + 30)))
-    surface.blit(police_label.render("ALT", True, TXT_GRIS), (x_alt - 10, y_inst - 20))
+    surface.blit(sf_alt, sf_alt.get_rect(center=(x_alt, y_inst + s(30))))
+    surface.blit(police_label.render("ALT", True, TXT_GRIS), (x_alt - s(10), y_inst - s(20)))
 
     # 4. INDICATEUR DE PORTANCE (LIFT)
-    x_vsi = 600
-    rayon_vsi = 50
+    x_vsi = s(600)
+    rayon_vsi = s(50)
     pygame.draw.circle(surface, (10, 10, 15), (x_vsi, y_inst), rayon_vsi)
-    pygame.draw.circle(surface, (200, 200, 200), (x_vsi, y_inst), rayon_vsi, 2)
+    pygame.draw.circle(surface, (200, 200, 200), (x_vsi, y_inst), rayon_vsi, s(2))
     
     val_lift = portance / 0.12 # 1G
     val_lift = max(0.0, min(2.0, val_lift))
-    ang_vsi = 180 + (val_lift * 90)
+    ang_vsi = 135 + (val_lift / 2.0) * 270
     rv = math.radians(ang_vsi)
-    pygame.draw.line(surface, (255, 255, 100), (x_vsi, y_inst), (x_vsi + math.cos(rv)*(rayon_vsi-5), y_inst + math.sin(rv)*(rayon_vsi-5)), 3)
-    surface.blit(police_label.render("LIFT", True, TXT_GRIS), (x_vsi - 15, y_inst + 10))
+    pygame.draw.line(surface, (255, 255, 100), (x_vsi, y_inst), (x_vsi + math.cos(rv)*(rayon_vsi-s(5)), y_inst + math.sin(rv)*(rayon_vsi-s(5))), s(3))
+    surface.blit(police_label.render("LIFT", True, TXT_GRIS), (x_vsi - s(15), y_inst + s(10)))
     
     # 5. FUEL (JAUGE) - INTEGRATION
-    x_fuel = 720
-    rayon_fuel = 40
+    x_fuel = s(720)
+    rayon_fuel = s(40)
     
     # Fond et bordure
     pygame.draw.circle(surface, (10, 10, 15), (x_fuel, y_inst), rayon_fuel)
-    pygame.draw.circle(surface, (150, 150, 160), (x_fuel, y_inst), rayon_fuel, 2)
+    pygame.draw.circle(surface, (150, 150, 160), (x_fuel, y_inst), rayon_fuel, s(2))
     
-    # Dessin des zones (Vert, Jaune, Rouge) en arc de cercle
-    # E = 220, F = 320
-    arc_rect = pygame.Rect(x_fuel - rayon_fuel + 5, y_inst - rayon_fuel + 5, rayon_fuel * 2 - 10, rayon_fuel * 2 - 10)
+    # 5. FUEL (JAUGE) - INTEGRATION (TOP ARC 180 GRAD)
+    x_fuel = s(720)
+    rayon_fuel = s(40)
     
-    # Zone Verte (100% à 50%) -> 320 à 270 deg
-    pygame.draw.arc(surface, (50, 200, 50), arc_rect, math.radians(-40), math.radians(10), 4)  # Pygame arc dessine de droite(0) en tournant CCW. Donc -40 (=320) à 10 (=370->10) pour Pygame.
-    # Zone Jaune (50% à 20%) -> 270 à 240 deg
-    pygame.draw.arc(surface, (200, 200, 50), arc_rect, math.radians(-90), math.radians(-40), 4) # -> -90(=270) à -40(=320)
-    # Zone Rouge (20% à 0%) -> 240 à 220 deg
-    pygame.draw.arc(surface, (200, 50, 50), arc_rect, math.radians(-140), math.radians(-90), 4) # -> -140(=220) à -90(=270)
+    # Fond et bordure
+    pygame.draw.circle(surface, (10, 10, 15), (x_fuel, y_inst), rayon_fuel)
+    pygame.draw.circle(surface, (150, 150, 160), (x_fuel, y_inst), rayon_fuel, s(2))
+    
+    # Arcs (Trig CCW: 0=East, 90=North, 180=West)
+    arc_rect = pygame.Rect(x_fuel - rayon_fuel + s(2), y_inst - rayon_fuel + s(2), rayon_fuel * 2 - s(4), rayon_fuel * 2 - s(4))
+    
+    # Zone Verte (100% à 40%) -> 0 à 108 deg CCW
+    pygame.draw.arc(surface, (50, 200, 50), arc_rect, math.radians(0), math.radians(108), s(5))
+    # Zone Jaune (40% à 15%) -> 108 à 153 deg
+    pygame.draw.arc(surface, (200, 200, 50), arc_rect, math.radians(108), math.radians(153), s(5))
+    # Zone Rouge (15% à 0%) -> 153 à 180 deg
+    pygame.draw.arc(surface, (200, 50, 50), arc_rect, math.radians(153), math.radians(180), s(5))
     
     # Texte central FUEL
     lbl_f = police_label.render("FUEL", True, TXT_GRIS)
-    surface.blit(lbl_f, (x_fuel - 15, y_inst - 10))
+    surface.blit(lbl_f, (x_fuel - s(15), y_inst + s(5)))
     
-    # Aiguille Fuel
+    # Aiguille Fuel (Math Screen: 180=W, 270=N, 360=E)
     pct_fuel = fuel / 100.0
-    ang_fuel = 220 + pct_fuel * 100
+    ang_fuel = 180 + (pct_fuel * 180)
     rf = math.radians(ang_fuel)
     
     c_f_aig = (255, 255, 255) if fuel >= 20 else (255, 50, 50)
-    pygame.draw.line(surface, c_f_aig, (x_fuel, y_inst), (x_fuel + math.cos(rf)*(rayon_fuel-10), y_inst + math.sin(rf)*(rayon_fuel-10)), 3)
+    # Longueur presque totale pour bien voir qu'elle va au bout
+    pygame.draw.line(surface, c_f_aig, (x_fuel, y_inst), 
+                     (x_fuel + math.cos(rf)*(rayon_fuel-s(5)), y_inst + math.sin(rf)*(rayon_fuel-s(5))), s(3))
     
-    # Cache central pour l'aiguille
-    pygame.draw.circle(surface, (50, 50, 50), (x_fuel, y_inst), 5)
+    # Cache central
+    pygame.draw.circle(surface, (50, 50, 50), (x_fuel, y_inst), s(5))
 
-    # Affichage digital propre
-    pygame.draw.rect(surface, (0, 0, 0), (x_fuel - 20, y_inst + 25, 40, 15))
-    pygame.draw.rect(surface, c_f_aig, (x_fuel - 20, y_inst + 25, 40, 15), 1)
-    lbl_val = police_label.render(f"{int(fuel)}%", True, c_f_aig)
-    surface.blit(lbl_val, lbl_val.get_rect(center=(x_fuel, y_inst + 32)))
+    # Digital
+    sf_f = police_label.render(f"{int(fuel)}%", True, c_f_aig)
+    surface.blit(sf_f, sf_f.get_rect(center=(x_fuel, y_inst + s(25))))
 
 
     # 6. RADAR / MAP
-    x_map = 820
-    y_map = y_base + 10
-    w_map = 300
-    h_map = 120
+    x_map = L - s(380)
+    y_map = y_base + s(10)
+    w_map = s(300)
+    h_map = s(120)
     
     pygame.draw.rect(surface, (10, 20, 10), (x_map, y_map, w_map, h_map))
-    pygame.draw.rect(surface, (100, 100, 100), (x_map, y_map, w_map, h_map), 2)
+    pygame.draw.rect(surface, (100, 100, 100), (x_map, y_map, w_map, h_map), s(2))
     
     center_map_x = x_map + w_map // 2
-    pygame.draw.line(surface, (0, 100, 0), (x_map, y_map+h_map-10), (x_map+w_map, y_map+h_map-10))
+    pygame.draw.line(surface, (0, 100, 0), (x_map, y_map+h_map-s(10)), (x_map+w_map, y_map+h_map-s(10)))
     
     # L'avion sera dessiné plus tard, par-dessus la trajectoire et le relief
     
@@ -1059,7 +1074,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
              mx2 = max(x_map, min(x_map + w_map, mx2))
              rect_w = max(2, mx2 - mx1) # Même si on est zoomé, toujours dessiner au moins 2 px
              
-             pygame.draw.rect(surface, (180, 180, 180), (mx1, y_map+h_map-12, rect_w, 4))
+             pygame.draw.rect(surface, (180, 180, 180), (mx1, y_map+h_map-s(12), rect_w, s(4)))
              
              # Calcul Distance au plus près
              dist_closest = min(abs(dist), abs(dist + rw))
@@ -1070,19 +1085,19 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     if min_dist_airport < RANGE_MAP:
         dist_km = min_dist_airport / 1000.0
         lbl_dist = police_label.render(f"DIST: {dist_km:.1f}KM", True, (150, 200, 150))
-        surface.blit(lbl_dist, (x_map + 5, y_map + 5))
+        surface.blit(lbl_dist, (x_map + s(5), y_map + s(5)))
         
     # Dessin contour du Relief simplifié sur radar
     points_map_relief = []
-    points_map_relief.append((x_map, y_map+h_map-10))
-    for map_dx in range(0, w_map, 5):
+    points_map_relief.append((x_map, y_map+h_map-s(10)))
+    for map_dx in range(0, w_map, s(5)):
         wx = (map_dx - w_map/2) / px_per_m + px_world
         ty = get_terrain_height(wx)
         # On utilise la même échelle (0.02) que l'altitude de l'avion pour que ça corresponde
-        my = y_map+h_map-10 - (ty * 0.02) 
-        my = max(y_map, min(y_map+h_map-10, my))
+        my = y_map+h_map-s(10) - (ty * (0.02 * UI_SCALE)) 
+        my = max(y_map, min(y_map+h_map-s(10), my))
         points_map_relief.append((x_map + map_dx, my))
-    points_map_relief.append((x_map + w_map, y_map+h_map-10))
+    points_map_relief.append((x_map + w_map, y_map+h_map-s(10)))
     pygame.draw.polygon(surface, (20, 50, 20), points_map_relief)
     # DESSIN HISTORIQUE SUR MAP (Trajectoire)
     px_per_m = w_map / (20000 * 2) 
@@ -1092,24 +1107,24 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
              dist = hx - px_world
              if abs(dist) < 20000: # RANGE_MAP
                  mx = center_map_x + (dist * px_per_m)
-                 hy_rel = min(h_map - 15, halt * 0.02)
-                 my = y_map + h_map - 10 - hy_rel
+                 hy_rel = min(h_map - s(15), halt * (0.02 * UI_SCALE))
+                 my = y_map + h_map - s(10) - hy_rel
                  points_map.append((mx, my))
         
         if len(points_map) > 1:
-            pygame.draw.lines(surface, (50, 255, 255), False, points_map, 2) # Cyan plus épais pour la trainée
+            pygame.draw.lines(surface, (50, 255, 255), False, points_map, s(2)) # Cyan plus épais pour la trainée
             
     # DESSIN AVION SUR MAP (Marqueur)
-    h_rel = min(h_map - 20, alt * 0.02)
-    p_center = (center_map_x, y_map+h_map-10 - h_rel)
+    h_rel = min(h_map - s(20), alt * (0.02 * UI_SCALE))
+    p_center = (center_map_x, y_map+h_map-s(10) - h_rel)
     
     # Calcul des points du triangle orienté selon l'angle (angle_pitch en degrés)
     rad_a = math.radians(angle_pitch)
     # Triangle de base pointant vers la droite (0 degrés)
-    t_size = 6
+    t_size = s(6)
     p1_base = (t_size, 0) # Nez
-    p2_base = (-t_size, -t_size + 2) # Aile gauche
-    p3_base = (-t_size, t_size - 2) # Aile droite
+    p2_base = (-t_size, -t_size + s(2)) # Aile gauche
+    p3_base = (-t_size, t_size - s(2)) # Aile droite
     
     def rotate_point(p, r):
         # Rotation trigo : x*cos - y*sin, x*sin + y*cos
@@ -1127,49 +1142,51 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     pygame.draw.polygon(surface, (255, 255, 0), [pt1, pt2, pt3])
 
     # Infos Textes (THRUST & TEMP)
-    lbl_th = police_label.render(f"THR", True, HUD_ORANGE)
-    surface.blit(lbl_th, (L - 80, y_map - 20))
+    x_panel = L - s(80)
+    lbl_th = police_label.render("THR", True, HUD_ORANGE)
+    surface.blit(lbl_th, (x_panel, y_map - s(20)))
     lbl_th_val = police_valeur.render(f"{int(poussee_pct)}%", True, (255, 255, 255))
-    surface.blit(lbl_th_val, (L - 80, y_map))
+    surface.blit(lbl_th_val, (x_panel, y_map))
     
     # TEMP JAUGE
-    y_temp = y_map + 40
+    y_temp = y_map + s(40)
     lbl_temp = police_label.render("ENG TEMP", True, (200, 200, 200))
-    surface.blit(lbl_temp, (L - 80, y_temp))
+    surface.blit(lbl_temp, (x_panel, y_temp))
     
     c_temp = (50, 200, 50) # Vert
     if mtemp > 70: c_temp = (200, 200, 50) # Jaune
     if mtemp > 90: c_temp = (255, 50, 50)  # Rouge
     
-    pygame.draw.rect(surface, (50, 50, 50), (L - 80, y_temp + 20, 60, 10)) # Fond
-    pygame.draw.rect(surface, c_temp, (L - 80, y_temp + 20, int(60 * (mtemp/100.0)), 10)) # Valeur
-    pygame.draw.rect(surface, (200, 200, 200), (L - 80, y_temp + 20, 60, 10), 1) # Bord
+    pygame.draw.rect(surface, (50, 50, 50), (x_panel, y_temp + s(20), s(60), s(10))) # Fond
+    pygame.draw.rect(surface, c_temp, (x_panel, y_temp + s(20), int(s(60) * (mtemp/100.0)), s(10))) # Valeur
+    pygame.draw.rect(surface, (200, 200, 200), (x_panel, y_temp + s(20), s(60), s(10)), 1) # Bord
     
     # Message Surchauffe (Clignotement)
     if mtemp > 95 and (pygame.time.get_ticks() % 500) < 250:
          lbl_warn = police_label.render("OVERHEAT", True, HUD_ROUGE)
-         surface.blit(lbl_warn, (L - 80, y_temp + 35))
+         surface.blit(lbl_warn, (x_panel, y_temp + s(35)))
 
     # INDICATEURS REPOSITIONNES (AU-DESSUS DE RADAR/THR)
-    y_ind = y_map - 40
+    y_ind = y_map - s(40)
     # GEAR
     c_gear = (0, 200, 0) if gear else (200, 50, 50)
-    pygame.draw.circle(surface, c_gear, (L - 260, y_ind), 5)
-    surface.blit(police_label.render("GEAR", True, (200, 200, 200)), (L - 250, y_ind - 7))
+    pygame.draw.circle(surface, c_gear, (L - s(260), y_ind), s(5))
+    surface.blit(police_label.render("GEAR", True, (200, 200, 200)), (L - s(250), y_ind - s(7)))
     
     # FLAPS
     c_flaps = (0, 200, 0) if flaps else (50, 50, 50)
-    pygame.draw.circle(surface, c_flaps, (L - 180, y_ind), 5)
-    surface.blit(police_label.render("FLAPS", True, (200, 200, 200)), (L - 170, y_ind - 7))
+    pygame.draw.circle(surface, c_flaps, (L - s(180), y_ind), s(5))
+    surface.blit(police_label.render("FLAPS", True, (200, 200, 200)), (L - s(170), y_ind - s(7)))
 
     # BRAKE
     c_brake = (200, 50, 50) if freins else (50, 50, 50)
-    pygame.draw.circle(surface, c_brake, (L - 100, y_ind), 5)
-    surface.blit(police_label.render("BRAKE", True, (200, 200, 200)), (L - 90, y_ind - 7))
-    x_thr = L - 30
+    pygame.draw.circle(surface, c_brake, (L - s(100), y_ind), s(5))
+    surface.blit(police_label.render("BRAKE", True, (200, 200, 200)), (L - s(90), y_ind - s(7)))
+    # MANETTE DES GAZ
+    x_thr = L - s(30)
     y_thr = y_map
-    w_thr = 15
-    h_thr = 100
+    w_thr = s(15)
+    h_thr = s(100)
     
     # Fond slot
     pygame.draw.rect(surface, (20, 20, 20), (x_thr, y_thr, w_thr, h_thr))
@@ -1177,11 +1194,11 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     
     # Curseur (Manette)
     pos_y_manette = y_thr + h_thr - (h_thr * (poussee_pct / 100.0))
-    pygame.draw.rect(surface, (200, 200, 200), (x_thr - 5, pos_y_manette - 5, w_thr + 10, 10))
-    pygame.draw.line(surface, (50, 50, 50), (x_thr - 5, pos_y_manette), (x_thr + w_thr + 5, pos_y_manette), 1)
+    pygame.draw.rect(surface, (200, 200, 200), (x_thr - s(5), pos_y_manette - s(5), w_thr + s(10), s(10)))
+    pygame.draw.line(surface, (50, 50, 50), (x_thr - s(5), pos_y_manette), (x_thr + w_thr + s(5), pos_y_manette), 1)
 
     lbl_ti = police_valeur.render(f"{int(heure_dec):02d}:{int((heure_dec%1)*60):02d}", True, HUD_VERT)
-    surface.blit(lbl_ti, (L - 80, y_map + 20))
+    surface.blit(lbl_ti, (L - s(80), y_map + s(20)))
 
 
 
@@ -1190,11 +1207,16 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
 while True:
     dt = horloge.tick(60) / 1000.0 
     
+    # --- GESTION DU TEMPS ---
     if mode_temps_reel:
         now = datetime.datetime.now()
         heure_actuelle = now.hour + (now.minute / 60.0) + (now.second / 3600.0)
+    elif mode_temps_dynamique:
+        # Avance du temps : 0.001 par frame = ~1h toutes les 1000 frames (~16s à 60fps)
+        # Un cycle complet de 24h prend environ 6.5 minutes.
+        heure_actuelle += 0.001
+        if heure_actuelle >= 24: heure_actuelle -= 24
     else:
-        # Mode Manuel
         heure_actuelle = offset_temps
 
     
@@ -1346,26 +1368,24 @@ while True:
     if moteur_temp < 0: moteur_temp = 0
 
     # REFUELING MANUEL (Touche R sur n'importe quel aéroport)
-    # L'avion doit être au sol (altitude < 5), presque arrêté, dans la zone 500-800 d'un des aéroports
+    # L'avion doit être au sol (altitude < 5), presque arrêté, dans la zone d'un aéroport (0 à 2000m)
     can_refuel = False
-    if altitude < 5 and abs(vitesse_kph) < 10:
+    if altitude < 5 and abs(vitesse_kph) < 30: # Un peu plus tolérant sur la vitesse
         for piste_data in RUNWAYS:
             if isinstance(piste_data, tuple):
                 piste_x = piste_data[0]
-            else: piste_x = piste_data
-            if piste_x + 500 <= world_x <= piste_x + 800:
+                piste_w = piste_data[1]
+            else: 
+                piste_x = piste_data
+                piste_w = 6000
+            # On peut recharger sur toute la longueur de la piste
+            if piste_x - 300 <= world_x <= piste_x + piste_w + 300:
                 can_refuel = True
                 break
                 
     if can_refuel:
-        # Affichage du message dynamique
-        if not args.no_hud and not args.auto_refuel:
-            msg_refuel = "MAINTENEZ 'R' POUR FAIRE LE PLEIN"
-            lbl_r = police_alarme.render(msg_refuel, True, (255, 200, 0))
-            fenetre.blit(lbl_r, lbl_r.get_rect(center=(L//2, H//4 + 50)))
-            
         if args.auto_refuel or touches[pygame.K_r]:
-            fuel += 0.5 
+            fuel += 1.0 # Remplissage rapide
             if fuel > max_fuel: fuel = max_fuel
 
     # SON CONTINU
@@ -1787,7 +1807,6 @@ while True:
         
         if alpha_sol > 10 or zoom <= 0.3:
             # Construction du polygone de relief
-            # Même si alpha_sol < 10 (très haut), on DOIT dessiner le sol de base
             points_relief = [(-100, H)] # Bas gauche
             
             step_x = 20 if zoom > 0.2 else 50
@@ -1803,6 +1822,41 @@ while True:
             points_relief.append((L+200, H)) # Bas complet
             
             pygame.draw.polygon(fenetre, SOL_HERBE_BASE, points_relief)
+
+    # --- RENDU MÉTÉO : BROUILLARD (FOG) ---
+    if args.weather == "fog" and altitude < 2500:
+        # Brouillard dense au sol, se dissipe avec l'altitude
+        # Max densité à altitude=0 (alpha 200), dissipé à altitude 2500 (alpha 0)
+        alpha_fog = int(210 * max(0.0, 1.0 - (altitude / 2500.0)))
+        if alpha_fog > 0:
+            surf_fog = pygame.Surface((L, H), pygame.SRCALPHA)
+            # Couleur gris perle pour le brouillard
+            surf_fog.fill((210, 215, 220, alpha_fog))
+            fenetre.blit(surf_fog, (0, 0))
+
+    # --- PHARE D'ATTERRISSAGE (NOCTURNE) ---
+    if est_nuit and lumiere_allume and not crashed:
+        # Dessin d'un cône de lumière devant l'avion
+        rad_light = math.radians(angle)
+        # On projette le cône vers l'avant
+        dist_portee = 400 * zoom
+        p_nose = (L/2, H/2) # Position centre écran = avion
+        
+        # Points du cône (triangle allongé)
+        p1 = (p_nose[0] + math.cos(rad_light)*dist_portee, 
+              p_nose[1] - math.sin(rad_light)*dist_portee)
+        
+        # Elargissement du cône
+        rad_off = 0.3 # 20 degrés d'ouverture
+        p2 = (p_nose[0] + math.cos(rad_light - rad_off)*dist_portee, 
+              p_nose[1] - math.sin(rad_light - rad_off)*dist_portee)
+        p3 = (p_nose[0] + math.cos(rad_light + rad_off)*dist_portee, 
+              p_nose[1] - math.sin(rad_light + rad_off)*dist_portee)
+        
+        surf_light = pygame.Surface((L, H), pygame.SRCALPHA)
+        pygame.draw.polygon(surf_light, (255, 255, 200, 100), [p_nose, p2, p1, p3])
+        fenetre.blit(surf_light, (0, 0))
+
         
         # Patchs
         largeur_motif = 4000 # Elargi pour accomoder la ville
@@ -1930,7 +1984,7 @@ while True:
     if args.show_fps:
         fps = int(horloge.get_fps())
         lbl_fps = police_label.render(f"FPS: {fps}", True, (0, 255, 0))
-        fenetre.blit(lbl_fps, (10, 10))
+        fenetre.blit(lbl_fps, (s(10), s(10)))
 
     # Message Alerte
     msg = ""
@@ -1942,8 +1996,18 @@ while True:
 
     if msg:
         txt_msg = police_alarme.render(msg, True, c_msg)
-        rect_msg = txt_msg.get_rect(center=(L//2, H//2 - 100))
+        rect_msg = txt_msg.get_rect(center=(L//2, H//2 - s(100)))
         fenetre.blit(txt_msg, rect_msg)
+
+    # 4. Refueling Message (MUST be drawn after screen fill)
+    if can_refuel and not args.no_hud:
+        # User requested to remove the persistent "MAINTENEZ 'R'" message.
+        # We only show feedback when refueling is actively happening.
+        if args.auto_refuel or touches[pygame.K_r]:
+            msg_refuel = f"RECHARGE EN COURS... {int(fuel)}%"
+            color_msg = (0, 255, 0)
+            lbl_r = police_alarme.render(msg_refuel, True, color_msg)
+            fenetre.blit(lbl_r, lbl_r.get_rect(center=(L//2, H//4)))
 
     # --- PLUIE SUR LE COCKPIT ---
     # Gouttes d'eau directement sur l'écran si saison de pluie

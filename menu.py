@@ -39,6 +39,7 @@ class MenuPrincipal(ctk.CTk):
         self.var_temps = ctk.StringVar(value="real")
         self.var_heure_manuelle = ctk.DoubleVar(value=12.0)
         self.var_season = ctk.StringVar(value="summer") # sun/summer default
+        self.var_weather = ctk.StringVar(value="clear") # clear/clouds/fog
         self.var_volume = ctk.DoubleVar(value=0.5)
 
         # Variables Graphiques
@@ -157,15 +158,24 @@ class MenuPrincipal(ctk.CTk):
         f_time.pack(fill="x", padx=10, pady=10)
         ctk.CTkLabel(f_time, text="HEURE DU VOL", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
 
-        def toggle_time():
-            if self.var_temps.get() == "real":
+        def set_time_mode(val):
+            if val == "DYNAMIQUE":
+                self.var_temps.set("dynamic")
+                self.slider_heure.configure(state="disabled")
+            elif val == "RÉEL (FR)":
+                self.var_temps.set("real")
                 self.slider_heure.configure(state="disabled")
             else:
+                self.var_temps.set("manual")
                 self.slider_heure.configure(state="normal")
 
-        switch_real = ctk.CTkSwitch(f_time, text="Temps Réel (France)", command=toggle_time,
-                                    onvalue="real", offvalue="manual", variable=self.var_temps)
-        switch_real.pack(anchor="w", pady=5)
+        seg_time = ctk.CTkSegmentedButton(f_time, values=["MANUEL", "RÉEL (FR)", "DYNAMIQUE"], command=set_time_mode)
+        seg_time.pack(fill="x", pady=5)
+        
+        initial_time_mode = "MANUEL"
+        if self.var_temps.get() == "real": initial_time_mode = "RÉEL (FR)"
+        elif self.var_temps.get() == "dynamic": initial_time_mode = "DYNAMIQUE"
+        seg_time.set(initial_time_mode)
 
         # Slider Heure
         self.lbl_heure_val = ctk.CTkLabel(f_time, text=f"{int(self.var_heure_manuelle.get())}H")
@@ -225,6 +235,24 @@ class MenuPrincipal(ctk.CTk):
         seg_season = ctk.CTkOptionMenu(f_season, values=["PRINTEMPS (Fleurs)", "ÉTÉ (Vert)", "AUTOMNE (Feuilles)", "HIVER (Neige)", "TEMPÊTE (Vent)"], command=set_season)
         seg_season.pack(fill="x", pady=5)
         seg_season.set(val_display)
+
+        # 4.5 MÉTÉO (FOG / CLOUDS)
+        f_weather = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        f_weather.pack(fill="x", padx=10, pady=10)
+        ctk.CTkLabel(f_weather, text="CONDITIONS MÉTÉO", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+
+        def set_weather_opt(val):
+            map_w = {"CIEL CLAIR": "clear", "NUAGES VOLUMETRIQUES": "clouds", "BROUILLARD ÉPAIS": "fog"}
+            self.var_weather.set(map_w.get(val, "clear"))
+
+        seg_weather = ctk.CTkOptionMenu(f_weather, values=["CIEL CLAIR", "NUAGES VOLUMETRIQUES", "BROUILLARD ÉPAIS"], command=set_weather_opt)
+        seg_weather.pack(fill="x", pady=5)
+        
+        w_display = "CIEL CLAIR"
+        if self.var_weather.get() == "clouds": w_display = "NUAGES VOLUMETRIQUES"
+        elif self.var_weather.get() == "fog": w_display = "BROUILLARD ÉPAIS"
+        seg_weather.set(w_display)
+
 
         # 4. VOLUME
         f_vol = ctk.CTkFrame(scroll_frame, fg_color="transparent")
@@ -305,8 +333,12 @@ class MenuPrincipal(ctk.CTk):
         
         if self.var_temps.get() == "real":
             cmd.extend(["--time", "real"])
+        elif self.var_temps.get() == "dynamic":
+            cmd.extend(["--time", "dynamic"])
         else:
             cmd.extend(["--time", str(self.var_heure_manuelle.get())])
+            
+        cmd.extend(["--weather", self.var_weather.get()])
             
         # Args Graphiques
         if not self.var_show_hud.get(): cmd.append("--no-hud")
