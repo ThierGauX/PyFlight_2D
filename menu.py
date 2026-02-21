@@ -58,6 +58,12 @@ class MenuPrincipal(ctk.CTk):
         # Variables Système
         self.var_fullscreen = ctk.BooleanVar(value=False)
         self.var_show_fps = ctk.BooleanVar(value=False)
+        
+        # Nouvelles Variables Réalisme
+        self.var_no_stall = ctk.BooleanVar(value=False)
+        self.var_no_gear_crash = ctk.BooleanVar(value=False)
+        self.var_no_wind = ctk.BooleanVar(value=False)
+        self.var_auto_refuel = ctk.BooleanVar(value=False)
 
         # Layout Principal (2 Colonnes)
         self.grid_columnconfigure(0, weight=1) # Gauche (Visuel/Titre)
@@ -218,12 +224,17 @@ class MenuPrincipal(ctk.CTk):
         ctk.CTkLabel(f_vol, text="VOLUME MOTEUR", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
         ctk.CTkSlider(f_vol, from_=0.0, to=1.0, variable=self.var_volume).pack(fill="x", pady=5)
 
-        # 5. GAMEPLAY (Cheat / Fun)
+        # 5. GAMEPLAY & RÉALISME
         f_game = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         f_game.pack(fill="x", padx=10, pady=10)
-        ctk.CTkLabel(f_game, text="GAMEPLAY & CHEATS", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+        ctk.CTkLabel(f_game, text="RÉALISME & AIDES (Triche)", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+        
         ctk.CTkCheckBox(f_game, text="Carburant Illimité", variable=self.var_unlimited_fuel).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_game, text="Invincibilité (God Mode)", variable=self.var_god_mode).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_game, text="Désactiver le Décrochage (Anti-Stall)", variable=self.var_no_stall).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_game, text="Atterrissage ventre sécurisé (No Gear Crash)", variable=self.var_no_gear_crash).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_game, text="Pas de Vent ni Turbulences", variable=self.var_no_wind).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_game, text="Ravitaillement Automatique (Sur piste)", variable=self.var_auto_refuel).pack(anchor="w", pady=2)
 
         # Slider Carburant Initial
         self.lbl_fuel = ctk.CTkLabel(f_game, text=f"Carburant Initial: {int(self.var_fuel_initial.get())}%", text_color="gray")
@@ -291,6 +302,12 @@ class MenuPrincipal(ctk.CTk):
         if self.var_fullscreen.get(): cmd.append("--fullscreen")
         if self.var_show_fps.get(): cmd.append("--show-fps")
         cmd.extend(["--fuel", str(self.var_fuel_initial.get())])
+        
+        # Args Réalisme
+        if self.var_no_stall.get(): cmd.append("--no-stall")
+        if self.var_no_gear_crash.get(): cmd.append("--no-gear-crash")
+        if self.var_no_wind.get(): cmd.append("--no-wind")
+        if self.var_auto_refuel.get(): cmd.append("--auto-refuel")
 
         # Saison
         cmd.extend(["--season", self.var_season.get()])

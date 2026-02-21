@@ -92,3 +92,8 @@ python menu.py
 - Création d'une liste détaillée des variations de sprites et d'effets sonores nécessaires pour chaque appareil (liste de choses a faire Jules.txt)
 - Ajout d'améliorations visuelles (gouttes de pluie dynamiques sur l'écran, suppression des villes)
 - Refonte du système de ravitaillement : aéroports espacés tous les 75km, piste de 6km affichée entièrement sur le radar, et obligation de s'arrêter pour refuel (touche R)
+- Amélioration majeure du réalisme visuel des aéroports (ajout de PAPI lights, lumières de bord de piste, zones de toucher de roues, signalisation 09/27 agrandie)
+- Ajout d'options de réalisme dans le menu des paramètres (désactivation du décrochage, du vent, des crashs de train d'atterrissage, et ravitaillement automatique)
+- Génération de relief dynamique (montagnes/collines) avec collisions et radar profil altimétrique
+- Aide à la navigation sur la mini-carte avec la distance exacte jusqu'à la piste la plus proche
+- Surchauffe moteur avec jauge de température (panne moteur en cas de sur-régime prolongé)

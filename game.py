@@ -47,6 +47,11 @@ parser.add_argument("--no-terrain", action="store_true", help="Desactiver Terrai
 # Nouveaux Args
 parser.add_argument("--unlimited-fuel", action="store_true", help="Carburant illimité")
 parser.add_argument("--god-mode", action="store_true", help="Invincible")
+parser.add_argument("--no-stall", action="store_true", help="Desactiver le décrochage")
+parser.add_argument("--no-gear-crash", action="store_true", help="Desactiver le crash train rentré")
+parser.add_argument("--no-wind", action="store_true", help="Desactiver le vent et turbulences")
+parser.add_argument("--auto-refuel", action="store_true", help="Ravitaillement automatique")
+
 parser.add_argument("--fullscreen", action="store_true", help="Plein Ecran")
 parser.add_argument("--show-fps", action="store_true", help="Afficher FPS")
 parser.add_argument("--season", type=str, default="summer", help="Saison: summer, rain, snow, wind")
@@ -518,42 +523,71 @@ class Airport:
         px = (self.x_start - cam_x) * zoom + (L/2)
         py = (0 - cam_y) * zoom + (H/2) # Sol est à y=0
         pw = self.width * zoom
-        ph = 100 * zoom # Profondeur visuelle
+        ph = 150 * zoom # Profondeur visuelle augmentée
         
         # Clipping simple
         if px + pw < 0 or px > L: return
         
-        # Bitume
-        pygame.draw.rect(surface, (40, 42, 45), (px, py, pw, H))
+        # Bitume renforcé (bordures plus claires, centre foncé)
+        pygame.draw.rect(surface, (60, 65, 70), (px, py, pw, ph)) # Piste
+        pygame.draw.rect(surface, (150, 150, 150), (px, py, pw, ph), max(1, int(2*zoom))) # Contour béton
         
-        # Bandes Seuils (Piano keys)
-        nb_keys = 8
-        kw = 40 * zoom
-        kh = 6 * zoom
-        # Seuil Début
+        # Bandes Seuils (Piano keys) - Plus réalistes
+        nb_keys = 10
+        kw = 60 * zoom
+        kh = 8 * zoom
+        espacement_y = 12 * zoom
+        # Seuil Début (09)
         for k in range(nb_keys):
-            pygame.draw.rect(surface, (220, 220, 220), (px + 10*zoom, py + 10*zoom + k*12*zoom, kw, kh))
-        # Seuil Fin
+            pygame.draw.rect(surface, (240, 240, 240), (px + 20*zoom, py + 15*zoom + k*espacement_y, kw, kh))
+        # Seuil Fin (27)
         for k in range(nb_keys):
-            pygame.draw.rect(surface, (220, 220, 220), (px + pw - 50*zoom, py + 10*zoom + k*12*zoom, kw, kh))
+            pygame.draw.rect(surface, (240, 240, 240), (px + pw - 80*zoom, py + 15*zoom + k*espacement_y, kw, kh))
+            
+        # Aiming Point / Touchdown Zone (Gros blocs de peinture)
+        for dist in [300, 450, 600, 750]:
+            if px + dist*zoom < L and px + dist*zoom > 0:
+                 # Haut
+                 pygame.draw.rect(surface, (240, 240, 240), (px + dist*zoom, py + 30*zoom, 80*zoom, 10*zoom))
+                 # Bas
+                 pygame.draw.rect(surface, (240, 240, 240), (px + dist*zoom, py + 110*zoom, 80*zoom, 10*zoom))
 
-        # Ligne Médiane Discontinue
-        dash_w = 60 * zoom
-        gap_w = 40 * zoom
-        current_x = px + 150 * zoom
-        while current_x < px + pw - 150*zoom:
-            pygame.draw.rect(surface, (220, 220, 220), (current_x, py + (H/2), dash_w, 4*zoom))
+        # Ligne Médiane Discontinue (Bien centrée)
+        dash_w = 80 * zoom
+        gap_w = 60 * zoom
+        current_x = px + 200 * zoom
+        while current_x < px + pw - 200*zoom:
+            if 0 < current_x < L: # Opti
+                pygame.draw.rect(surface, (240, 240, 240), (current_x, py + (ph/2) - 2*zoom, dash_w, 4*zoom))
             current_x += dash_w + gap_w
             
-        # Numéro Piste (09 / 27)
-        # 09 à gauche
-        # On triche et on dessine des rectangles pour les chiffres simplifiés pour éviter de charger une police à chaque frame
-        # Ou on utilise la police existante
-        lbl_09 = police_alarme.render("09", True, (200, 200, 200))
-        surface.blit(lbl_09, (px + 80*zoom, py + 100))
-        
-        lbl_27 = police_alarme.render("27", True, (200, 200, 200))
-        surface.blit(lbl_27, (px + pw - 140*zoom, py + 100))
+        # Numéro Piste (09 / 27) plus grand et mieux placé
+        if zoom > 0.3:
+            lbl_09 = police_alarme.render("09", True, (240, 240, 240))
+            lbl_09 = pygame.transform.scale(lbl_09, (int(40*zoom), int(60*zoom)))
+            surface.blit(lbl_09, (px + 100*zoom, py + (ph/2) - 30*zoom))
+            
+            lbl_27 = police_alarme.render("27", True, (240, 240, 240))
+            lbl_27 = pygame.transform.scale(lbl_27, (int(40*zoom), int(60*zoom)))
+            surface.blit(lbl_27, (px + pw - 140*zoom, py + (ph/2) - 30*zoom))
+
+        # Lumières de bord de piste (Edge lights) et PAPI
+        if est_nuit or zoom > 0.1:
+            step_light = 100 * zoom
+            cx = px
+            while cx < px + pw:
+                if 0 < cx < L:
+                    # Haut
+                    pygame.draw.circle(surface, (255, 255, 200), (cx, py + 2*zoom), 2)
+                    # Bas
+                    pygame.draw.circle(surface, (255, 255, 200), (cx, py + ph - 2*zoom), 2)
+                cx += step_light
+                
+            # PAPI Lights (4 lampes : 2 rouges, 2 blanches)
+            papi_x = px + 250*zoom
+            if 0 < papi_x < L:
+                for idx, c in enumerate([(255,50,50), (255,50,50), (255,255,200), (255,255,200)]):
+                    pygame.draw.circle(surface, c, (papi_x + idx*12*zoom, py - 6*zoom), max(1, int(3*zoom)))
 
             # ZONE RAVITAILLEMENT (REFUEL)
         # Position: x=500, largeur=300
@@ -581,10 +615,42 @@ for i in range(10):
 fuel = args.fuel
 max_fuel = 100.0
 fuel_burn_rate = current_ac["fuel_rate"] # % par frame à pleins gaz
+
+# Moteur Température
+moteur_temp = 0.0 # 0 à 100
+moteur_endommage = False
+
 crashed = False
 crash_reason = ""
 game_over_timer = 0
 shake_amount = 0.0
+
+def get_terrain_height(x):
+    # Génère un relief avec des fonctions sinus simples, aplani près des pistes
+    h = math.sin(x * 0.0005) * 80 + math.sin(x * 0.0012) * 40 + math.sin(x * 0.003) * 15
+    if h < 0: h = 0 # Pas de pente négative (mer) pour l'instant
+    
+    # Aplatir autour des aéroports
+    for piste_data in RUNWAYS:
+        if isinstance(piste_data, tuple):
+            rx = piste_data[0]
+            rw = piste_data[1]
+        else:
+            rx = piste_data
+            rw = 6000
+            
+        center = rx + rw/2
+        dist = abs(x - center)
+        safe_zone = rw/2 + 2000 # 2km de plat de chaque côté
+        
+        if dist < safe_zone:
+            return 0.0
+        elif dist < safe_zone + 2000:
+            # Transition en douceur
+            factor = (dist - safe_zone) / 2000.0
+            h *= factor
+            
+    return h
 
 # --- METEO (Vent) ---
 vent_x = random.uniform(-10, 10) # Vent de face ou dos
@@ -774,7 +840,7 @@ def dessiner_hud_overlay(surface, vitesse, alt, angle_pitch, vy):
     pygame.draw.circle(surface, (255, 0, 0), (cx, cy), 3, 1)
 
 # --- DASHBOARD ANALOGIQUE (CLASSIC) ---
-def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch, gear):
+def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch, gear, mtemp):
     global fuel
     h_dash = 140
     y_base = H - h_dash
@@ -948,6 +1014,8 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     RANGE_MAP = 20000 
     px_per_m = w_map / (RANGE_MAP * 2)
     
+    min_dist_airport = 999999
+    
     for piste_data in runways: 
         if isinstance(piste_data, tuple):
             rx = piste_data[0]
@@ -967,30 +1035,37 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
              
              pygame.draw.rect(surface, (180, 180, 180), (mx1, y_map+h_map-12, rect_w, 4))
              
-    # Infos Textes (THRUST)
-    lbl_th = police_label.render(f"THR", True, HUD_ORANGE)
-    surface.blit(lbl_th, (L - 80, y_map - 20))
-    lbl_th_val = police_valeur.render(f"{int(poussee_pct)}%", True, (255, 255, 255))
-    surface.blit(lbl_th_val, (L - 80, y_map))
-
+             # Calcul Distance au plus près
+             dist_closest = min(abs(dist), abs(dist + rw))
+             if dist_closest < min_dist_airport:
+                 min_dist_airport = dist_closest
+                 
+    # Affichage de la distance si < 20km
+    if min_dist_airport < RANGE_MAP:
+        dist_km = min_dist_airport / 1000.0
+        lbl_dist = police_label.render(f"DIST: {dist_km:.1f}KM", True, (150, 200, 150))
+        surface.blit(lbl_dist, (x_map + 5, y_map + 5))
+        
+    # Dessin contour du Relief simplifié sur radar
+    points_map_relief = []
+    points_map_relief.append((x_map, y_map+h_map-10))
+    for map_dx in range(0, w_map, 5):
+        wx = (map_dx - w_map/2) / px_per_m + px_world
+        ty = get_terrain_height(wx)
+        # Echelle verticale exagérée pour visibilité
+        my = y_map+h_map-10 - (ty * 0.05) 
+        my = max(y_map, min(y_map+h_map-10, my))
+        points_map_relief.append((x_map + map_dx, my))
+    points_map_relief.append((x_map + w_map, y_map+h_map-10))
+    pygame.draw.polygon(surface, (20, 50, 20), points_map_relief)
     # DESSIN HISTORIQUE SUR MAP
-    px_per_m = w_map / (20000 * 2) # Recalcul local si besoin, ou on utilise celui calculé plus haut
-    # On sait que center_map_x correspond à px_world
-    
+    px_per_m = w_map / (20000 * 2) 
     if len(position_history) > 1:
         points_map = []
         for (hx, halt) in position_history:
              dist = hx - px_world
              if abs(dist) < 20000: # RANGE_MAP
                  mx = center_map_x + (dist * px_per_m)
-                 # On doit scaler l'altitude aussi
-                 # h_rel = min(h_map - 20, alt * 0.02) -> c'est pour l'avion actuel
-                 # Pour l'historique, on utilise la même échelle verticale relative
-                 # Attention: le "haut" du radar n'est pas "absolu", il dépend de l'altitude actuelle ?
-                 # Non, "y_map+h_map-10" est le SOL (approximativement) dans la représentation actuelle de l'avion
-                 # Si on regarde l'avion: h_rel = alt * 0.02.
-                 # Donc Y_avion = Base - (alt * 0.02)
-                 
                  hy_rel = min(h_map - 15, halt * 0.02)
                  my = y_map + h_map - 10 - hy_rel
                  points_map.append((mx, my))
@@ -998,9 +1073,29 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
         if len(points_map) > 1:
             pygame.draw.lines(surface, (0, 255, 0), False, points_map, 1)
 
-
-
+    # Infos Textes (THRUST & TEMP)
+    lbl_th = police_label.render(f"THR", True, HUD_ORANGE)
+    surface.blit(lbl_th, (L - 80, y_map - 20))
+    lbl_th_val = police_valeur.render(f"{int(poussee_pct)}%", True, (255, 255, 255))
     surface.blit(lbl_th_val, (L - 80, y_map))
+    
+    # TEMP JAUGE
+    y_temp = y_map + 40
+    lbl_temp = police_label.render("ENG TEMP", True, (200, 200, 200))
+    surface.blit(lbl_temp, (L - 80, y_temp))
+    
+    c_temp = (50, 200, 50) # Vert
+    if mtemp > 70: c_temp = (200, 200, 50) # Jaune
+    if mtemp > 90: c_temp = (255, 50, 50)  # Rouge
+    
+    pygame.draw.rect(surface, (50, 50, 50), (L - 80, y_temp + 20, 60, 10)) # Fond
+    pygame.draw.rect(surface, c_temp, (L - 80, y_temp + 20, int(60 * (mtemp/100.0)), 10)) # Valeur
+    pygame.draw.rect(surface, (200, 200, 200), (L - 80, y_temp + 20, 60, 10), 1) # Bord
+    
+    # Message Surchauffe (Clignotement)
+    if mtemp > 95 and (pygame.time.get_ticks() % 500) < 250:
+         lbl_warn = police_label.render("OVERHEAT", True, HUD_ROUGE)
+         surface.blit(lbl_warn, (L - 80, y_temp + 35))
 
     # INDICATEURS REPOSITIONNES (AU-DESSUS DE RADAR/THR)
     y_ind = y_map - 40
@@ -1172,6 +1267,24 @@ while True:
         
         fuel -= conso
         if fuel < 0: fuel = 0
+        
+    # --- SURCHAUFFE MOTEUR ---
+    if moteur_allume and not moteur_endommage:
+        if niveau_poussee_reelle > 95:
+            moteur_temp += 0.03
+            if moteur_temp >= 100:
+                moteur_temp = 100
+                moteur_endommage = True
+                moteur_allume = False
+                son_moteur.stop()
+        elif current_ac["mass"] == 20000.0 and niveau_poussee_reelle > 85: # Le cargo chauffe un peu plus vite
+            moteur_temp += 0.01 
+        else:
+            moteur_temp -= 0.05
+    else:
+        moteur_temp -= 0.1 # Refroidit si éteint
+        
+    if moteur_temp < 0: moteur_temp = 0
 
     # REFUELING MANUEL (Touche R sur n'importe quel aéroport)
     # L'avion doit être au sol (altitude < 5), presque arrêté, dans la zone 500-800 d'un des aéroports
@@ -1187,12 +1300,12 @@ while True:
                 
     if can_refuel:
         # Affichage du message dynamique
-        if not args.no_hud:
+        if not args.no_hud and not args.auto_refuel:
             msg_refuel = "MAINTENEZ 'R' POUR FAIRE LE PLEIN"
             lbl_r = police_alarme.render(msg_refuel, True, (255, 200, 0))
             fenetre.blit(lbl_r, lbl_r.get_rect(center=(L//2, H//4 + 50)))
             
-        if touches[pygame.K_r]:
+        if args.auto_refuel or touches[pygame.K_r]:
             fuel += 0.5 
             if fuel > max_fuel: fuel = max_fuel
 
@@ -1220,20 +1333,17 @@ while True:
     rad = math.radians(angle)
     
     # --- VENT & TURBULENCE ---
-    turbulence_timer += 1
-    # Variation du vent (rafales)
-    rafale_x = math.sin(turbulence_timer * 0.05) * 2.0
-    rafale_y = math.cos(turbulence_timer * 0.13) * 1.5
-    
-    vent_actuel_x = vent_x + rafale_x
-    vent_actuel_y = vent_y + rafale_y
-    
-    # Le vent affecte la vitesse AIR (et donc la portance), mais ici on simule l'effet sur le vecteur sol direct pour simplifier
-    # On ajoute le vent aux forces
-    # Mais attention, l'avion a de l'inertie.
-    # On va dire que le vent pousse l'avion doucement
-    vx += vent_actuel_x * 0.005 
-    vy += vent_actuel_y * 0.005
+    if not args.no_wind:
+        turbulence_timer += 1
+        # Variation du vent (rafales)
+        rafale_x = math.sin(turbulence_timer * 0.05) * 2.0
+        rafale_y = math.cos(turbulence_timer * 0.13) * 1.5
+        
+        vent_actuel_x = vent_x + rafale_x
+        vent_actuel_y = vent_y + rafale_y
+        
+        vx += vent_actuel_x * 0.005 
+        vy += vent_actuel_y * 0.005
     
     # Secousses Caméra
     # Secousses Caméra (REDUIT)
@@ -1261,7 +1371,8 @@ while True:
     elif vitesse_kph < V_MACH1 - 50:
         mur_du_son_franchi = False
 
-    altitude = -world_y
+    terrain_y = get_terrain_height(world_x)
+    altitude = -(world_y - terrain_y)
     
     # CLAMPING ET SECURITE
     vx = max(-150.0, min(150.0, vx))
@@ -1277,7 +1388,9 @@ while True:
     if flaps_sortis: seuil_decrochage = 65 
     
     # Anti-Crash Sol
-    if altitude < 100 and vitesse_kph > 50:
+    if args.no_stall:
+        en_decrochage = False
+    elif altitude < 100 and vitesse_kph > 50:
         en_decrochage = False
     elif vitesse_kph < seuil_decrochage:
         en_decrochage = True
@@ -1348,27 +1461,29 @@ while True:
     mission_manager.update(world_x, world_y, vx, vy)
     
     # --- CONTRAILS ---
-    # ... (code existant inchangé, voir plus bas pour nettoyage si besoin)
     if moteur_allume and niveau_poussee_reelle > 80:
-         # ... (Inchangé)
          pass
 
     # --- REBOND & CRASH ---
-    if -world_y <= 0:
+    if -world_y <= terrain_y:
         impact_vitesse_vert = vy # Positive = Descente vers le sol
-        world_y = 0
+        world_y = -terrain_y
         altitude = 0
         
         # CRASH CHECK
         crash_limit = 8.0 # m/s (environ 1500 ft/min)
-        if impact_vitesse_vert > crash_limit:
+        if impact_vitesse_vert > crash_limit and not args.god_mode:
             crashed = True
             crash_reason = f"ATTERRISSAGE VIOLENT ({int(impact_vitesse_vert*200)} ft/min)"
-        elif not gear_sorti:
-            # Ventre au sol !
-            crashed = True
-            crash_reason = "CRASH: TRAIN D'ATTERRISSAGE RENTRÉ"
-            
+        elif not gear_sorti and not args.god_mode and not args.no_gear_crash:
+             crashed = True
+             crash_reason = "CRASH: TRAIN D'ATTERRISSAGE RENTRÉ"
+             
+        # Collision Terrain en dehors de la piste
+        elif terrain_y > 10 and not args.god_mode: 
+             crashed = True
+             crash_reason = f"CRASH: COLLISION TERRAIN ({int(terrain_y)}m)"
+             
         # PITCH CHECK AU SOL
         if abs(angle) > 20:
             crashed = True
@@ -1416,6 +1531,8 @@ while True:
             angle = 0
             fuel = args.fuel
             moteur_allume = False
+            moteur_temp = 0
+            moteur_endommage = False
             gear_sorti = True
             flaps_sortis = False
             # Consommation carburant
@@ -1531,9 +1648,22 @@ while True:
             alpha_sol = int(255 * (zoom / 0.3))
         
         if alpha_sol > 10:
-            # Sauf que Pygame draw rect gère pas alpha. On fait une surface.
-            # Pour perf: on dessine normalement, et on dessine un rect bleu par dessus si haut
-            pygame.draw.rect(fenetre, SOL_HERBE_BASE, (-100, pos_sol_y, L+200, H))
+            # Construction du polygone de relief
+            points_relief = [(-100, H)] # Bas gauche
+            
+            step_x = 20 if zoom > 0.2 else 50
+            for cx in range(-100, L + 200, step_x):
+                wx = (cx - L/2 - offset_shake_x) / zoom + world_x
+                ty = get_terrain_height(wx)
+                cy = (-ty - world_y) * zoom + (H // 2) + offset_shake_y
+                points_relief.append((cx, cy))
+                
+            # Pour fermer proprement la droite, on prend la dernière hauteur calculée
+            last_cy = points_relief[-1][1]
+            points_relief.append((L+200, last_cy)) 
+            points_relief.append((L+200, H)) # Bas complet
+            
+            pygame.draw.polygon(fenetre, SOL_HERBE_BASE, points_relief)
         
         # Patchs
         largeur_motif = 4000 # Elargi pour accomoder la ville
@@ -1547,8 +1677,13 @@ while True:
                 base_x = (i * largeur_motif * zoom) - (offset_herbe * zoom) + (L/2) + offset_shake_x
                 if base_x + (largeur_motif*zoom) > 0 and base_x < L:
                     for patch in decor_sol:
+                        # Calculer la hauteur du sol pour ce patch précis au lieu de pos_sol_y plat
+                        p_wx = (base_x + (patch[0] * zoom) - L/2 - offset_shake_x) / zoom + world_x
+                        p_ty = get_terrain_height(p_wx)
+                        p_cy = (-p_ty - world_y) * zoom + (H // 2) + offset_shake_y
+                        
                         px = base_x + (patch[0] * zoom)
-                        py = pos_sol_y + (patch[1] * zoom)
+                        py = p_cy + (patch[1] * zoom)
                         pw = patch[2] * zoom
                         ph = patch[3] * zoom
                         # ... (Dessin patch)
@@ -1646,7 +1781,7 @@ while True:
         # sans le passer en argument si je ne l'ai pas masqué.
         # Python capture les globales.
         
-        dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, portance, angle, gear_sorti)
+        dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, portance, angle, gear_sorti, moteur_temp)
     
     # 2. HUD Overlay (Haut)
     if not args.no_hud:
