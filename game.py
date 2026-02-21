@@ -1545,8 +1545,8 @@ while True:
     
     # --- CONTRAILS ---
     if not crashed:
-        # Trail permanent si option cochée, ou occasionnel si forte poussée
-        if args.show_trail or (moteur_allume and niveau_poussee_reelle > 95):
+        # Trail permanent si option cochée
+        if args.show_trail:
             rad_a = math.radians(angle)
             # On génère plusieurs particules par frame pour épaissir la fumée
             # et on les espace légèrement pour couvrir la distance parcourue (vx, vy)
@@ -1775,7 +1775,9 @@ while True:
 
 
     pos_sol_y = (H // 2) + (altitude * zoom) + offset_shake_y
-    if pos_sol_y < H:
+    # On autorise le dessin même si le sol sous l'avion "sort" de l'écran par le bas (pos_sol_y > H)
+    # car une montagne devant l'avion peut tout à fait remonter dans l'écran !
+    if pos_sol_y < H + 10000:
         # Optimisation & Haze de sol
         # Si on est très haut (zoom petit), on simplifie
         alpha_sol = 255

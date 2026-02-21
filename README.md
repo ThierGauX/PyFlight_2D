@@ -113,3 +113,5 @@ python menu.py
 - Correction de la traînée en pointillés : Génération dynamique des particules d'air basée sur la vitesse réelle pour un nuage continu parfait
 - Nouvel avion 'Acrobatique (Voltige)' : Très maniable, débloque la limite d'angle de tangage pour permettre des loopings complets (360°)
 - Correction de la physique de looping : La portance est désormais vectorisée (perpendiculaire aux ailes) et l'angle d'attaque est plafonné pour empêcher les sauts d'altitude irréalistes sur le dos.
+- Correction de l'affichage du terrain : Les montagnes restent visibles même avec un zoom très proche (correction de l'optimisation de rendu).
+- Correction de la case à cocher 'Fumée' : La fumée ne s'active désormais plus de force quand le moteur est à pleine puissance si l'option est décochée.
