@@ -58,7 +58,7 @@ parser.add_argument("--trail-color", type=str, default="white", help="Couleur de
 parser.add_argument("--fullscreen", action="store_true", help="Plein Ecran")
 parser.add_argument("--show-fps", action="store_true", help="Afficher FPS")
 parser.add_argument("--season", type=str, default="summer", help="Saison: summer, rain, snow, wind")
-parser.add_argument("--aircraft", type=str, default="cessna", help="Type d'avion: cessna, fighter, cargo")
+parser.add_argument("--aircraft", type=str, default="cessna", help="Type d'avion: cessna, fighter, cargo, acro")
 parser.add_argument("--fuel", type=float, default=100.0, help="Carburant initial (%)")
 
 # On parse uniquement si on est lancé en tant que script principal
@@ -98,6 +98,14 @@ AIRCRAFT_CONFIGS = {
         "lift_factor": 0.25,       # High lift
         "fuel_rate": 0.015,        # 3x fuel
         "rot_speed": 0.8           # Heavy controls
+    },
+    "acro": {
+        "mass": 800.0,             # Very light
+        "thrust_max": 4000.0,      # Lots of power relative to mass
+        "drag_factor": 0.010,      # Normal drag
+        "lift_factor": 0.15,       # High lift for sharp turns
+        "fuel_rate": 0.010,        # Moderate fuel
+        "rot_speed": 4.5           # Extremely fast rotation
     }
 }
 
@@ -1282,14 +1290,20 @@ while True:
     angle += vitesse_rotation_actuelle
 
 
-    # --- LIMITATION ANGLE (MODE FACILE) ---
-    LIMIT_ANGLE = 35
-    if angle > LIMIT_ANGLE:  
-        angle = LIMIT_ANGLE
-        vitesse_rotation_actuelle = 0
-    if angle < -LIMIT_ANGLE:
-        angle = -LIMIT_ANGLE
-        vitesse_rotation_actuelle = 0
+    # --- LIMITATION ANGLE ---
+    if args.aircraft != "acro":
+        LIMIT_ANGLE = 35
+        if angle > LIMIT_ANGLE:  
+            angle = LIMIT_ANGLE
+            vitesse_rotation_actuelle = 0
+        if angle < -LIMIT_ANGLE:
+            angle = -LIMIT_ANGLE
+            vitesse_rotation_actuelle = 0
+    else:
+        # Vol acrobatique : Rotation 360 continue
+        # On garde l'angle entre -180 et 180 pour la logique (bien que Pygame gère au delà)
+        if angle > 180: angle -= 360
+        if angle < -180: angle += 360
 
     # --- MOTEUR & THRUST & FUEL ---
     if not moteur_allume or fuel <= 0:

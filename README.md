@@ -110,3 +110,5 @@ python menu.py
 - Option de personnalisation de la couleur de la traînée (Blanc, Rouge, Bleu, Vert, Jaune)
 - Amélioration visuelle très forte du rendu volumétrique de la traînée (fondu et cercles concentriques alpha)
 - Amélioration de la traînée de fumée : Dure 4x plus longtemps dans le ciel et part bien de la queue de l'avion
+- Correction de la traînée en pointillés : Génération dynamique des particules d'air basée sur la vitesse réelle pour un nuage continu parfait
+- Nouvel avion 'Acrobatique (Voltige)' : Très maniable, débloque la limite d'angle de tangage pour permettre des loopings complets (360°)

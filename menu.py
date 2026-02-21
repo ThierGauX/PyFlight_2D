@@ -188,11 +188,12 @@ class MenuPrincipal(ctk.CTk):
             map_a = {
                 "Cessna (Standard)": "cessna",
                 "Chasseur (Rapide)": "fighter", 
-                "Gros Porteur (Lourd)": "cargo"
+                "Gros Porteur (Lourd)": "cargo",
+                "Acrobatique (Voltige)": "acro"
             }
             self.var_aircraft.set(map_a.get(val, "cessna"))
 
-        seg_avion = ctk.CTkOptionMenu(f_avion, values=["Cessna (Standard)", "Chasseur (Rapide)", "Gros Porteur (Lourd)"], command=set_aircraft)
+        seg_avion = ctk.CTkOptionMenu(f_avion, values=["Cessna (Standard)", "Chasseur (Rapide)", "Gros Porteur (Lourd)", "Acrobatique (Voltige)"], command=set_aircraft)
         seg_avion.pack(fill="x", pady=5)
         seg_avion.set("Cessna (Standard)")
 
