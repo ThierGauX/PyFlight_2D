@@ -64,6 +64,13 @@ class MenuPrincipal(ctk.CTk):
         self.var_no_gear_crash = ctk.BooleanVar(value=False)
         self.var_no_wind = ctk.BooleanVar(value=False)
         self.var_auto_refuel = ctk.BooleanVar(value=False)
+        
+        # Variable Relief (Intensité)
+        self.var_terrain_intensity = ctk.DoubleVar(value=1.0)
+        
+        # Variable Traînée Acrobatique
+        self.var_show_trail = ctk.BooleanVar(value=False)
+        self.var_trail_color = ctk.StringVar(value="white")
 
         # Layout Principal (2 Colonnes)
         self.grid_columnconfigure(0, weight=1) # Gauche (Visuel/Titre)
@@ -253,7 +260,7 @@ class MenuPrincipal(ctk.CTk):
         # 7. GRAPHIQUES
         f_gfx = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         f_gfx.pack(fill="x", padx=10, pady=10)
-        ctk.CTkLabel(f_gfx, text="AFFICHAGE", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
+        ctk.CTkLabel(f_gfx, text="AFFICHAGE & DETAILS", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w")
         
         ctk.CTkCheckBox(f_gfx, text="HUD (Haut)", variable=self.var_show_hud).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_gfx, text="Tableau Bord (Bas)", variable=self.var_show_w_dashboard).pack(anchor="w", pady=2)
@@ -261,6 +268,18 @@ class MenuPrincipal(ctk.CTk):
         ctk.CTkCheckBox(f_gfx, text="Particules Vitesse", variable=self.var_show_particles).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_gfx, text="Atmosphere", variable=self.var_show_atmo).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_gfx, text="Details Terrain", variable=self.var_show_terrain).pack(anchor="w", pady=2)
+        
+        f_trail = ctk.CTkFrame(f_gfx, fg_color="transparent")
+        f_trail.pack(fill="x", pady=2)
+        ctk.CTkCheckBox(f_trail, text="Fumée Acrobatique", variable=self.var_show_trail).pack(side="left")
+        ctk.CTkOptionMenu(f_trail, values=["white", "red", "blue", "green", "yellow"], variable=self.var_trail_color, width=100).pack(side="right")
+        
+        # Slider Intensité du Relief
+        self.lbl_terrain = ctk.CTkLabel(f_gfx, text=f"Intensité du Relief: {self.var_terrain_intensity.get():.1f}x", text_color="gray")
+        self.lbl_terrain.pack(anchor="w", pady=(10, 0))
+        def update_terrain_lbl(val):
+            self.lbl_terrain.configure(text=f"Intensité du Relief: {val:.1f}x")
+        ctk.CTkSlider(f_gfx, from_=0.0, to=5.0, number_of_steps=50, variable=self.var_terrain_intensity, command=update_terrain_lbl).pack(fill="x", pady=5)
 
         # BOUTON RETOUR (HORS du ScrollFrame pour rester visible)
         ctk.CTkButton(self.frame_menu, text="RETOUR", command=self.creer_menu_principal,
@@ -293,8 +312,13 @@ class MenuPrincipal(ctk.CTk):
         if not self.var_show_w_dashboard.get(): cmd.append("--no-dash")
         if not self.var_show_clouds.get(): cmd.append("--no-clouds")
         if not self.var_show_particles.get(): cmd.append("--no-particles")
-        if self.var_show_atmo.get() is False: cmd.append("--no-atmo")
-        if self.var_show_terrain.get() is False: cmd.append("--no-terrain")
+        if not self.var_show_atmo.get(): cmd.append("--no-atmo")
+        if not self.var_show_terrain.get(): cmd.append("--no-terrain")
+        if self.var_show_trail.get(): 
+            cmd.append("--show-trail")
+            cmd.extend(["--trail-color", self.var_trail_color.get()])
+        
+        cmd.extend(["--terrain-intensity", str(self.var_terrain_intensity.get())])
         
         # Args Gameplay / Systeme
         if self.var_unlimited_fuel.get(): cmd.append("--unlimited-fuel")

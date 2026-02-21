@@ -97,3 +97,16 @@ python menu.py
 - Génération de relief dynamique (montagnes/collines) avec collisions et radar profil altimétrique
 - Aide à la navigation sur la mini-carte avec la distance exacte jusqu'à la piste la plus proche
 - Surchauffe moteur avec jauge de température (panne moteur en cas de sur-régime prolongé)
+- Ajout d'un réglage d'intensité du relief dans les options pour des paysages plus plats ou plus montagneux
+- Refonte de la trajectoire sur le radar (ligne cyan plus épaisse) et ajout d'un marqueur d'avion triangulaire jaune
+- Génération de montagnes immenses (Multiplicateur de relief jusqu'à x5.0 dans les options)
+- Collision horizontale avec le relief (Crash direct contre les pentes abruptes)
+- Montagnes élargies pour des massifs beaucoup plus imposants au milieu de la map
+- Limite de zoom étendue pour permettre une vue beaucoup plus lointaine (molette souris)
+- Échelle du relief sur le radar corrigée pour correspondre parfaitement à la taille des montagnes
+- Orientation dynamique de l'avion sur le radar en fonction du tangage
+- Correction de la disparition du sol lors d'un dézoom extrême
+- Ajout d'une option "Fumée Acrobatique (Traînée)" dans les paramètres pour afficher la trajectoire de l'avion en plein ciel
+- Option de personnalisation de la couleur de la traînée (Blanc, Rouge, Bleu, Vert, Jaune)
+- Amélioration visuelle très forte du rendu volumétrique de la traînée (fondu et cercles concentriques alpha)
+- Amélioration de la traînée de fumée : Dure 4x plus longtemps dans le ciel et part bien de la queue de l'avion

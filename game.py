@@ -51,6 +51,9 @@ parser.add_argument("--no-stall", action="store_true", help="Desactiver le décr
 parser.add_argument("--no-gear-crash", action="store_true", help="Desactiver le crash train rentré")
 parser.add_argument("--no-wind", action="store_true", help="Desactiver le vent et turbulences")
 parser.add_argument("--auto-refuel", action="store_true", help="Ravitaillement automatique")
+parser.add_argument("--terrain-intensity", type=float, default=1.0, help="Multiplicateur de hauteur du relief")
+parser.add_argument("--show-trail", action="store_true", help="Fumée acrobatique")
+parser.add_argument("--trail-color", type=str, default="white", help="Couleur de la traînée")
 
 parser.add_argument("--fullscreen", action="store_true", help="Plein Ecran")
 parser.add_argument("--show-fps", action="store_true", help="Afficher FPS")
@@ -295,8 +298,18 @@ for _ in range(250): # Un peu plus de patches
 airports = []
 RUNWAYS = []
 
-contrails = [] # Liste des traînées de condensation [x, y, life]
+# Mapping des couleurs pour la fumée
+TRAIL_COLORS = {
+    "white": (240, 240, 240),
+    "red": (255, 50, 50),
+    "blue": (50, 100, 255),
+    "green": (50, 255, 50),
+    "yellow": (255, 255, 50)
+}
+current_trail_color = TRAIL_COLORS.get(args.trail_color, (240, 240, 240))
 
+# Liste des traînées de condensation [x, y, life, size_multiplier]
+contrails = [] 
 particules = []
 particules = []
 nb_particules = 300 # Beaucoup plus de particules (Pluie/Neige)
@@ -626,9 +639,13 @@ game_over_timer = 0
 shake_amount = 0.0
 
 def get_terrain_height(x):
-    # Génère un relief avec des fonctions sinus simples, aplani près des pistes
-    h = math.sin(x * 0.0005) * 80 + math.sin(x * 0.0012) * 40 + math.sin(x * 0.003) * 15
-    if h < 0: h = 0 # Pas de pente négative (mer) pour l'instant
+    # Génère un relief beaucoup plus haut (Montagnes majestueuses) ET beaucoup plus large
+    # Les fréquences sont divisées par 3 pour étirer les montagnes horizontalement
+    h = math.sin(x * 0.00016) * 450 + math.sin(x * 0.0004) * 200 + math.sin(x * 0.001) * 50
+    if h < 0: h = 0 # Pas de mer pour l'instant
+    
+    # Appliquer l'intensité demandée par l'utilisateur
+    h *= args.terrain_intensity
     
     # Aplatir autour des aéroports
     for piste_data in RUNWAYS:
@@ -645,9 +662,11 @@ def get_terrain_height(x):
         
         if dist < safe_zone:
             return 0.0
-        elif dist < safe_zone + 2000:
-            # Transition en douceur
-            factor = (dist - safe_zone) / 2000.0
+        elif dist < safe_zone + 4000:
+            # Transition extrèmement douce sur 4km vue la hauteur
+            factor = (dist - safe_zone) / 4000.0
+            # Adoucir la courbe avec x^2 pour que le terrain se soulève lentement
+            factor = factor * factor 
             h *= factor
             
     return h
@@ -1008,8 +1027,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     center_map_x = x_map + w_map // 2
     pygame.draw.line(surface, (0, 100, 0), (x_map, y_map+h_map-10), (x_map+w_map, y_map+h_map-10))
     
-    h_rel = min(h_map - 20, alt * 0.02)
-    pygame.draw.circle(surface, HUD_VERT, (center_map_x, y_map+h_map-10 - h_rel), 3)
+    # L'avion sera dessiné plus tard, par-dessus la trajectoire et le relief
     
     RANGE_MAP = 20000 
     px_per_m = w_map / (RANGE_MAP * 2)
@@ -1052,17 +1070,17 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     for map_dx in range(0, w_map, 5):
         wx = (map_dx - w_map/2) / px_per_m + px_world
         ty = get_terrain_height(wx)
-        # Echelle verticale exagérée pour visibilité
-        my = y_map+h_map-10 - (ty * 0.05) 
+        # On utilise la même échelle (0.02) que l'altitude de l'avion pour que ça corresponde
+        my = y_map+h_map-10 - (ty * 0.02) 
         my = max(y_map, min(y_map+h_map-10, my))
         points_map_relief.append((x_map + map_dx, my))
     points_map_relief.append((x_map + w_map, y_map+h_map-10))
     pygame.draw.polygon(surface, (20, 50, 20), points_map_relief)
-    # DESSIN HISTORIQUE SUR MAP
+    # DESSIN HISTORIQUE SUR MAP (Trajectoire)
     px_per_m = w_map / (20000 * 2) 
     if len(position_history) > 1:
         points_map = []
-        for (hx, halt) in position_history:
+        for (hx, halt) in position_history[-300:]: # Ne garde que les 300 derniers pour éviter la surcharge (plus visible)
              dist = hx - px_world
              if abs(dist) < 20000: # RANGE_MAP
                  mx = center_map_x + (dist * px_per_m)
@@ -1071,7 +1089,34 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
                  points_map.append((mx, my))
         
         if len(points_map) > 1:
-            pygame.draw.lines(surface, (0, 255, 0), False, points_map, 1)
+            pygame.draw.lines(surface, (50, 255, 255), False, points_map, 2) # Cyan plus épais pour la trainée
+            
+    # DESSIN AVION SUR MAP (Marqueur)
+    h_rel = min(h_map - 20, alt * 0.02)
+    p_center = (center_map_x, y_map+h_map-10 - h_rel)
+    
+    # Calcul des points du triangle orienté selon l'angle (angle_pitch en degrés)
+    rad_a = math.radians(angle_pitch)
+    # Triangle de base pointant vers la droite (0 degrés)
+    t_size = 6
+    p1_base = (t_size, 0) # Nez
+    p2_base = (-t_size, -t_size + 2) # Aile gauche
+    p3_base = (-t_size, t_size - 2) # Aile droite
+    
+    def rotate_point(p, r):
+        # Rotation trigo : x*cos - y*sin, x*sin + y*cos
+        # Pygame Y est inversé, donc l'angle doit être adapté
+        # angle_pitch > 0 signifie on monte (Nez vers le HAUT de l'écran, donc Y diminue)
+        # Dans Pygame rotate usuel, un angle positif tourne dans le sens anti-horaire
+        rx = p[0] * math.cos(r) - p[1] * math.sin(r)
+        ry = -(p[0] * math.sin(r) + p[1] * math.cos(r)) # Inversion Y
+        return (p_center[0] + rx, p_center[1] + ry)
+
+    pt1 = rotate_point(p1_base, rad_a)
+    pt2 = rotate_point(p2_base, rad_a)
+    pt3 = rotate_point(p3_base, rad_a)
+    
+    pygame.draw.polygon(surface, (255, 255, 0), [pt1, pt2, pt3])
 
     # Infos Textes (THRUST & TEMP)
     lbl_th = police_label.render(f"THR", True, HUD_ORANGE)
@@ -1181,7 +1226,7 @@ while True:
                 target_poussee = max(0.0, min(100.0, target_poussee))
 
     touches = pygame.key.get_pressed()
-    zoom_cible = max(0.1, min(5.0, zoom_cible)) # Plage de zoom ÉNORME
+    zoom_cible = max(0.01, min(5.0, zoom_cible)) # Plage de zoom ÉNORME (0.01 permet de dézoomer de très loin)
     zoom += (zoom_cible - zoom) * 0.05 # Plus fluide
 
     # --- CONTROLE STABILISÉ (MODE FACILE) ---
@@ -1454,6 +1499,23 @@ while True:
 
         vy -= portance
 
+    # --- COLLISION HORIZONTALE AVEC LA MONTAGNE ---
+    # On regarde si l'avion va rentrer "dans" un mur devant lui
+    if not args.god_mode:
+        # Predict next height where the plane is going
+        next_x = world_x + vx
+        future_terrain_y = get_terrain_height(next_x)
+        current_terrain_y = get_terrain_height(world_x)
+        
+        # Si on vole droit vers une pente raide qui est plus haute que notre altitude (en tenant compte de la chute prévue vy)
+        altitude_future = -(world_y + vy - future_terrain_y)
+        
+        # Uniquement si on est près du sol
+        if altitude_future < -10 and (future_terrain_y > current_terrain_y + 10) and abs(vx) > 10:
+             # Le terrain monte brutalement devant nous et on va être EN DESSOUS (altitude_future négative importante)
+             crashed = True
+             crash_reason = f"CRASH: COLLISION RELIEF (Montagne)"
+
     world_x += vx
     world_y += vy
     
@@ -1461,8 +1523,46 @@ while True:
     mission_manager.update(world_x, world_y, vx, vy)
     
     # --- CONTRAILS ---
-    if moteur_allume and niveau_poussee_reelle > 80:
-         pass
+    if not crashed:
+        # Trail permanent si option cochée, ou occasionnel si forte poussée
+        if args.show_trail or (moteur_allume and niveau_poussee_reelle > 95):
+            rad_a = math.radians(angle)
+            # On génère plusieurs particules par frame pour épaissir la fumée
+            # et on les espace légèrement pour couvrir la distance parcourue (vx, vy)
+            # Au lieu d'un nombre fixe (3), on calcule la distance parcourue.
+            # L'avion parcourt sqrt(vx^2 + vy^2) pixels par frame.
+            # Pour un jet, ça peut faire 30-50 pixels d'un coup, donc on laisse des trous.
+            # Un espacement de 5 pixels entre les cercles est largement suffisant pour faire une ligne solide.
+            dist_per_frame = math.sqrt(vx**2 + vy**2)
+            steps = max(3, int(dist_per_frame / 5.0))
+            
+            for step in range(steps):
+                # interp va de 0.0 (début de frame = position actuelle moins vx)
+                # à 1.0 (fin de frame = position actuelle)
+                interp = step / float(steps)
+                
+                # Le vecteur vitesse indique où on va. 
+                # (world_x, world_y) est la NOUVELLE position finale (car on vient de faire += vx)
+                # Donc la position de départ de cette frame était (world_x - vx, world_y - vy)
+                spawn_x = (world_x - vx) + (vx * interp)
+                spawn_y = (world_y - vy) + (vy * interp)
+                
+                # Offset pour placer la fumée à l'arrière de l'avion sur CETTE position précise
+                offset_x = math.cos(rad_a) * (-35)
+                offset_y = math.sin(rad_a) * (35) 
+                # Léger jitter pour l'effet "cotonneux" naturel
+                rx = random.uniform(-3, 3)
+                ry = random.uniform(-3, 3)
+                
+                # Ajout d'une particule [x, y, life, size_multiplier]
+                size_mult = random.uniform(0.7, 1.3)
+                contrails.append([spawn_x + offset_x + rx, spawn_y + offset_y + ry, 1.0, size_mult])
+            
+    # Mise à jour et nettoyage des particules
+    for c in contrails:
+        # On réduit encore plus la vitesse de disparition (dure beaucoup plus longtemps)
+        c[2] -= 0.003
+    contrails = [c for c in contrails if c[2] > 0]
 
     # --- REBOND & CRASH ---
     if -world_y <= terrain_y:
@@ -1566,21 +1666,36 @@ while True:
     
     # CONTIUE LE RESTE DU DESSIN (SOL, AVION)
     
-    # DESSIN CONTRAILS (avant le sol pour être "dans" le ciel, mais bon le sol est en bas)
-    # En fait on veut que ce soit derrière l'avion
-    for c in contrails:
-        px = (c[0] - world_x) * zoom + (L/2)
-        py = (c[1] - world_y) * zoom + (H/2)
-        
-        if -50 < px < L+50 and -50 < py < H+50:
-            radius = int(8 * zoom * c[2]) # Rétrécit avec la vie ? Ou grossit ?
-            # Disons ça grossit un peu en se dissipant
-            radius = int((5 + (1.0 - c[2]) * 10) * zoom)
+    # DESSIN CONTRAILS
+    # On la dessine derrière l'avion pour former un nuage lisse
+    if contrails:
+        # Pour des bulles lisses on peut tricher avec un surface globale par dessus si besoin
+        # Mais pour les perfs, un draw circle sur des alphas pre-rendus est correct
+        for c in contrails:
+            px = (c[0] - world_x) * zoom + (L/2)
+            py = (c[1] - world_y) * zoom + (H/2)
             
-            p_alpha = int(100 * c[2])
-            surface_fumee = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
-            pygame.draw.circle(surface_fumee, (200, 200, 200, p_alpha), (radius, radius), radius)
-            fenetre.blit(surface_fumee, (px - radius, py - radius))
+            if -100 < px < L+100 and -100 < py < H+100:
+                life = c[2]
+                s_mult = c[3] if len(c) > 3 else 1.0
+                
+                # Le rayon augmente avec le temps (la fumée s'étend)
+                # Formule pour un nuage dense au début qui s'élargit
+                radius = int((6 + (1.0 - life) * 30) * s_mult * zoom)
+                
+                # L'opacité chute non-linéairement (reste opaque puis disparaît)
+                # alpha = life^2 pour disparaître plus doucement sur la fin
+                p_alpha = int(150 * (life * life))
+                
+                if radius > 0 and p_alpha > 0:
+                    surface_fumee = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+                    
+                    # Dessin avec contour doux (on dessine 2 cercles concentriques)
+                    col = current_trail_color
+                    pygame.draw.circle(surface_fumee, (*col, int(p_alpha*0.5)), (radius, radius), radius)
+                    pygame.draw.circle(surface_fumee, (*col, p_alpha), (radius, radius), int(radius*0.6))
+                    
+                    fenetre.blit(surface_fumee, (px - radius, py - radius))
 
     if not args.no_particles:
         for p in particules:
@@ -1647,8 +1762,9 @@ while True:
             # Fade out
             alpha_sol = int(255 * (zoom / 0.3))
         
-        if alpha_sol > 10:
+        if alpha_sol > 10 or zoom <= 0.3:
             # Construction du polygone de relief
+            # Même si alpha_sol < 10 (très haut), on DOIT dessiner le sol de base
             points_relief = [(-100, H)] # Bas gauche
             
             step_x = 20 if zoom > 0.2 else 50
