@@ -68,16 +68,11 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en
 ---
 
 ## Développeurs
-```markdown
-*   **Gauthier** : Architecture logicielle, simulation physique avancée (portance vectorisée, traînée, décrochage), développement des systèmes de bord (HUD haute résolution, radar, instruments analogiques) et moteur météo procédural.
-```
-```markdown
-*   **Jules** : Design visuel et direction artistique, création des sprites haute résolution (avions, décors), conception de l'interface utilisateur (UI/UX) et intégration des effets visuels dynamiques (particules de fumée, reflets, animations météo).
-```
 
-```markdown
----
+**Gauthier** : Architecture logicielle, simulation physique avancée (portance vectorisée, traînée, décrochage), développement des systèmes de bord (HUD haute résolution, radar, instruments analogiques) et moteur météo procédural.
+
+**Jules** : Design visuel et direction artistique, création des sprites haute résolution (avions, décors), conception de l'interface utilisateur (UI/UX) et intégration des effets visuels dynamiques (particules de fumée, reflets, animations météo).
+
 
 ## Licence
 Ce projet est sous licence MIT.
-```
