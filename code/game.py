@@ -142,19 +142,23 @@ pygame.display.set_caption("Pyflight 2D")
 
 # --- RESSOURCES ---
 dossier = os.path.dirname(os.path.abspath(__file__))
+dossier_parent = os.path.dirname(dossier)
+dossier_img = os.path.join(dossier_parent, "image")
+dossier_son = os.path.join(dossier_parent, "son")
+
 images_ok = False
 son_moteur = None
 son_alarme = None
 
 # 1. IMAGES
 try:
-    path_arret = os.path.join(dossier, "avion_arret.png")
-    path_marche = os.path.join(dossier, "avion_marche.png")
+    path_arret = os.path.join(dossier_img, "avion_arret.png")
+    path_marche = os.path.join(dossier_img, "avion_marche.png")
     
     img_avion_normal_base = pygame.image.load(path_arret).convert_alpha()
     img_avion_feu_base = pygame.image.load(path_marche).convert_alpha()
     
-    path_aeroport = os.path.join(dossier, "aeroport.png")
+    path_aeroport = os.path.join(dossier_img, "aeroport.png")
     if os.path.exists(path_aeroport):
         img_aeroport_base = pygame.image.load(path_aeroport).convert_alpha()
     else:
@@ -162,12 +166,13 @@ try:
         
     images_ok = True
 except Exception as e:
+    img_aeroport_base = None
     print(f"Erreur Images: {e}")
 
 # 2. SONS
 chemins_moteur = ["moteur.mp3", "moteur.wav", "moteur_neuf.wav", "Moteur.ogg"]
 for nom in chemins_moteur:
-    p = os.path.join(dossier, nom)
+    p = os.path.join(dossier_son, nom)
     if os.path.exists(p):
         try:
             son_moteur = pygame.mixer.Sound(p)
@@ -176,7 +181,7 @@ for nom in chemins_moteur:
         except: pass
 
 try:
-    p_alarme = os.path.join(dossier, "alarme_decrochage.wav")
+    p_alarme = os.path.join(dossier_son, "alarme_decrochage.wav")
     if os.path.exists(p_alarme):
         son_alarme = pygame.mixer.Sound(p_alarme)
         son_alarme.set_volume(args.volume)
