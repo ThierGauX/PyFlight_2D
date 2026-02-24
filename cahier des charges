@@ -1,10 +1,10 @@
 objectifs            | G | J |  complete ? |
 design de l’avion    |   | x |      x      |
-écran  et fond       |   |   |      x      |
-affichage            | x |   |             |
+écran  et fond       | x |   |      x      |
+affichage            | x |   |      x      |
 contrôle de l’avion  | x |   |      x      |
-piste d’atterrissage |   |   |             |
-map                  |   |   |             |
-menu                 |   |   |             | 
+piste d’atterrissage | x |   |      x      |
+map                  | x |   |      x      |
+menu                 | x |   |      x      | 
 son                  |   | x |      x      |
 
