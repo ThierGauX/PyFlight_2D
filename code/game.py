@@ -2021,7 +2021,7 @@ while True:
                 fenetre.blit(s_exp, (px - radius, py - radius))
                 
     # Nettoyage
-    explosions = [(x, y, vx, vy, life, initial_life, color) for (x, y, vx, vy, life, initial_life, color) in explosions if life > 0]
+    explosions = [p for p in explosions if p[4] > 0]
             
     # --- DESSIN AVION ---
     # --- DESSIN AVION ---
