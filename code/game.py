@@ -479,17 +479,19 @@ class Bird:
 birds = [Bird() for _ in range(20)]
 
 def spawn_explosion(x, y, vx, vy):
-    # Génère une explosion de particules (feu/fumée)
+    # Génère une explosion massive de particules (feu/fumée)
+    print(f"DEBUG: spawning explosion at {x}, {y} with v=({vx}, {vy})")
     if args.no_particles: return
-    for _ in range(60): # 60 particules
+    for _ in range(300): # 300 particules pour une explosion énorme
         angle = random.uniform(0, math.pi * 2)
-        speed = random.uniform(10, 50)
-        # S'ajoute à la vélocité de l'avion
-        p_vx = math.cos(angle) * speed + (vx * 0.3)
-        p_vy = math.sin(angle) * speed + (vy * 0.3)
-        life = random.uniform(0.5, 1.5)
+        speed = random.uniform(20, 150) # Vitesse très rapide (immédiat)
+        # Expansion sphérique beaucoup plus forte, plus la vélocité
+        p_vx = math.cos(angle) * speed + (vx * 0.1)
+        p_vy = math.sin(angle) * speed + (vy * 0.1)
+        # Durée de vie plus longue pour profiter du spectacle
+        life = random.uniform(1.0, 3.0) 
         # [x, y, vx, vy, vie, vie_initiale, couleur]
-        color = random.choice([(255,50,0), (255,100,0), (255,200,0), (80,80,80), (40,40,40)])
+        color = random.choice([(255,50,0), (255,100,0), (255,200,0), (200,30,0), (80,80,80), (40,40,40), (20,20,20)])
         explosions.append([x, y, p_vx, p_vy, life, life, color])
 
 # --- MISSIONS & CHALLENGES ---
@@ -1710,7 +1712,7 @@ while True:
         if crashed and game_over_timer == 0:
             # Enregistre le lieu du crash pour la map
             crash_sites.append((world_x, altitude))
-            spawn_explosion(world_x, -altitude, vx, vy)
+            spawn_explosion(world_x, world_y, vx, vy)
             
             moteur_allume = False
             vx = 0
@@ -1992,6 +1994,52 @@ while True:
         s_atmo.fill((*CIEL_BAS, alpha_atmo)) # Voile couleur ciel
         fenetre.blit(s_atmo, (0, 0))
 
+
+            
+    # --- DESSIN AVION ---
+    # --- DESSIN AVION ---
+    if not crashed:
+        # Selection image
+        img_base = img_avion_feu_base if (postcombustion and moteur_allume) else img_avion_normal_base
+        
+        # Redimensionnement (Zoom)
+        w_new = int(img_base.get_width() * zoom)
+        h_new = int(img_base.get_height() * zoom)
+        if w_new < 2: w_new = 2
+        if h_new < 2: h_new = 2
+        
+        img_scaled = pygame.transform.scale(img_base, (w_new, h_new))
+        
+        # Rotation
+        img_rot = pygame.transform.rotate(img_scaled, angle)
+        rect_img = img_rot.get_rect(center=(L//2, H//2))
+        
+        # LANDING LIGHT (Phare)
+        if lumiere_allume:
+            # Création d'une surface pour le faisceau (transparente)
+            w_f = int(400 * zoom)
+            h_f = int(100 * zoom)
+            
+            surf_light = pygame.Surface((w_f, h_f), pygame.SRCALPHA)
+        
+            p1 = (0, h_f // 2)
+            p2 = (w_f, 0)
+            p3 = (w_f, h_f)
+            pygame.draw.polygon(surf_light, (255, 255, 200, 40), [p1, p2, p3]) 
+            pygame.draw.polygon(surf_light, (255, 255, 220, 80), [p1, (w_f*0.7, 20*zoom), (w_f*0.7, h_f-(20*zoom))])
+    
+            faisceau_rot = pygame.transform.rotate(surf_light, angle)
+            
+            rad_a = math.radians(angle)
+            offset_x = math.cos(rad_a) * 50 * zoom # Scale offset
+            offset_y = -math.sin(rad_a) * 50 * zoom
+            
+            rect_light = faisceau_rot.get_rect(center=(L//2 + offset_x + math.cos(rad_a)*200*zoom, H//2 + offset_y - math.sin(rad_a)*200*zoom))
+            fenetre.blit(faisceau_rot, rect_light)
+    
+        fenetre.blit(img_rot, rect_img)
+    
+    
     # --- DESSIN EXPLOSIONS ---
     # Update des particules
     for p in explosions:
@@ -2007,65 +2055,27 @@ while True:
             
             if px > -200 and px < L+200 and py > -200 and py < H+200:
                 ratio_vie = p[4] / p[5]
-                # Rayon grandit puis stagne
-                radius = int(30 * (1 - ratio_vie) * zoom) + 2
+                # Rayon beaucoup plus grand pour une énorme explosion (rayon de base * 3)
+                radius = int(80 * (1 - ratio_vie) * zoom) + 2
+                # Opaque au début, disparaît vers la fin
                 alpha = int(255 * ratio_vie)
                 
+                # Surface transparente
                 s_exp = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
                 
-                # Couleur dynamique (commence clair, devient foncé/gris)
+                # Couleur dynamique (commence clair feu, devient foncé fumée)
                 col = p[6]
-                if ratio_vie < 0.5: col = (40, 40, 40) # Devient fumée
+                if ratio_vie < 0.7: col = (40, 40, 40) # Devient fumée plus vite
+                if ratio_vie < 0.3: col = (20, 20, 20)
                 
-                pygame.draw.circle(s_exp, col + (alpha,), (radius, radius), radius)
+                # Dessin du cercle pur, puis application de l'opacité globale à la surface
+                pygame.draw.circle(s_exp, col, (radius, radius), radius)
+                s_exp.set_alpha(alpha)
+                
                 fenetre.blit(s_exp, (px - radius, py - radius))
                 
     # Nettoyage
     explosions = [p for p in explosions if p[4] > 0]
-            
-    # --- DESSIN AVION ---
-    # --- DESSIN AVION ---
-    # Selection image
-    img_base = img_avion_feu_base if (postcombustion and moteur_allume) else img_avion_normal_base
-    
-    # Redimensionnement (Zoom)
-    # On limite la taille min pour qu'on voie toujours un point
-    w_new = int(img_base.get_width() * zoom)
-    h_new = int(img_base.get_height() * zoom)
-    if w_new < 2: w_new = 2
-    if h_new < 2: h_new = 2
-    
-    img_scaled = pygame.transform.scale(img_base, (w_new, h_new))
-    
-    # Rotation
-    img_rot = pygame.transform.rotate(img_scaled, angle)
-    rect_img = img_rot.get_rect(center=(L//2, H//2))
-    
-    # LANDING LIGHT (Phare)
-    if lumiere_allume:
-        # Création d'une surface pour le faisceau (transparente)
-        # Scale du faisceau avec le zoom aussi sinon ça fait bizarre
-        w_f = int(400 * zoom)
-        h_f = int(100 * zoom)
-        
-        surf_light = pygame.Surface((w_f, h_f), pygame.SRCALPHA)
-    
-        p1 = (0, h_f // 2)
-        p2 = (w_f, 0)
-        p3 = (w_f, h_f)
-        pygame.draw.polygon(surf_light, (255, 255, 200, 40), [p1, p2, p3]) 
-        pygame.draw.polygon(surf_light, (255, 255, 220, 80), [p1, (w_f*0.7, 20*zoom), (w_f*0.7, h_f-(20*zoom))])
-
-        faisceau_rot = pygame.transform.rotate(surf_light, angle)
-        
-        rad_a = math.radians(angle)
-        offset_x = math.cos(rad_a) * 50 * zoom # Scale offset
-        offset_y = -math.sin(rad_a) * 50 * zoom
-        
-        rect_light = faisceau_rot.get_rect(center=(L//2 + offset_x + math.cos(rad_a)*200*zoom, H//2 + offset_y - math.sin(rad_a)*200*zoom))
-        fenetre.blit(faisceau_rot, rect_light)
-
-    fenetre.blit(img_rot, rect_img)
     
     # --- DASHBOARD ---
     # 1. Analogique (Bas)
