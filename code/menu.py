@@ -65,6 +65,8 @@ class MenuPrincipal(ctk.CTk):
         self.var_no_gear_crash = ctk.BooleanVar(value=False)
         self.var_no_wind = ctk.BooleanVar(value=False)
         self.var_auto_refuel = ctk.BooleanVar(value=False)
+        self.var_no_overheat = ctk.BooleanVar(value=False)
+        self.var_static_weight = ctk.BooleanVar(value=False)
         
         # Variable Relief (Intensité)
         self.var_terrain_intensity = ctk.DoubleVar(value=1.0)
@@ -269,6 +271,8 @@ class MenuPrincipal(ctk.CTk):
         ctk.CTkCheckBox(f_game, text="Invincibilité (God Mode)", variable=self.var_god_mode).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_game, text="Désactiver le Décrochage (Anti-Stall)", variable=self.var_no_stall).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_game, text="Atterrissage ventre sécurisé (No Gear Crash)", variable=self.var_no_gear_crash).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_game, text="Désactiver la Surchauffe Moteur", variable=self.var_no_overheat).pack(anchor="w", pady=2)
+        ctk.CTkCheckBox(f_game, text="Poids Statique (Ignorer le Fuel)", variable=self.var_static_weight).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_game, text="Pas de Vent ni Turbulences", variable=self.var_no_wind).pack(anchor="w", pady=2)
         ctk.CTkCheckBox(f_game, text="Ravitaillement Automatique (Sur piste)", variable=self.var_auto_refuel).pack(anchor="w", pady=2)
 
@@ -363,6 +367,8 @@ class MenuPrincipal(ctk.CTk):
         # Args Réalisme
         if self.var_no_stall.get(): cmd.append("--no-stall")
         if self.var_no_gear_crash.get(): cmd.append("--no-gear-crash")
+        if self.var_no_overheat.get(): cmd.append("--no-overheat")
+        if self.var_static_weight.get(): cmd.append("--static-weight")
         if self.var_no_wind.get(): cmd.append("--no-wind")
         if self.var_auto_refuel.get(): cmd.append("--auto-refuel")
 

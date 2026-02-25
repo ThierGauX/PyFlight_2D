@@ -51,6 +51,8 @@ parser.add_argument("--no-stall", action="store_true", help="Desactiver le décr
 parser.add_argument("--no-gear-crash", action="store_true", help="Desactiver le crash train rentré")
 parser.add_argument("--no-wind", action="store_true", help="Desactiver le vent et turbulences")
 parser.add_argument("--auto-refuel", action="store_true", help="Ravitaillement auto sur piste")
+parser.add_argument("--no-overheat", action="store_true", help="Désactiver la surchauffe Moteur")
+parser.add_argument("--static-weight", action="store_true", help="Poids Statique (Ignorer le Fuel)")
 parser.add_argument("--weather", type=str, default="clear", choices=["clear", "clouds", "fog"], help="Conditions météo")
 parser.add_argument("--terrain-intensity", type=float, default=1.0, help="Multiplicateur de hauteur du relief")
 parser.add_argument("--show-trail", action="store_true", help="Fumée acrobatique")
@@ -74,6 +76,7 @@ else:
                               unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False,
                               season="summer", aircraft="cessna", fuel=100.0,
                               no_stall=False, no_gear_crash=False, no_wind=False, auto_refuel=False,
+                              no_overheat=False, static_weight=False,
                               terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear")
 
 # AIRCRAFT CONFIGS
@@ -1366,7 +1369,12 @@ while True:
         if altitude < 10:
             facteur_sol = 0.5 + (altitude / 10.0) * 0.5 # 50% min authority -> 100%
             
-        accel = ACCEL_ROTATION * 0.5 * efficacite_vitesse * facteur_sol
+        # L'inertie de rotation est aussi impactée par le poids
+        facteur_poids_rot = 1.0
+        if not args.static_weight:
+            facteur_poids_rot = 1.0 + (fuel / 100.0) * 0.4
+            
+        accel = (ACCEL_ROTATION / facteur_poids_rot) * 0.5 * efficacite_vitesse * facteur_sol
         
         if target_rotation > vitesse_rotation_actuelle:
             vitesse_rotation_actuelle += accel
@@ -1429,20 +1437,32 @@ while True:
         if fuel < 0: fuel = 0
         
     # --- SURCHAUFFE MOTEUR ---
-    if moteur_allume and not moteur_endommage:
-        if niveau_poussee_reelle > 95:
-            moteur_temp += 0.03
-            if moteur_temp >= 100:
-                moteur_temp = 100
-                moteur_endommage = True
-                moteur_allume = False
-                son_moteur.stop()
-        elif current_ac["mass"] == 20000.0 and niveau_poussee_reelle > 85: # Le cargo chauffe un peu plus vite
-            moteur_temp += 0.01 
-        else:
-            moteur_temp -= 0.05
+    if moteur_allume and not moteur_endommage and not args.no_overheat:
+        # Chauffe augmente de façon exponentielle avec la poussée (Idée 4)
+        facteur_poussee = (niveau_poussee_reelle / 100.0)
+        chauffe_base = facteur_poussee**2 * 0.08
+        
+        # Refroidissement lié à l'altitude (air plus froid) et la vitesse (flux d'air)
+        # altitude est typiquement 0 à 15000+. Vitesse_kph de 0 à 300+
+        refroidissement_alt = (max(0, altitude) / 10000.0) * 0.03 # De 0 à 0.045
+        refroidissement_vit = (max(0, vitesse_kph) / V_VNE) * 0.05 # De 0 à 0.05
+        refroidissement = 0.01 + refroidissement_alt + refroidissement_vit
+        
+        variation_temp = chauffe_base - refroidissement
+        
+        # Le cargo chauffe naturellement plus vite
+        if current_ac["mass"] == 20000.0 and niveau_poussee_reelle > 85:
+            variation_temp += 0.01
+            
+        moteur_temp += variation_temp
+        
+        if moteur_temp >= 100:
+            moteur_temp = 100
+            moteur_endommage = True
+            moteur_allume = False
+            son_moteur.stop()
     else:
-        moteur_temp -= 0.1 # Refroidit si éteint
+        moteur_temp -= 0.1 # Refroidit si éteint ou si no_overheat
         
     if moteur_temp < 0: moteur_temp = 0
 
@@ -1487,7 +1507,16 @@ while True:
         son_vent.set_volume(vol_wind * args.volume)
 
     postcombustion = (niveau_poussee_reelle > 90)
-    puissance_instantanee = (niveau_poussee_reelle / 100.0) * PUISSANCE_MOTEUR
+    
+    # --- POIDS DYNAMIQUE (Idée 5) ---
+    # Le fuel représente une part importante du poids (ex: 40% du poids max)
+    # 0% fuel = facteur 1.0 (leger) | 100% fuel = facteur 1.4 (lourd)
+    facteur_poids = 1.0
+    if not args.static_weight:
+        facteur_poids = 1.0 + (fuel / 100.0) * 0.4
+        
+    # La puissance instantanée est divisée par le facteur de poids
+    puissance_instantanee = ((niveau_poussee_reelle / 100.0) * PUISSANCE_MOTEUR) / facteur_poids
     rad = math.radians(angle)
     
     # --- VENT & TURBULENCE ---

@@ -8,9 +8,14 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en
 
 ### Expérience de Vol & Voltige
 *   Physique Avancée : Simulation de la portance, traînée, inertie et décrochage (Stall).
+*   **Poids Dynamique** : La charge en carburant modifie de manière réaliste le poids et la maniabilité de l'avion en plein vol. (Désactivable)
 *   Mode Voltige : Pilotez l'avion d'acrobatie pour réaliser des loopings à 360° sans aucune limite d'angle.
 *   Portance Vectorisée : Un modèle physique précis où la portance suit l'inclinaison de vos ailes.
 *   Effet de Sol : Ressentez le coussin d'air lors des atterrissages et décollages.
+
+### Gestion Réaliste des Systèmes
+*   **Température Moteur** : Risque de surchauffe dynamique ! Refroidissez votre moteur en prenant de l'altitude ou augmentez votre vitesse de croisière. (Désactivable)
+*   **Consommation Carburant** : Surveillez votre jauge et ravitaillez sur l'un des nombreux aéroports (espacés de 75km).
 
 ### Monde Dynamique & Météo
 *   Cycle Jour/Nuit : Transition fluide en temps réel (Aube, Jour, Crépuscule, Nuit).
@@ -32,7 +37,6 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en
 ### Missions & Défis
 *   Anneaux de Navigation : Suivez un parcours complexe à travers les montagnes (F1).
 *   Précision d'Atterrissage : Atterrissez sur une zone cible spécifique pour valider votre mission (F2).
-*   Gestion du Carburant : Surveillez votre jauge (désormais 100% précise) et ravitaillez sur l'un des nombreux aéroports (espacés de 75km).
 
 ---
 

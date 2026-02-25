@@ -7,8 +7,8 @@ Ce document liste 50 idées pour faire évoluer le projet, classées par catégo
 1.  **Dégâts Progressifs** : Au lieu d'un crash immédiat en cas d'atterrissage un peu dur, intégrer des dégâts localisés (train d'atterrissage cassé empêchant le redécollage, fuite de carburant, panne moteur partielle).
 2.  **Gestion du Vent Traversier (Crosswind)** : Ajouter un vent latéral aléatoire ou paramétrable qui pousse l'avion sur le côté (Yaw), forçant le pilote à atterrir "en crabe".
 3.  **Turbulences de Sillage** : Si un autre avion IA passe devant nous, ou si l'on passe dans une zone très nuageuse, faire trembler l'écran et secouer l'avion.
-4.  **Consommation d'Huile et Température Réaliste** : Rendre la chauffe du moteur dépendante de l'altitude (plus froid en haut), de la vitesse ou des RPM, avec risque de panne thermique.
-5.  **Poids Dynamique** : Prendre en compte le poids du carburant. Un avion vide sera beaucoup plus réactif et maniable qu'un avion dont le réservoir est plein à 100%.
+4.  **[x] Consommation d'Huile et Température Réaliste** : Rendre la chauffe du moteur dépendante de l'altitude (plus froid en haut), de la vitesse ou des RPM, avec risque de panne thermique.
+5.  **[x] Poids Dynamique** : Prendre en compte le poids du carburant. Un avion vide sera beaucoup plus réactif et maniable qu'un avion dont le réservoir est plein à 100%.
 
 ## Missions & Gameplay
 
