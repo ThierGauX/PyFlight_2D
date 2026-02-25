@@ -1,0 +1,80 @@
+# 50 Idées d'Améliorations pour PyFlight 2D
+
+Ce document liste 50 idées pour faire évoluer le projet, classées par catégories pour améliorer le gameplay, la physique, les graphismes et l'expérience utilisateur globale.
+
+## Physique & Pilote
+
+1.  **Dégâts Progressifs** : Au lieu d'un crash immédiat en cas d'atterrissage un peu dur, intégrer des dégâts localisés (train d'atterrissage cassé empêchant le redécollage, fuite de carburant, panne moteur partielle).
+2.  **Gestion du Vent Traversier (Crosswind)** : Ajouter un vent latéral aléatoire ou paramétrable qui pousse l'avion sur le côté (Yaw), forçant le pilote à atterrir "en crabe".
+3.  **Turbulences de Sillage** : Si un autre avion IA passe devant nous, ou si l'on passe dans une zone très nuageuse, faire trembler l'écran et secouer l'avion.
+4.  **Consommation d'Huile et Température Réaliste** : Rendre la chauffe du moteur dépendante de l'altitude (plus froid en haut), de la vitesse ou des RPM, avec risque de panne thermique.
+5.  **Poids Dynamique** : Prendre en compte le poids du carburant. Un avion vide sera beaucoup plus réactif et maniable qu'un avion dont le réservoir est plein à 100%.
+
+## Missions & Gameplay
+
+6.  **Trafic IA** : Ajouter d'autres avions (même de simples sprites noirs au loin) qui décollent, volent dans le ciel ou atterrissent sur les pistes pour rendre le monde vivant.
+7.  **Tour de Contrôle (ATC)** : Un système de dialogues par texte en bas de l'écran qui donne l'autorisation de décoller, d'atterrir ou qui avertit des dangers.
+8.  **Largage de Colis** : Pour l'avion de type Cargo, ajouter une mission où il faut voler bas et larguer une charge précisément sur une cible.
+9.  **Gestion de Passagers** : Un système économique simple où on gagne de l'argent (ou du score) en transportant des passagers d'un aéroport A à un aéroport B en douceur (sans faire baisser leur jauge de "confort" par des manœuvres brutales).
+10. **Mode Carrière/Campagne** : Lier les défis de navigation (anneaux) et de fret ensemble. Gagner des médailles débloquant de nouveaux avions.
+
+## Graphismes & Environnement
+
+11. **Génération Prodécudale de Villes** : Au lieu de ne voir que de l'herbe et des arbres, générer de temps en temps des silhouettes grises de bâtiments 2D (avec quelques fenêtres allumées la nuit) près des aéroports.
+12. **Météo Dynamique Évolutive** : Ne plus choisir un temps fixe depuis le menu, mais faire en sorte que le soleil puisse se cacher derrière un énorme nuage gris qui amène la pluie en plein vol, puis passe.
+13. **Ombres Portées au Sol** : Dessiner une version assombrie et déformée (transparente) de l'avion sur le sol lorsque l'altitude est faible.
+14. **Éclairs et Orages** : En cas de tempête, faire flasher le ciel en blanc pendant 1 frame et ajouter un son de tonnerre décalé dans le temps.
+15. **Particules d'Eau et Neige au Sol** : En cas de pluie/neige, soulever des particules d'eau ou de neige blanche derrière l'avion lorsqu'il roule très vite sur la piste.
+
+## Interface (UI/UX)
+
+16. **Carte Tactique Grande Échelle (Touche M)** : Une vue très dézoomée remplaçant tout l'écran, affichant la planète, tous les aéroports et tous les sites de crash en même temps (Map globale).
+17. **Radio de Bord / Musique** : Ajouter la touche **R** ou **M** pour allumer une radio Lo-Fi ou des grésillements de communications aéronautiques en fond sonore.
+18. **Enregistrement de Vol (Replay)** : Sauvegarder toute la liste des positions `position_history` dans un fichier texte à la fin du vol pour pouvoir "rejouer" la trace plus tard.
+19. **Boussole / Cap (Heading Indicator)** : Remplacer l'indication gauche/droite par un vrai cap (0 à 360 degrés) qui tourne quand on fait demi-tour.
+20. **Caméra Externe Suiveuse ("Chase Cam")** : Une option pour que l'avion tourne visuellement au centre de l'écran (avec un décalage plus souple) au lieu d'une caméra toujours figée.
+
+## Multijoueur & Communauté
+
+21. **Mode Multijoueur Local** : Permettre à deux joueurs de voler sur le même écran avec des commandes séparées.
+22. **Éditeur de Niveaux/Missions** : Un outil simple pour placer des aéroports, des anneaux et des obstacles.
+23. **Système de Succès (Achievements)** : Des récompenses pour avoir atteint certaines altitudes, vitesses ou effectué des atterrissages parfaits.
+24. **Aviation Collaborative** : Missions en coopération où un joueur gère les gaz et volets, l'autre pilote.
+25. **Classements Mondiaux (Leaderboards)** : Comparer ses atterrissages et temps de mission avec le reste du monde.
+
+## Avions & Personnalisation
+
+26. **Personnalisation des Peintures d'Avion (Livries)** : Permettre au joueur de choisir ou d'importer des couleurs pour son avion.
+27. **Hélicoptères et VTOL** : Nouveau type d'appareils avec un modèle physique propre pour des vols stationnaires.
+28. **Modélisation de la Fatigue du Pilote** : L'écran se trouble si le vol est trop long sans atterrir pour se reposer.
+29. **Usure des Pneus et Freins** : Les atterrissages durs endommagent les trains avec un besoin de maintenance.
+30. **Panneaux d'Instruments Détachables** : Possibilité d'afficher le tableau de bord sur un second moniteur.
+
+## Fonctionnalités Avancées
+
+31. **Vols de Nuit avec Éclairage Réaliste** : Des phares atterrissages qui éclairent dynamiquement le sol, les arbres et les bâtiments.
+32. **Aéroports Variés** : Des pistes en terre courte (Bush flying), des porte-avions, ou des immenses hubs internationaux.
+33. **Simulation du Givrage (Icing)** : Si on vole dans des nuages froids, l'avion s'alourdit et perd de la portance.
+34. **Effet G (Voile Noir/Rouge)** : Assombrissement ou rougissement de l'écran lors de manœuvres trop brutales (G positifs ou négatifs).
+35. **Dépendance Thermique pour les Planeurs** : Ajouter des modèles de planeurs et des courants ascendants visibles ou invisibles.
+
+## Opérations Spéciales
+
+36. **Gestion des Urgences Médicales** : Missions spéciales requérant un vol très rapide et souple pour transporter un blessé.
+37. **Intégration d'Oiseaux et de Périls Animaliers** : Risque de "Bird Strike" si on vole trop bas, endommageant potentiellement le moteur.
+38. **Défis de Voltige Aérienne** : Des compétitions avec un score basé sur la précision et l'audace des figures en temps limité.
+39. **Sauvetage en Mer** : Des missions pour repérer des bateaux en détresse et larguer des canots de survie.
+40. **Trafic Radio Réaliste** : Des bruits de fond de pilotes communiquant, dépendant de la fréquence réglée.
+41. **Piste Audio Dynamique** : Une musique qui s'intensifie lors des approches finales ou des missions urgentes.
+
+## Divers
+
+42. **Historique des Vols Détaillé** : Un journal de bord de l'application (logbook) enregistrant toutes les heures de vol et les incidents.
+43. **Vagues et Océans Dynamiques** : Au lieu d'un sol plat, des zones maritimes avec des mouvements d'eau.
+44. **Effets de Boom Sonique** : Un effet visuel (cône de Mach) et sonore lorsque l'on franchit le mur du son avec un avion de chasse.
+45. **Pompiers et Secours sur Piste** : En cas de crash sur un aéroport, des véhicules de secours apparaissent.
+46. **Système de Navigation GPS Évolué** : Une mini-map avec des points de cheminement (Waypoints) personnalisables.
+47. **Mode Photographie/Drone** : Possibilité de figer le jeu pour placer une caméra libre et prendre des captures d'écran.
+48. **Support de la Réalité Virtuelle (VR)** : Adaptation de l'affichage pour les casques VR pour une immersion ultime dans le cockpit.
+49. **Tableau de Bord Personnalisable** : Choisir quels instruments afficher sur l'interface (HUD minimaliste vs IFR complet).
+50. **Gestion de Pannes Aléatoires** : Des défaillances imprévues des instruments (altimètre bloqué) obligeant le pilote à voler à vue.

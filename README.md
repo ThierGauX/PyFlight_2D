@@ -67,6 +67,11 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en
 
 ---
 
+## Améliorations Futures
+Consultez le fichier `idees amelioration.txt` pour découvrir 50 idées d'évolution (physique, gameplay, IA, etc.) !
+
+---
+
 ## Développeurs
 
 **Gauthier** : Architecture logicielle, simulation physique avancée (portance vectorisée, traînée, décrochage), développement des systèmes de bord (HUD haute résolution, radar, instruments analogiques) et moteur météo procédural.

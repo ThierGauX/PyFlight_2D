@@ -92,7 +92,7 @@ class MenuPrincipal(ctk.CTk):
         self.lbl_subtitle.pack(anchor="w", pady=(0, 20))
 
         # Infos Rapides
-        infos = "• Physique de vol avancée\n• Cycle Jour/Nuit Dynamique\n• Météo Temps Réel\n• Cockpit Interactif"
+        infos = "• Physique de vol avancée\n• Cycle Jour/Nuit Dynamique\n• Météo Temps Réel\n• Cockpit Interactif\n• Consultez idees amelioration.txt (50 idées)"
         self.lbl_infos = ctk.CTkLabel(self.frame_visuel, text=infos,
                                       font=("Consolas", 16), text_color="gray", justify="left")
         self.lbl_infos.pack(anchor="w", pady=40)
