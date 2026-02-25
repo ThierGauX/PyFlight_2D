@@ -73,6 +73,7 @@ class MenuPrincipal(ctk.CTk):
         
         self.var_aircraft = ctk.StringVar(value="cessna")
         self.var_fuel_initial = ctk.DoubleVar(value=100.0)
+        self.var_missions = ctk.BooleanVar(value=False)
 
         # Layout Principal (2 Colonnes: Sidebar / Contenu)
         self.grid_columnconfigure(0, weight=0) # Sidebar width fixed
@@ -207,6 +208,13 @@ puis cliquez sur LANCER LE VOL.
                                       command=set_aircraft, width=300, height=40)
         opt_avion.pack(anchor="w", padx=15, pady=5)
         opt_avion.set("Cessna (Standard)")
+
+        c_mode = self.card_frame(page, "MODE DE JEU")
+        def set_gamemode(val):
+            self.var_missions.set(val == "CARRIÈRE & MISSIONS")
+        seg_mode = ctk.CTkSegmentedButton(c_mode, values=["VOL LIBRE", "CARRIÈRE & MISSIONS"], command=set_gamemode, height=35)
+        seg_mode.pack(anchor="w", padx=15, fill="x")
+        seg_mode.set("CARRIÈRE & MISSIONS" if self.var_missions.get() else "VOL LIBRE")
 
         # Difficulté
         c_diff = self.card_frame(page, "MODE DE PILOTAGE")
@@ -377,6 +385,7 @@ puis cliquez sur LANCER LE VOL.
         cmd.extend(["--terrain-intensity", str(self.var_terrain_intensity.get())])
         
         # Gameplay
+        if self.var_missions.get(): cmd.append("--missions")
         if self.var_unlimited_fuel.get(): cmd.append("--unlimited-fuel")
         if self.var_god_mode.get(): cmd.append("--god-mode")
         if self.var_fullscreen.get(): cmd.append("--fullscreen")

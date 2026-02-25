@@ -63,6 +63,7 @@ parser.add_argument("--show-fps", action="store_true", help="Afficher FPS")
 parser.add_argument("--season", type=str, default="summer", help="Saison: summer, rain, snow, wind")
 parser.add_argument("--aircraft", type=str, default="cessna", help="Type d'avion: cessna, fighter, cargo, acro")
 parser.add_argument("--fuel", type=float, default=100.0, help="Carburant initial (%)")
+parser.add_argument("--missions", action="store_true", help="Activer le mode Missions (Confort passager, ATC, etc.)")
 
 # On parse uniquement si on est lancé en tant que script principal
 args = None
@@ -77,7 +78,7 @@ else:
                               season="summer", aircraft="cessna", fuel=100.0,
                               no_stall=False, no_gear_crash=False, no_wind=False, auto_refuel=False,
                               no_overheat=False, static_weight=False,
-                              terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear")
+                              terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear", missions=False)
 
 # AIRCRAFT CONFIGS
 AIRCRAFT_CONFIGS = {
@@ -440,6 +441,7 @@ class Cloud:
 # Plus de nuages si météo nuageuse
 num_clouds = 40 if args.weather != "clouds" else 80
 clouds = [Cloud() for _ in range(num_clouds)]
+ai_planes = []
 
 class Bird:
     def __init__(self, x=0.0, y=0.0):
@@ -522,6 +524,136 @@ class Ring:
             pygame.draw.circle(s, (255, 215, 0, 50), (pr, pr), pr)
             surface.blit(s, (px-pr, py-pr))
 
+class CargoBox:
+    def __init__(self, x, y, vx, vy):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.active = True
+
+    def update(self):
+        if not self.active: return
+        self.x += self.vx
+        self.y += self.vy
+        self.vy += 0.12 # GRAVITE
+        
+        # friction aerodynamique simple
+        self.vx *= 0.99
+        self.vy *= 0.99
+        
+    def draw(self, surface, cam_x, cam_y, zoom):
+        if not self.active: return
+        px = (self.x - cam_x) * zoom + (L/2)
+        py = (self.y - cam_y) * zoom + (H/2)
+        pr = max(2, 5 * zoom)
+        pygame.draw.rect(surface, (150, 100, 50), (px-pr, py-pr, pr*2, pr*2))
+
+class AIPlane:
+    def __init__(self, wx, airports_list):
+        self.active = True
+        self.mode = random.choices(["cruise", "takeoff", "landing"], weights=[0.4, 0.3, 0.3])[0]
+        
+        closest_apt = min(airports_list, key=lambda a: abs(a.x_start - wx))
+        
+        if self.mode == "cruise":
+            self.x = wx + random.choice([-20000, 20000]) # Spawns far away
+            self.y = -random.randint(5000, 15000) # High altitude
+            self.vx = random.uniform(150, 250) * (1 if self.x < wx else -1)
+            self.vy = 0
+            self.dir_x = 1 if self.vx > 0 else -1
+            
+        elif self.mode == "takeoff":
+            apt = closest_apt if random.random() < 0.7 else random.choice(airports_list)
+            self.dir_x = random.choice([1, -1])
+            self.x = apt.x_start + (500 if self.dir_x == 1 else apt.width - 500)
+            self.y = 0
+            self.vx = 10 * self.dir_x
+            self.target_vx = random.uniform(150, 200) * self.dir_x
+            self.vy = 0
+            
+        elif self.mode == "landing":
+            apt = closest_apt if random.random() < 0.7 else random.choice(airports_list)
+            self.dir_x = random.choice([-1, 1])
+            dist_app = 15000
+            self.x = (apt.x_start + apt.width/2) - self.dir_x * dist_app
+            self.y = -2000
+            self.vx = 150 * self.dir_x
+            self.vy = 2000 / (dist_app / 150) # Descente
+        
+    def update(self, wx, dt):
+        if not self.active: return
+        
+        if self.mode == "cruise":
+            self.x += self.vx * dt
+            if abs(self.x - wx) > 30000:
+                self.active = False
+                
+        elif self.mode == "takeoff":
+            if abs(self.vx) < abs(self.target_vx):
+                self.vx += 15 * dt * self.dir_x
+            self.x += self.vx * dt
+            
+            if abs(self.vx) > 100:
+                self.vy -= 15 * dt
+                if self.vy < -40: self.vy = -40
+            self.y += self.vy * dt
+            
+            if self.y < -5000:
+                self.mode = "cruise"
+                self.vy = 0
+            if abs(self.x - wx) > 30000:
+                self.active = False
+                
+        elif self.mode == "landing":
+            self.x += self.vx * dt
+            self.y += self.vy * dt
+            
+            if self.y >= 0:
+                self.y = 0
+                self.vy = 0
+                self.vx -= 15 * dt * self.dir_x
+                if (self.dir_x == 1 and self.vx <= 0) or (self.dir_x == -1 and self.vx >= 0):
+                    self.active = False
+            
+            if abs(self.x - wx) > 30000:
+                self.active = False
+            
+    def draw(self, surface, cam_x, cam_y, zoom):
+        if not self.active: return
+        px = (self.x - cam_x) * zoom + (L/2)
+        py = (self.y - cam_y) * zoom + (H/2)
+        
+        # Don't draw if outside screen
+        if px < -200 or px > L+200 or py < -200 or py > H+200: return
+        
+        # Angle calc
+        angle = math.degrees(math.atan2(-self.vy, self.vx))
+        if self.dir_x == -1 and self.vy != 0:
+            angle = math.degrees(math.atan2(-self.vy, self.vx))
+        
+        # Draw a small shape (simple rect for distant plane)
+        pw = 20 * zoom
+        ph = 6 * zoom
+        
+        # We can just draw a rotated rect by making a small surface
+        s_plane = pygame.Surface((pw, ph), pygame.SRCALPHA)
+        pygame.draw.rect(s_plane, (180, 180, 190), (0, 0, pw, ph))
+        s_plane_rot = pygame.transform.rotate(s_plane, angle)
+        
+        r = s_plane_rot.get_rect(center=(px, py))
+        surface.blit(s_plane_rot, r)
+        
+        # Draw a contrail behind it (only high alt)
+        if self.y < -3000:
+            tail_len = 150 * zoom
+            # from back of plane
+            back_x = px - math.cos(math.radians(angle)) * (pw/2)
+            back_y = py + math.sin(math.radians(angle)) * (pw/2)
+            end_x = back_x - math.cos(math.radians(angle)) * tail_len
+            end_y = back_y + math.sin(math.radians(angle)) * tail_len
+            pygame.draw.line(surface, (255, 255, 255, 100), (back_x, back_y), (end_x, end_y), max(1, int(2*zoom)))
+
 class MissionManager:
     def __init__(self):
         self.active_mission = None # "rings", "landing", None
@@ -530,6 +662,14 @@ class MissionManager:
         self.message = ""
         self.timer_message = 0
         self.target_landing_zone = None # (x_start, x_end)
+        
+        # Cargo Missions
+        self.cargos = []
+        self.cargo_targets = []
+        cx = 5000
+        for i in range(20):
+            self.cargo_targets.append({'x': cx, 'w': 300, 'active': True})
+            cx += random.randint(4000, 15000)
         
     def start_rings_challenge(self):
         self.active_mission = "rings"
@@ -564,8 +704,40 @@ class MissionManager:
                         self.message = f"RING PASSED! (+100) [{self.score}]"
                         self.timer_message = 60
                         
+        # Update cargos
+        for c in self.cargos:
+            if not c.active: continue
+            c.update()
+            
+            # Sol collision (y est négatif dans le jeu pour monter, donc y monte vers le sol = 0)
+            terrain_h = get_terrain_height(c.x)
+            terrain_z = -terrain_h
+            if c.y >= terrain_z: # Hit ground
+                c.active = False
+                c.y = terrain_z
+                
+                # Check targets
+                hit = False
+                for t in self.cargo_targets:
+                    if t['active'] and abs(c.x - t['x']) < t['w']/2:
+                        hit = True
+                        t['active'] = False
+                        self.score += 500
+                        self.message = f"CIBLE ATTEINTE ! (+500) [{self.score}]"
+                        self.timer_message = 180
+                        break
+                
+                if not hit:
+                     self.message = "COLIS PERDU..."
+                     self.timer_message = 120
+
         if self.timer_message > 0:
             self.timer_message -= 1
+
+    def drop_cargo(self, cx, cy, vx, vy):
+        self.cargos.append(CargoBox(cx, cy, vx, vy))
+        self.message = "COLIS LARGUÉ !"
+        self.timer_message = 120
             
     def draw(self, surface, cam_x, cam_y, zoom):
         if self.active_mission == "rings":
@@ -591,6 +763,23 @@ class MissionManager:
              # Centered
              r = lbl.get_rect(center=(L//2, H//4))
              surface.blit(lbl, r)
+             
+        # Draw cargo targets
+        for t in self.cargo_targets:
+            if not t['active']: continue
+            px = (t['x'] - cam_x) * zoom + (L/2)
+            py = (-get_terrain_height(t['x']) - cam_y) * zoom + (H/2)
+            pw = t['w'] * zoom
+            if -pw < px < L+pw:
+                pygame.draw.rect(surface, (255, 50, 50), (px - pw/2, py - 5*zoom, pw, 10*zoom))
+                pygame.draw.line(surface, (255, 50, 50), (px, py), (px, py - 80*zoom), max(1, int(3*zoom)))
+                if zoom > 0.3:
+                    lbl = police_label.render("DROP ZONE", True, (255, 50, 50))
+                    surface.blit(lbl, (px - 40, py - 100*zoom))
+
+        # Draw cargos
+        for c in self.cargos:
+            c.draw(surface, cam_x, cam_y, zoom)
 
 mission_manager = MissionManager()
 
@@ -726,6 +915,12 @@ crashed = False
 crash_reason = ""
 game_over_timer = 0
 shake_amount = 0.0
+
+# Missions
+confort_passagers = 100.0
+atc_message = ""
+atc_timer = 0
+atc_airport_triggered = set()
 
 def get_terrain_height(x):
     # Utilisation de valeurs absolues pour éviter que le relief ne "stagne" à 0 (le plat)
@@ -951,6 +1146,11 @@ def dessiner_hud_overlay(surface, vitesse, alt, angle_pitch, vy):
     cx, cy = L // 2, H // 2
     pygame.draw.circle(surface, (255, 0, 0), (cx, cy), s(3), 1)
 
+def afficher_atc(msg, duree=300):
+    global atc_message, atc_timer
+    atc_message = msg
+    atc_timer = duree
+
 # --- DASHBOARD ANALOGIQUE (CLASSIC) ---
 def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch, gear, mtemp):
     global fuel
@@ -1037,6 +1237,20 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     ang_100 = -90 + val_100 * 360
     r2 = math.radians(ang_100)
     pygame.draw.line(surface, (255, 255, 255), (x_alt, y_inst), (x_alt + math.cos(r2)*s(55), y_inst + math.sin(r2)*s(55)), s(2))
+
+    # PASSENGER COMFORT (MISSIONS)
+    if args.missions:
+        col_comfort = (0, 255, 0) if confort_passagers > 80 else ((255, 200, 0) if confort_passagers > 40 else (255, 0, 0))
+        lbl_comfort = police_label.render(f"CONFORT: {int(confort_passagers)}%", True, col_comfort)
+        surface.blit(lbl_comfort, (x_alt + s(80), y_inst - s(20)))
+
+    # ATC RADIOMESSAGE
+    if args.missions and atc_timer > 0:
+        atc_bg = pygame.Surface((L, s(60)), pygame.SRCALPHA)
+        atc_bg.fill((20, 25, 30, 200)) # Fond radio sombre
+        surface.blit(atc_bg, (0, y_base - s(70)))
+        lbl_atc = police_valeur.render(atc_message, True, (200, 255, 200))
+        surface.blit(lbl_atc, lbl_atc.get_rect(center=(L//2, y_base - s(40))))
     
     sf_alt = police_valeur.render(f"{int(alt)}", True, (200, 255, 200))
     surface.blit(sf_alt, sf_alt.get_rect(center=(x_alt, y_inst + s(30))))
@@ -1192,6 +1406,38 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
             sz = s(5)
             pygame.draw.line(surface, HUD_ROUGE, (mx_c - sz, my_c - sz), (mx_c + sz, my_c + sz), s(2))
             pygame.draw.line(surface, HUD_ROUGE, (mx_c + sz, my_c - sz), (mx_c - sz, my_c + sz), s(2))
+
+    # OISEAUX
+    for b in birds:
+        dist_obj = b.x - px_world
+        if abs(dist_obj) < 20000:
+            mx_c = center_map_x + (dist_obj * px_per_m)
+            hy_c = min(h_map - s(15), -b.y * (0.02 * UI_SCALE))
+            my_c = y_map + h_map - s(10) - hy_c
+            pygame.draw.circle(surface, (200, 200, 200), (int(mx_c), int(my_c)), s(1))
+
+    # AVIONS IA (Triangles noirs)
+    if args.missions:
+        for aip in ai_planes:
+            dist_obj = aip.x - px_world
+            if abs(dist_obj) < 20000:
+                mx_c = center_map_x + (dist_obj * px_per_m)
+                hy_c = min(h_map - s(15), -aip.y * (0.02 * UI_SCALE))
+                my_c = y_map + h_map - s(10) - hy_c
+                sz = s(4)
+                pygame.draw.polygon(surface, (0, 0, 0), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)])
+
+    # DROP ZONES (Cibles Cargo)
+    if args.missions and args.aircraft == "cargo":
+        for t in mission_manager.cargo_targets:
+            if t['active']:
+                dist_obj = t['x'] - px_world
+                if abs(dist_obj) < 20000:
+                    mx_c = center_map_x + (dist_obj * px_per_m)
+                    hy_c = min(h_map - s(15), get_terrain_height(t['x']) * (0.02 * UI_SCALE))
+                    my_c = y_map + h_map - s(10) - hy_c
+                    sz = s(3)
+                    pygame.draw.rect(surface, (255, 50, 50), (mx_c - sz, my_c - sz, sz*2, sz*2))
             
     # DESSIN AVION SUR MAP (Marqueur)
     h_rel = min(h_map - s(20), alt * (0.02 * UI_SCALE))
@@ -1325,6 +1571,8 @@ while True:
                 mission_manager.start_rings_challenge()
             if event.key == pygame.K_F2:
                 mission_manager.start_landing_challenge()
+            if event.key == pygame.K_c and args.missions and args.aircraft == "cargo":
+                mission_manager.drop_cargo(world_x, world_y, vx, vy)
 
             if moteur_allume:
                 if event.key == pygame.K_LSHIFT: # PLEIN GAZ
@@ -1413,6 +1661,17 @@ while True:
         # On garde l'angle entre -180 et 180 pour la logique (bien que Pygame gère au delà)
         if angle > 180: angle -= 360
         if angle < -180: angle += 360
+
+    if args.missions:
+        # Passagers n'aiment pas les fortes rotations ou le vol inversé (sauf en avion de voltige)
+        if abs(vitesse_rotation_actuelle) > 1.5:
+            confort_passagers -= abs(vitesse_rotation_actuelle) * 0.05
+        if args.aircraft != "acro" and (angle > 50 or angle < -50):
+            confort_passagers -= 0.1
+        if confort_passagers < 0: confort_passagers = 0.0
+
+        if atc_timer > 0:
+            atc_timer -= 1
 
     # --- MOTEUR & THRUST & FUEL ---
     if not moteur_allume or fuel <= 0:
@@ -1671,6 +1930,18 @@ while True:
     # Update Missions
     mission_manager.update(world_x, world_y, vx, vy)
     
+    # Update ATC Radios
+    if args.missions:
+        if altitude > 20 and vitesse_kph > 120 and "takeoff" not in atc_airport_triggered:
+            afficher_atc("Tour : Décollage réussi. Bon vol PyFlight !")
+            atc_airport_triggered.add("takeoff")
+        
+        for i, piste in enumerate(airports):
+            dist = abs(world_x - (piste.x_start + piste.width/2))
+            if dist < 6000 and i not in atc_airport_triggered and altitude > 100:
+                afficher_atc(f"Tour : PyFlight, approche sur aéroport {i+1} claire.")
+                atc_airport_triggered.add(i)
+    
     # --- CONTRAILS ---
     if not crashed:
         # Trail permanent si option cochée
@@ -1764,6 +2035,10 @@ while True:
                 
             # Rebond
             if impact_vitesse_vert > 2.0: 
+                 if args.missions and impact_vitesse_vert > 3.0:
+                     confort_passagers -= (impact_vitesse_vert - 2.0) * 8
+                     if confort_passagers < 0: confort_passagers = 0.0
+
                  vy = -impact_vitesse_vert * 0.20 
                  world_y = 0.5 
             else:
@@ -1897,6 +2172,17 @@ while True:
     for b in birds:
         b.update()
         b.draw(fenetre, world_x, -altitude, zoom)
+        
+    # AI PLANES
+    if args.missions:
+        if random.random() < 0.005 and len(ai_planes) < 5:
+            ai_planes.append(AIPlane(world_x, airports))
+            
+        for aip in ai_planes:
+            aip.update(world_x, dt)
+            aip.draw(fenetre, world_x, world_y, zoom)
+            
+        ai_planes = [p for p in ai_planes if p.active]
         
     # MISE A JOUR HISTORIQUE
     history_timer += 1
