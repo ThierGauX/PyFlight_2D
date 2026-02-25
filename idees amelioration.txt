@@ -15,8 +15,8 @@ Ce document liste 50 idées pour faire évoluer le projet, classées par catégo
 6.  **[x] Trafic IA** : Ajouter d'autres avions (même de simples sprites noirs au loin) qui décollent, volent dans le ciel ou atterrissent sur les pistes pour rendre le monde vivant.
 7.  **[x] Tour de Contrôle (ATC)** : Un système de dialogues par texte en bas de l'écran qui donne l'autorisation de décoller, d'atterrir ou qui avertit des dangers.
 8.  **[x] Largage de Colis** : Pour l'avion de type Cargo, ajouter une mission où il faut voler bas et larguer une charge précisément sur une cible.
-9.  **[x] Gestion de Passagers** : Un système économique simple où on gagne de l'argent (ou du score) en transportant des passagers d'un aéroport A à un aéroport B en douceur (sans faire baisser leur jauge de "confort" par des manœuvres brutales).
-10. **[x] Mode Carrière/Campagne** : Lier les défis de navigation (anneaux) et de fret ensemble. Gagner des médailles débloquant de nouveaux avions.
+9.  **[ ] Gestion de Passagers** : (Annulé à la demande de l'utilisateur) Un système économique simple où on gagne de l'argent.
+10. **[ ] Mode Carrière/Campagne** : (Annulé à la demande de l'utilisateur) Lier les défis de navigation (anneaux) et de fret ensemble. Gagner des médailles débloquant de nouveaux avions.
 
 ## Graphismes & Environnement
 

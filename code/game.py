@@ -633,12 +633,12 @@ class AIPlane:
             angle = math.degrees(math.atan2(-self.vy, self.vx))
         
         # Draw a small shape (simple rect for distant plane)
-        pw = 20 * zoom
-        ph = 6 * zoom
+        pw = 40 * zoom # Plus grand pour être mieux vu
+        ph = 12 * zoom
         
         # We can just draw a rotated rect by making a small surface
         s_plane = pygame.Surface((pw, ph), pygame.SRCALPHA)
-        pygame.draw.rect(s_plane, (180, 180, 190), (0, 0, pw, ph))
+        pygame.draw.rect(s_plane, (40, 40, 40), (0, 0, pw, ph)) # Plus sombre pour contraste
         s_plane_rot = pygame.transform.rotate(s_plane, angle)
         
         r = s_plane_rot.get_rect(center=(px, py))
@@ -668,7 +668,7 @@ class MissionManager:
         self.cargo_targets = []
         cx = 5000
         for i in range(20):
-            self.cargo_targets.append({'x': cx, 'w': 300, 'active': True})
+            self.cargo_targets.append({'x': cx, 'w': 800, 'active': True}) # Cibles plus larges (800)
             cx += random.randint(4000, 15000)
         
     def start_rings_challenge(self):
@@ -776,6 +776,44 @@ class MissionManager:
                 if zoom > 0.3:
                     lbl = police_label.render("DROP ZONE", True, (255, 50, 50))
                     surface.blit(lbl, (px - 40, py - 100*zoom))
+                    
+        # CCIP (Continuously Computed Impact Point) - Aide à la visée
+        if args.missions and args.aircraft == "cargo":
+            sim_x = world_x
+            sim_y = world_y
+            sim_vx = vx
+            sim_vy = vy
+            for _ in range(400): # Simuler jusqu'à 400 frames
+                sim_x += sim_vx
+                sim_y += sim_vy
+                sim_vy += 0.12
+                sim_vx *= 0.99
+                sim_vy *= 0.99
+                terrain_h = get_terrain_height(sim_x)
+                if sim_y >= -terrain_h:
+                    sim_y = -terrain_h
+                    break
+            
+            # Dessiner la croix de visée au sol
+            px = (sim_x - cam_x) * zoom + (L/2)
+            py = (sim_y - cam_y) * zoom + (H/2)
+            
+            # Ligne pointillée depuis l'avion jusqu'à la cible
+            start_px = (world_x - cam_x) * zoom + (L/2)
+            start_py = (world_y - cam_y) * zoom + (H/2)
+            pygame.draw.aaline(surface, (0, 255, 0, 100), (start_px, start_py), (px, py))
+            
+            # Croix de ciblage
+            csz = max(5, 10 * zoom)
+            pygame.draw.line(surface, (0, 255, 0), (px - csz, py), (px + csz, py), max(1, int(2*zoom)))
+            pygame.draw.line(surface, (0, 255, 0), (px, py - csz), (px, py + csz), max(1, int(2*zoom)))
+            pygame.draw.circle(surface, (0, 255, 0), (px, py), csz, max(1, int(1*zoom)))
+
+        # Draw score for Cargo Missions
+        if self.score > 0 and args.aircraft == "cargo":
+            lbl_score = police_alarme.render(f"SCORE: {self.score}", True, (255, 215, 0))
+            # Alignement en haut à droite pour éviter de déborder
+            surface.blit(lbl_score, lbl_score.get_rect(topright=(L - 20, 20)))
 
         # Draw cargos
         for c in self.cargos:
@@ -1238,14 +1276,8 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     r2 = math.radians(ang_100)
     pygame.draw.line(surface, (255, 255, 255), (x_alt, y_inst), (x_alt + math.cos(r2)*s(55), y_inst + math.sin(r2)*s(55)), s(2))
 
-    # PASSENGER COMFORT (MISSIONS)
-    if args.missions:
-        col_comfort = (0, 255, 0) if confort_passagers > 80 else ((255, 200, 0) if confort_passagers > 40 else (255, 0, 0))
-        lbl_comfort = police_label.render(f"CONFORT: {int(confort_passagers)}%", True, col_comfort)
-        surface.blit(lbl_comfort, (x_alt + s(80), y_inst - s(20)))
-
     # ATC RADIOMESSAGE
-    if args.missions and atc_timer > 0:
+    if args.missions and atc_message != "":
         atc_bg = pygame.Surface((L, s(60)), pygame.SRCALPHA)
         atc_bg.fill((20, 25, 30, 200)) # Fond radio sombre
         surface.blit(atc_bg, (0, y_base - s(70)))
@@ -1424,8 +1456,9 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
                 mx_c = center_map_x + (dist_obj * px_per_m)
                 hy_c = min(h_map - s(15), -aip.y * (0.02 * UI_SCALE))
                 my_c = y_map + h_map - s(10) - hy_c
-                sz = s(4)
+                sz = s(8) # Triangle plus grand sur la carte
                 pygame.draw.polygon(surface, (0, 0, 0), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)])
+                pygame.draw.polygon(surface, (255, 255, 255), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)], s(1)) # Contour blanc
 
     # DROP ZONES (Cibles Cargo)
     if args.missions and args.aircraft == "cargo":
@@ -1663,13 +1696,6 @@ while True:
         if angle < -180: angle += 360
 
     if args.missions:
-        # Passagers n'aiment pas les fortes rotations ou le vol inversé (sauf en avion de voltige)
-        if abs(vitesse_rotation_actuelle) > 1.5:
-            confort_passagers -= abs(vitesse_rotation_actuelle) * 0.05
-        if args.aircraft != "acro" and (angle > 50 or angle < -50):
-            confort_passagers -= 0.1
-        if confort_passagers < 0: confort_passagers = 0.0
-
         if atc_timer > 0:
             atc_timer -= 1
 
@@ -1941,6 +1967,16 @@ while True:
             if dist < 6000 and i not in atc_airport_triggered and altitude > 100:
                 afficher_atc(f"Tour : PyFlight, approche sur aéroport {i+1} claire.")
                 atc_airport_triggered.add(i)
+                
+        # Messages ATC aléatoires en vol croisière
+        if altitude > 1000 and random.random() < 0.0005: # Très rare
+            msgs = [
+                "Tour : PyFlight, maintenez votre altitude et cap actuel.",
+                "Tour : PyFlight, trafic signalé à vos 12 heures, même altitude.",
+                "Tour : PyFlight, signalez turbulences si rencontrées.",
+                "Tour : PyFlight, contact radar perdu... Ah non c'est bon."
+            ]
+            afficher_atc(random.choice(msgs))
     
     # --- CONTRAILS ---
     if not crashed:
@@ -2035,10 +2071,6 @@ while True:
                 
             # Rebond
             if impact_vitesse_vert > 2.0: 
-                 if args.missions and impact_vitesse_vert > 3.0:
-                     confort_passagers -= (impact_vitesse_vert - 2.0) * 8
-                     if confort_passagers < 0: confort_passagers = 0.0
-
                  vy = -impact_vitesse_vert * 0.20 
                  world_y = 0.5 
             else:
