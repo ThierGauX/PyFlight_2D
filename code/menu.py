@@ -74,6 +74,7 @@ class MenuPrincipal(ctk.CTk):
         self.var_aircraft = ctk.StringVar(value="cessna")
         self.var_fuel_initial = ctk.DoubleVar(value=100.0)
         self.var_missions = ctk.BooleanVar(value=False)
+        self.var_mission_type = ctk.StringVar(value="none")
 
         # Layout Principal (2 Colonnes: Sidebar / Contenu)
         self.grid_columnconfigure(0, weight=0) # Sidebar width fixed
@@ -210,11 +211,38 @@ puis cliquez sur LANCER LE VOL.
         opt_avion.set("Cessna (Standard)")
 
         c_mode = self.card_frame(page, "MODE DE JEU")
+        
+        # Frame pour contenir le segment et le dropdown (pour un layout propre)
+        f_mode = ctk.CTkFrame(c_mode, fg_color="transparent")
+        f_mode.pack(fill="x", padx=15, pady=(0, 10))
+        
+        opt_mission = ctk.CTkOptionMenu(c_mode, values=["Aucune (Trafic & ATC Seuls)", "Parcours d'Anneaux", "Atterrissage de Précision", "Largage Cargo (Requis: Avion Cargo)"], width=300, height=40)
+        
+        def set_mission_type(val):
+            map_m = {
+                "Aucune (Trafic & ATC Seuls)": "none",
+                "Parcours d'Anneaux": "rings",
+                "Atterrissage de Précision": "landing",
+                "Largage Cargo (Requis: Avion Cargo)": "cargo"
+            }
+            self.var_mission_type.set(map_m.get(val, "none"))
+            
+        opt_mission.configure(command=set_mission_type)
+        opt_mission.pack(anchor="w", padx=15, pady=(0, 10))
+        opt_mission.set("Aucune (Trafic & ATC Seuls)")
+        
         def set_gamemode(val):
-            self.var_missions.set(val == "CARRIÈRE & MISSIONS")
-        seg_mode = ctk.CTkSegmentedButton(c_mode, values=["VOL LIBRE", "CARRIÈRE & MISSIONS"], command=set_gamemode, height=35)
-        seg_mode.pack(anchor="w", padx=15, fill="x")
+            is_mission = (val == "CARRIÈRE & MISSIONS")
+            self.var_missions.set(is_mission)
+            if is_mission:
+                opt_mission.configure(state="normal")
+            else:
+                opt_mission.configure(state="disabled")
+            
+        seg_mode = ctk.CTkSegmentedButton(f_mode, values=["VOL LIBRE", "CARRIÈRE & MISSIONS"], command=set_gamemode, height=35)
+        seg_mode.pack(anchor="w", fill="x")
         seg_mode.set("CARRIÈRE & MISSIONS" if self.var_missions.get() else "VOL LIBRE")
+        opt_mission.configure(state="normal" if self.var_missions.get() else "disabled")
 
         # Difficulté
         c_diff = self.card_frame(page, "MODE DE PILOTAGE")
@@ -385,7 +413,10 @@ puis cliquez sur LANCER LE VOL.
         cmd.extend(["--terrain-intensity", str(self.var_terrain_intensity.get())])
         
         # Gameplay
-        if self.var_missions.get(): cmd.append("--missions")
+        if self.var_missions.get(): 
+            cmd.append("--missions")
+            if self.var_mission_type.get() != "none":
+                cmd.extend(["--mission-type", self.var_mission_type.get()])
         if self.var_unlimited_fuel.get(): cmd.append("--unlimited-fuel")
         if self.var_god_mode.get(): cmd.append("--god-mode")
         if self.var_fullscreen.get(): cmd.append("--fullscreen")

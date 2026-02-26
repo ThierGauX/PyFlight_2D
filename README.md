@@ -39,8 +39,11 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en
 En activant le mode **CARRIÈRE & MISSIONS** depuis le menu de configuration, vous accédez à :
 *   **Trafic IA** : Avions de ligne sillonnant le ciel générés procéduralement.
 *   **Contrôle Aérien (ATC)** : La tour de contrôle vous contacte par messages radio lors du décollage et des approches. Elle communique aussi aléatoirement en vol de croisière.
-*   **Missions Cargo** : À bord du Gros Porteur, volez à basse altitude pour larguer des colis (Touche C) avec précision sur des zones cibles. Un viseur prédictif (CCIP) vert s'affiche au sol pour vous aider à viser !
-*   **Challenges d'Arcade** : Touches `F1` (Parcours d'anneaux) et `F2` (Atterrissage de précision).
+*   **Missions Ciblées** : Depuis le menu "MODE DE JEU", vous pouvez choisir explicitement :
+    *   **Aucune** : Juste le trafic IA et l'ATC pour une ambiance ralaxante.
+    *   **Parcours d'Anneaux** : Testez votre agilité (Anciennement F1).
+    *   **Atterrissage de Précision** : Posez-vous en douceur sur la cible (Anciennement F2).
+    *   **Largage Cargo** : À bord du Gros Porteur, volez à basse altitude pour larguer des colis (Touche C) avec précision sur des zones cibles. Un viseur prédictif (CCIP) vert s'affiche au sol pour vous aider à viser !
 
 ---
 

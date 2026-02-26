@@ -64,6 +64,7 @@ parser.add_argument("--season", type=str, default="summer", help="Saison: summer
 parser.add_argument("--aircraft", type=str, default="cessna", help="Type d'avion: cessna, fighter, cargo, acro")
 parser.add_argument("--fuel", type=float, default=100.0, help="Carburant initial (%)")
 parser.add_argument("--missions", action="store_true", help="Activer le mode Missions (Confort passager, ATC, etc.)")
+parser.add_argument("--mission-type", type=str, default="none", choices=["none", "rings", "landing", "cargo"], help="Lancer une mission spécifique au démarrage")
 
 # On parse uniquement si on est lancé en tant que script principal
 args = None
@@ -77,8 +78,7 @@ else:
                               unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False,
                               season="summer", aircraft="cessna", fuel=100.0,
                               no_stall=False, no_gear_crash=False, no_wind=False, auto_refuel=False,
-                              no_overheat=False, static_weight=False,
-                              terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear", missions=False)
+                              terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear", missions=False, mission_type="none")
 
 # AIRCRAFT CONFIGS
 AIRCRAFT_CONFIGS = {
@@ -1558,9 +1558,14 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     lbl_ti = police_valeur.render(f"{int(heure_dec):02d}:{int((heure_dec%1)*60):02d}", True, HUD_VERT)
     surface.blit(lbl_ti, (L - s(80), y_map + s(20)))
 
-
-
-
+# --- INITIALISATION MISSIONS SPECIFIQUES ---
+if args.mission_type == "rings":
+    mission_manager.start_rings_challenge()
+elif args.mission_type == "landing":
+    mission_manager.start_landing_challenge()
+elif args.mission_type == "cargo":
+    mission_manager.message = "MISSION: LARGUEZ LES COLIS (Touche C)"
+    mission_manager.timer_message = 200
 
 while True:
     dt = horloge.tick(60) / 1000.0 
