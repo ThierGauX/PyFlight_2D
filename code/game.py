@@ -679,10 +679,17 @@ class MissionManager:
         self.timer_message = 180 # 3 sec
         # Generate rings
         cx, cy = 2000, -500
-        for i in range(10):
+        for i in range(15): # L'anneau de base
+            # Ensure the ring is not spawning inside a mountain
+            terrain_h = get_terrain_height(cx)
+            min_y = -terrain_h - 150 # At least 150 units above the ground (remember y is negative upwards)
+            
+            if cy > min_y:
+                cy = min_y
+                
             self.rings.append(Ring(cx, cy, 60))
             cx += 600
-            cy += random.randint(-100, 100)
+            cy += random.randint(-150, 150)
             
     def start_landing_challenge(self):
         self.active_mission = "landing"
