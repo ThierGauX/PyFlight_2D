@@ -691,13 +691,19 @@ class MissionManager:
             cx += 600
             cy += random.randint(-150, 150)
             
-    def start_landing_challenge(self):
+    def start_landing_challenge(self, current_x=0):
         self.active_mission = "landing"
         self.score = 0
-        self.message = "MISSION: PRECISION LANDING!"
-        self.timer_message = 180
-        # Target zone: 2500m to 3000m
-        self.target_landing_zone = (2500, 3000)
+        self.message = "MISSION: PRECISION LANDING SUR AEROPORT!"
+        self.timer_message = 240
+        
+        # Trouver la prochaine piste devant l'avion
+        # Les pistes sont à i * 75000
+        next_i = int((current_x + 8000) / 75000) + 1
+        x_start_piste = next_i * 75000
+        
+        # On place la cible d'atterrissage sur la première moitié de la piste (la piste fait 6000m)
+        self.target_landing_zone = (x_start_piste + 500, x_start_piste + 2500)
         
     def update(self, plane_x, plane_y, plane_vx, plane_vy):
         if self.active_mission == "rings":
@@ -710,6 +716,17 @@ class MissionManager:
                         self.score += 100
                         self.message = f"RING PASSED! (+100) [{self.score}]"
                         self.timer_message = 60
+                        
+        if self.active_mission == "landing" and self.target_landing_zone:
+            x1, x2 = self.target_landing_zone
+            if x1 <= plane_x <= x2:
+                # Vérifier si l'avion est au sol (y proche de 0 sur piste) et quasiment à l'arrêt
+                if plane_y >= -5 and abs(plane_vx) < 2 and abs(plane_vy) < 2:
+                    self.score += 500
+                    self.message = f"ATTERRISSAGE REUSSI ! (+500) [{self.score}]"
+                    self.timer_message = 300
+                    self.target_landing_zone = None
+                    self.active_mission = None
                         
         # Update cargos
         for c in self.cargos:
@@ -816,8 +833,8 @@ class MissionManager:
             pygame.draw.line(surface, (0, 255, 0), (px, py - csz), (px, py + csz), max(1, int(2*zoom)))
             pygame.draw.circle(surface, (0, 255, 0), (px, py), csz, max(1, int(1*zoom)))
 
-        # Draw score for Cargo Missions
-        if self.score > 0 and args.aircraft == "cargo":
+        # Draw score for Missions
+        if self.score > 0 and args.missions:
             lbl_score = police_alarme.render(f"SCORE: {self.score}", True, (255, 215, 0))
             # Alignement en haut à droite pour éviter de déborder
             surface.blit(lbl_score, lbl_score.get_rect(topright=(L - 20, 20)))
@@ -1569,7 +1586,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
 if args.mission_type == "rings":
     mission_manager.start_rings_challenge()
 elif args.mission_type == "landing":
-    mission_manager.start_landing_challenge()
+    mission_manager.start_landing_challenge(world_x)
 elif args.mission_type == "cargo":
     mission_manager.message = "MISSION: LARGUEZ LES COLIS (Touche C)"
     mission_manager.timer_message = 200
@@ -1615,7 +1632,7 @@ while True:
             if event.key == pygame.K_F1:
                 mission_manager.start_rings_challenge()
             if event.key == pygame.K_F2:
-                mission_manager.start_landing_challenge()
+                mission_manager.start_landing_challenge(world_x)
             if event.key == pygame.K_c and args.missions and args.aircraft == "cargo":
                 mission_manager.drop_cargo(world_x, world_y, vx, vy)
 
