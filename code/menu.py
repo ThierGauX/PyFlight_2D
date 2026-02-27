@@ -191,8 +191,9 @@ PyFlight 2D vous offre une simulation aéronautique exigeante :
 • Nouvelles Missions (Anneaux, Cargo, Atterrissage)
 • Cibles au sol, Chronomètres et Statistiques de vol
 • Trafic IA ambiant et Tour de Contrôle (ATC)
-• Cycle Jour/Nuit & Météo Volumétrique 
+• Cycle Jour/Nuit, Météo Volumétrique & Océans Dynamiques
 • Cockpit Interactif (HUD / Instruments Analogiques)
+• Plan de Vol Interactif GPS (Touche 'M')
 
 Configurez votre appareil via les onglets à gauche, 
 puis cliquez sur LANCER LE VOL.

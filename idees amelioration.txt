@@ -70,7 +70,7 @@ Ce document liste 50 idées pour faire évoluer le projet, classées par catégo
 ## Divers
 
 42. **Historique des Vols Détaillé** : Un journal de bord de l'application (logbook) enregistrant toutes les heures de vol et les incidents.
-43. **Vagues et Océans Dynamiques** : Au lieu d'un sol plat, des zones maritimes avec des mouvements d'eau.
+43. **[x] Vagues et Océans Dynamiques** : Au lieu d'un sol plat, des zones maritimes avec des mouvements d'eau.
 44. **Effets de Boom Sonique** : Un effet visuel (cône de Mach) et sonore lorsque l'on franchit le mur du son avec un avion de chasse.
 45. **Pompiers et Secours sur Piste** : En cas de crash sur un aéroport, des véhicules de secours apparaissent.
 46. **[x] Système de Navigation GPS Évolué** : Une mini-map avec des points de cheminement (Waypoints) personnalisables. Option activable avec 'M'.

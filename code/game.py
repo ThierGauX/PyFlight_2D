@@ -4,8 +4,8 @@ import os
 import random
 import datetime # Pour l'heure réelle
 import argparse
-import argparse
 import sys
+import time
 import array # Pour generation son
 import json # Pour sauvegarder les scores
 
@@ -1074,10 +1074,19 @@ class Airport:
                         surface.blit(lbl_fuel, (px_rz + d*zoom + 50*zoom, py - 30*zoom))
 
 # (L'initialisation de MAIN_AIRPORT est remplacée par la boucle ci-dessous)
-for i in range(10): 
-    # Espacement de 75000 mètres, longueur divisée par 2 (12000 -> 6000 mètres)
-    airports.append(Airport(i * 75000, 6000))
+airports = [] # Re-initialiser la liste des aéroports
+# Génération de quelques pistes
+RUNWAYS = []
+for i in range(-2, 3):
+    airports.append(Airport(i * 75000, 6000)) # Ajouter l'aéroport à la liste
     RUNWAYS.append((i * 75000, 6000)) # Tuple: (début, longueur)
+
+# ZONES MARITIMES (Ocean et Lacs)
+OCEAN_ZONES = [
+    (-150000, -50000), # Océan Ouest
+    (-10000, -2000),   # Lac proche du spawn (visible en reculant ou dezoomant)
+    (100000, 150000)   # Océan Est
+]
 
 # --- SYSTEMES AVION (Carburant, Dégâts) ---
 fuel = args.fuel
@@ -1111,6 +1120,11 @@ def get_terrain_height(x):
     # Appliquer l'intensité demandée par l'utilisateur
     h *= args.terrain_intensity
     
+    # Aplatir pour les Océans
+    for (ox_start, ox_end) in OCEAN_ZONES:
+        if ox_start <= x <= ox_end:
+            return 0.0 # Parfaitement plat pour l'eau
+            
     # Aplatir uniquement pour la piste
     for piste_data in RUNWAYS:
         if isinstance(piste_data, tuple):
@@ -1822,6 +1836,9 @@ while True:
             exit()
         elif event.type == pygame.MOUSEWHEEL:
             zoom_cible += event.y * 0.2 # Zoom plus rapide 
+            # Clamp zoom to prevent negative sizes (crash) and excessive zoom
+            if zoom_cible < 0.05: zoom_cible = 0.05
+            if zoom_cible > 3.0: zoom_cible = 3.0
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if show_large_map:
                 # Calcul de la position géographique du clic
@@ -2515,6 +2532,42 @@ while True:
             points_relief.append((L+200, H)) # Bas complet
             
             pygame.draw.polygon(fenetre, SOL_HERBE_BASE, points_relief)
+            
+            # --- DESSINS OCEANS DYNAMIQUES ---
+            for (ox_start, ox_end) in OCEAN_ZONES:
+                # Vérifier si l'océan est visible à l'écran
+                vis_start = (ox_start - L/2 - offset_shake_x) / zoom + world_x
+                vis_end = (ox_end + L/2 + offset_shake_x) / zoom + world_x
+                
+                # Coordonnées écran de l'océan
+                screen_ox_start = (ox_start - world_x) * zoom + L/2 + offset_shake_x
+                screen_ox_end = (ox_end - world_x) * zoom + L/2 + offset_shake_x
+                
+                # Si l'océan croise l'écran
+                if screen_ox_end > -100 and screen_ox_start < L + 100:
+                    pts_ocean = [(max(-100, screen_ox_start), H)]
+                    
+                    step_x = 20 if zoom > 0.2 else 50
+                    for cx in range(int(max(-100, screen_ox_start)), int(min(L + 200, screen_ox_end)), step_x):
+                        wx_vo = (cx - L/2 - offset_shake_x) / zoom + world_x
+                        # Animation des vagues grace au temps + coordonnée X globale
+                        vague_y = math.sin((wx_vo * 0.05) + time.time() * 2) * 5 * zoom + math.cos((wx_vo * 0.02) + time.time() * 1.5) * 8 * zoom
+                        
+                        cy_vo = (vague_y - world_y) * zoom + (H // 2) + offset_shake_y
+                        pts_ocean.append((cx, cy_vo))
+                        
+                    last_ocean_cy = pts_ocean[-1][1]
+                    pts_ocean.append((min(L+200, screen_ox_end), last_ocean_cy))
+                    pts_ocean.append((min(L+200, screen_ox_end), H))
+                    
+                    if len(pts_ocean) > 3:
+                        # Couleur eau profonde
+                        C_OCEAN = (20, 80, 160)
+                        pygame.draw.polygon(fenetre, C_OCEAN, pts_ocean)
+                        
+                        # Dessiner l'écume au sommet des vagues
+                        for i in range(1, len(pts_ocean)-2):
+                            pygame.draw.line(fenetre, (100, 180, 255), pts_ocean[i], pts_ocean[i+1], max(1, int(s(2)*zoom)))
 
     # --- RENDU MÉTÉO : BROUILLARD (FOG) ---
     if args.weather == "fog" and altitude < 2500:
@@ -2750,7 +2803,7 @@ while True:
             pts_relief.append((map_x(rx), map_y(rh)))
         pts_relief.append((x_lmap + w_lmap, map_y(0)))
         pygame.draw.polygon(fenetre, (20, 50, 20), pts_relief)
-        
+            
         # Aéroports
         for piste_data in RUNWAYS: 
             if isinstance(piste_data, tuple):
@@ -2761,6 +2814,12 @@ while True:
                 pt_w = 6000
                 
             pygame.draw.rect(fenetre, (180, 180, 180), (map_x(pt_x), map_y(0) - s(4), (pt_w / X_RANGE) * w_lmap, s(8)))
+            
+        # Océans Grande Carte
+        for (ox_start, ox_end) in OCEAN_ZONES:
+            ox_map = map_x(ox_start)
+            ow_map = (ox_end - ox_start) / X_RANGE * w_lmap
+            pygame.draw.rect(fenetre, (40, 100, 200), (ox_map, map_y(0), ow_map, h_lmap - (map_y(0) - y_lmap)))
             
         # Joueur
         px_map = map_x(world_x)

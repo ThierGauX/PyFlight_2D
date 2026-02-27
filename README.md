@@ -20,6 +20,7 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en
 ### Monde Dynamique & Météo
 *   Cycle Jour/Nuit : Transition fluide en temps réel (Aube, Jour, Crépuscule, Nuit).
 *   Météo Volumétrique (Nuages 2D, brouillard, éclairage selon l'heure)
+*   **Océans Dynamiques** : Zones maritimes aux extrêmes de la carte avec des vagues animées.
 *   **Mode Missions** : Largage de cargo, parcours d'anneaux, atterrissage de précision.
 *   **Statistiques et Scores** : Suivi des meilleures performances, moyennes et médianes pour chaque mission.
     *   Nuages Géants : Couche nuageuse massive au-delà de 1500m.
