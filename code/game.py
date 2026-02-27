@@ -1329,7 +1329,7 @@ def afficher_atc(msg, duree=300):
     atc_timer = duree
 
 # --- DASHBOARD ANALOGIQUE (CLASSIC) ---
-def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch, gear, mtemp):
+def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch, gear, mtemp, show_large_map, flight_plan_waypoints):
     global fuel
     h_dash = s(140)
     y_base = H - h_dash
@@ -1678,6 +1678,120 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
             pt3 = rotate_point(p3_base, rad_a)
             
             pygame.draw.polygon(surface, (255, 255, 0), [pt1, pt2, pt3])
+
+        # DESSIN PLAN DE VOL MINIMAP
+        if len(flight_plan_waypoints) > 0:
+            pts_wp_minimap = []
+            for wp_x, wp_alt in flight_plan_waypoints:
+                dist = wp_x - px_world
+                mx = center_map_x + (dist * px_per_m)
+                hy_rel = min(h_map - s(15), wp_alt * (0.02 * UI_SCALE))
+                my = y_map + h_map - s(10) - hy_rel
+                
+                # Draw small diamond for waypoint
+                pygame.draw.polygon(surface, (255, 100, 255), [(mx, my-s(3)), (mx+s(3), my), (mx, my+s(3)), (mx-s(3), my)])
+                pts_wp_minimap.append((mx, my))
+                
+            # Connect waypoints with lines
+            if len(pts_wp_minimap) > 1:
+                pygame.draw.lines(surface, (255, 100, 255), False, pts_wp_minimap, s(1))
+            
+            # Connect player to first waypoint
+            first_wp_x, first_wp_alt = flight_plan_waypoints[0]
+            dist_first = first_wp_x - px_world
+            mx_first = center_map_x + (dist_first * px_per_m)
+            hy_rel_first = min(h_map - s(15), first_wp_alt * (0.02 * UI_SCALE))
+            my_first = y_map + h_map - s(10) - hy_rel_first
+            
+            # Draw line from player
+            h_rel_player = min(h_map - s(20), alt * (0.02 * UI_SCALE))
+            pygame.draw.line(surface, (200, 50, 200), (center_map_x, y_map+h_map-s(10) - h_rel_player), (mx_first, my_first), s(1))
+            
+            # Afficher distance et cap sur HUD pour le premier WP
+            dist_to_wp = abs(dist_first)
+            lbl_wp = police_valeur.render(f"WP1: {dist_to_wp/1000.0:.1f}KM", True, (255, 100, 255))
+            surface.blit(lbl_wp, (x_map, y_map - s(25)))
+
+
+    # --- DESSIN GRANDE CARTE INTERACTIVE ---
+    if show_large_map:
+        w_lmap = L - 100
+        h_lmap = H - 100
+        x_lmap = 50
+        y_lmap = 50
+        
+        # Fond semi-transparent
+        s_lmap = pygame.Surface((w_lmap, h_lmap), pygame.SRCALPHA)
+        s_lmap.fill((10, 20, 10, 230))
+        surface.blit(s_lmap, (x_lmap, y_lmap))
+        pygame.draw.rect(surface, (150, 150, 150), (x_lmap, y_lmap, w_lmap, h_lmap), s(3))
+        
+        # Textes instructions
+        lbl_inst = police_label.render("FLIGHT PLAN MAP: Left Click to Add Waypoint | Right Click to Remove | Press 'M' to Close", True, (200, 200, 200))
+        surface.blit(lbl_inst, (x_lmap + s(10), y_lmap + s(10)))
+        
+        # Echelles de la grande carte
+        X_MIN = -150000
+        X_MAX = 150000
+        X_RANGE = X_MAX - X_MIN
+        Y_MAX_ALT = 15000
+        
+        def map_x(world_x_coord):
+            return x_lmap + ((world_x_coord - X_MIN) / X_RANGE) * w_lmap
+            
+        def map_y(world_alt_coord):
+             return y_lmap + (1.0 - (world_alt_coord / Y_MAX_ALT)) * h_lmap
+        
+        # Ligne de sol de base (0m)
+        pygame.draw.line(surface, (0, 100, 0), (x_lmap, map_y(0)), (x_lmap + w_lmap, map_y(0)))
+        
+        # Relief
+        pts_relief = [(x_lmap, map_y(0))]
+        for rx in range(X_MIN, X_MAX, 2000): # Echantillonnage tous les 2km
+            rh = get_terrain_height(rx)
+            pts_relief.append((map_x(rx), map_y(rh)))
+        pts_relief.append((x_lmap + w_lmap, map_y(0)))
+        pygame.draw.polygon(surface, (20, 50, 20), pts_relief)
+        
+        # Aéroports
+        for piste_data in runways: 
+            if isinstance(piste_data, tuple):
+                pt_x = piste_data[0]
+                pt_w = piste_data[1]
+            else:
+                pt_x = piste_data
+                pt_w = 6000
+                
+            pygame.draw.rect(surface, (180, 180, 180), (map_x(pt_x), map_y(0) - s(4), (pt_w / X_RANGE) * w_lmap, s(8)))
+            
+        # Joueur
+        px_map = map_x(px_world)
+        py_map = map_y(alt)
+        pygame.draw.circle(surface, (255, 255, 0), (int(px_map), int(py_map)), s(5))
+        pygame.draw.circle(surface, (0, 0, 0), (int(px_map), int(py_map)), s(5), 1)
+        lbl_player = police_label.render("YOU", True, (255, 255, 0))
+        surface.blit(lbl_player, (px_map - s(10), py_map - s(20)))
+        
+        # Waypoints
+        pts_wp = []
+        for i, (wp_x, wp_alt) in enumerate(flight_plan_waypoints):
+            wpx_map = map_x(wp_x)
+            wpy_map = map_y(wp_alt)
+            
+            # Losange violet
+            pygame.draw.polygon(surface, (255, 100, 255), [(wpx_map, wpy_map-s(6)), (wpx_map+s(6), wpy_map), (wpx_map, wpy_map+s(6)), (wpx_map-s(6), wpy_map)])
+            lbl_w = police_label.render(f"WP{i+1}", True, (255, 100, 255))
+            surface.blit(lbl_w, (wpx_map + s(8), wpy_map - s(8)))
+            
+            pts_wp.append((wpx_map, wpy_map))
+            
+        # Connect waypoints on large map
+        if len(pts_wp) > 1:
+            pygame.draw.lines(surface, (255, 100, 255), False, pts_wp, s(2))
+            
+        # Ligne du joueur au WP1
+        if len(pts_wp) > 0:
+            pygame.draw.line(surface, (200, 50, 200), (px_map, py_map), pts_wp[0], s(2))
 
 
     # Infos Textes (THRUST & TEMP)
@@ -2666,7 +2780,7 @@ while True:
         # sans le passer en argument si je ne l'ai pas masqué.
         # Python capture les globales.
         
-        dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, portance, angle, gear_sorti, moteur_temp)
+        dessiner_dashboard(fenetre, vitesse_kph, altitude, moteur_allume, flaps_sortis, pilote_auto_actif, freins_actifs, lumiere_allume, niveau_poussee_reelle, heure_actuelle, world_x, RUNWAYS, portance, angle, gear_sorti, moteur_temp, show_large_map, flight_plan_waypoints)
     
     # 2. HUD Overlay (Haut)
     if not args.no_hud:
