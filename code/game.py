@@ -1084,7 +1084,7 @@ for i in range(-2, 3):
 # ZONES MARITIMES (Ocean et Lacs)
 OCEAN_ZONES = [
     (-150000, -50000), # Océan Ouest
-    (-10000, -2000),   # Lac proche du spawn (visible en reculant ou dezoomant)
+    (-7500, -2000),    # Lac proche du spawn (5.5km)
     (100000, 150000)   # Océan Est
 ]
 
@@ -1573,6 +1573,17 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
             points_map_relief.append((x_map + map_dx, my))
         points_map_relief.append((x_map + w_map, y_map+h_map-s(10)))
         pygame.draw.polygon(surface, (20, 50, 20), points_map_relief)
+        
+        # Océans sur minimap
+        for (ox_start, ox_end) in OCEAN_ZONES:
+            dist_o_start = ox_start - px_world
+            dist_o_end = ox_end - px_world
+            mx_o_start = center_map_x + (dist_o_start * px_per_m)
+            mw_o = (ox_end - ox_start) * px_per_m
+            
+            # Seulement si dans la zone visible
+            if mx_o_start + mw_o > x_map and mx_o_start < x_map + w_map:
+                pygame.draw.rect(surface, (30, 130, 200), (mx_o_start, y_map + h_map - s(10), mw_o, s(10)))
     
         # Dessin Historique Visuel (Ligne de vol)
         px_per_m = w_map / (20000 * 2) 
@@ -2545,29 +2556,46 @@ while True:
                 
                 # Si l'océan croise l'écran
                 if screen_ox_end > -100 and screen_ox_start < L + 100:
-                    pts_ocean = [(max(-100, screen_ox_start), H)]
+                    pts_ocean_back = [(max(-100, screen_ox_start), H)]
+                    pts_ocean_front = [(max(-100, screen_ox_start), H)]
                     
                     step_x = 20 if zoom > 0.2 else 50
                     for cx in range(int(max(-100, screen_ox_start)), int(min(L + 200, screen_ox_end)), step_x):
                         wx_vo = (cx - L/2 - offset_shake_x) / zoom + world_x
-                        # Animation des vagues grace au temps + coordonnée X globale
-                        vague_y = math.sin((wx_vo * 0.05) + time.time() * 2) * 5 * zoom + math.cos((wx_vo * 0.02) + time.time() * 1.5) * 8 * zoom
                         
-                        cy_vo = (vague_y - world_y) * zoom + (H // 2) + offset_shake_y
-                        pts_ocean.append((cx, cy_vo))
+                        # Vague arrière (plus foncée, décalée)
+                        wave_bg = math.sin((wx_vo * 0.04) + time.time() * 2.5) * 6 * zoom + math.cos((wx_vo * 0.015) + time.time() * 1.0) * 4 * zoom
+                        cy_bg = (wave_bg - world_y) * zoom + (H // 2) + offset_shake_y - (2 * zoom)
+                        pts_ocean_back.append((cx, cy_bg))
                         
-                    last_ocean_cy = pts_ocean[-1][1]
-                    pts_ocean.append((min(L+200, screen_ox_end), last_ocean_cy))
-                    pts_ocean.append((min(L+200, screen_ox_end), H))
+                        # Vague avant (plus claire, plus grande)
+                        wave_fg = math.sin((wx_vo * 0.05) + time.time() * 2.0) * 5 * zoom + math.cos((wx_vo * 0.02) + time.time() * 1.5) * 8 * zoom
+                        cy_fg = (wave_fg - world_y) * zoom + (H // 2) + offset_shake_y
+                        pts_ocean_front.append((cx, cy_fg))
+                        
+                    # Finir les polygones proprement
+                    last_bg_cy = pts_ocean_back[-1][1]
+                    pts_ocean_back.append((min(L+200, screen_ox_end), last_bg_cy))
+                    pts_ocean_back.append((min(L+200, screen_ox_end), H))
                     
-                    if len(pts_ocean) > 3:
-                        # Couleur eau profonde
-                        C_OCEAN = (20, 80, 160)
-                        pygame.draw.polygon(fenetre, C_OCEAN, pts_ocean)
+                    last_fg_cy = pts_ocean_front[-1][1]
+                    pts_ocean_front.append((min(L+200, screen_ox_end), last_fg_cy))
+                    pts_ocean_front.append((min(L+200, screen_ox_end), H))
+                    
+                    if len(pts_ocean_back) > 3:
+                        # Couleur fond (Bleu profond)
+                        pygame.draw.polygon(fenetre, (15, 60, 130), pts_ocean_back)
+                        
+                        # Dessiner l'écume arrière
+                        for i in range(1, len(pts_ocean_back)-2):
+                            pygame.draw.line(fenetre, (40, 100, 170), pts_ocean_back[i], pts_ocean_back[i+1], max(1, int(s(2)*zoom)))
+                            
+                        # Couleur avant (Bleu cyan vibrant)
+                        pygame.draw.polygon(fenetre, (25, 130, 190), pts_ocean_front)
                         
                         # Dessiner l'écume au sommet des vagues
-                        for i in range(1, len(pts_ocean)-2):
-                            pygame.draw.line(fenetre, (100, 180, 255), pts_ocean[i], pts_ocean[i+1], max(1, int(s(2)*zoom)))
+                        for i in range(1, len(pts_ocean_front)-2):
+                            pygame.draw.line(fenetre, (120, 200, 255), pts_ocean_front[i], pts_ocean_front[i+1], max(1, int(s(2)*zoom)))
 
     # --- RENDU MÉTÉO : BROUILLARD (FOG) ---
     if args.weather == "fog" and altitude < 2500:
@@ -2819,7 +2847,7 @@ while True:
         for (ox_start, ox_end) in OCEAN_ZONES:
             ox_map = map_x(ox_start)
             ow_map = (ox_end - ox_start) / X_RANGE * w_lmap
-            pygame.draw.rect(fenetre, (40, 100, 200), (ox_map, map_y(0), ow_map, h_lmap - (map_y(0) - y_lmap)))
+            pygame.draw.rect(fenetre, (30, 130, 200), (ox_map, map_y(0), ow_map, h_lmap - (map_y(0) - y_lmap)))
             
         # Joueur
         px_map = map_x(world_x)
