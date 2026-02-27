@@ -671,25 +671,37 @@ class MissionManager:
             self.cargo_targets.append({'x': cx, 'w': 800, 'active': True}) # Cibles plus larges (800)
             cx += random.randint(4000, 15000)
         
-    def start_rings_challenge(self):
+    def start_rings_challenge(self, current_x=0):
         self.active_mission = "rings"
         self.rings = []
         self.score = 0
         self.message = "MISSION: RINGS CHALLENGE START!"
         self.timer_message = 180 # 3 sec
-        # Generate rings
-        cx, cy = 2000, -500
-        for i in range(15): # L'anneau de base
+        
+        # Trouver la piste la plus proche. La distance entre chaque aéroport est de 75000.
+        # Si on est au début (x=0), l'aéroport est à x=0. La piste fait 6000m.
+        # En divisant current_x par 75000, on trouve l'index de l'aéroport le plus proche.
+        current_i = int(max(0, current_x) / 75000)
+        x_start_piste = current_i * 75000
+        
+        # Commence environ 1 km après la fin de la piste actuelle
+        cx = x_start_piste + 7000 
+        cy = -500
+        
+        for i in range(15):
             # Ensure the ring is not spawning inside a mountain
             terrain_h = get_terrain_height(cx)
-            min_y = -terrain_h - 150 # At least 150 units above the ground (remember y is negative upwards)
+            # Y est négatif quand on monte. La surface du sol est à -terrain_h.
+            # On veut être au-dessus du sol (donc avec un y ENCORE PLUS NEGATIF que la surface)
+            min_y = -terrain_h - 150 # At least 150 units above the ground
             
+            # Si cy est plus grand que min_y (ex: cy=0 et min_y=-200), le ring est "sous" terre
             if cy > min_y:
                 cy = min_y
                 
             self.rings.append(Ring(cx, cy, 60))
-            cx += 600
-            cy += random.randint(-150, 150)
+            cx += 1200 # Espacement doublé (au lieu de 600)
+            cy += random.randint(-200, 200) # Un peu plus de variation verticale pour être proportionnel
             
     def start_landing_challenge(self, current_x=0):
         self.active_mission = "landing"
@@ -1493,8 +1505,31 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
                     mx_c = center_map_x + (dist_obj * px_per_m)
                     hy_c = min(h_map - s(15), get_terrain_height(t['x']) * (0.02 * UI_SCALE))
                     my_c = y_map + h_map - s(10) - hy_c
-                    sz = s(3)
+                    sz = s(4) # Un poil plus grand pour être bien visible
                     pygame.draw.rect(surface, (255, 50, 50), (mx_c - sz, my_c - sz, sz*2, sz*2))
+                    
+    # ANNEAUX
+    if mission_manager.active_mission == "rings":
+        for r in mission_manager.rings:
+            if not r.passed:
+                dist_obj = r.x - px_world
+                if abs(dist_obj) < 20000:
+                    mx_c = center_map_x + (dist_obj * px_per_m)
+                    hy_c = min(h_map - s(15), -r.y * (0.02 * UI_SCALE))
+                    my_c = y_map + h_map - s(10) - hy_c
+                    pygame.draw.circle(surface, (255, 215, 0), (int(mx_c), int(my_c)), s(3), s(1))
+
+    # ZONE D'ATTERRISSAGE
+    if mission_manager.active_mission == "landing" and mission_manager.target_landing_zone:
+        x1, x2 = mission_manager.target_landing_zone
+        d1 = x1 - px_world
+        d2 = x2 - px_world
+        if abs(d1) < 20000 or abs(d2) < 20000:
+            mx1 = center_map_x + (d1 * px_per_m)
+            mx2 = center_map_x + (d2 * px_per_m)
+            # Au sol (altitude 0)
+            my_c = y_map + h_map - s(10)
+            pygame.draw.line(surface, (0, 255, 0), (mx1, my_c), (mx2, my_c), s(4))
             
     # DESSIN AVION SUR MAP (Marqueur)
     h_rel = min(h_map - s(20), alt * (0.02 * UI_SCALE))
@@ -1584,7 +1619,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
 
 # --- INITIALISATION MISSIONS SPECIFIQUES ---
 if args.mission_type == "rings":
-    mission_manager.start_rings_challenge()
+    mission_manager.start_rings_challenge(world_x)
 elif args.mission_type == "landing":
     mission_manager.start_landing_challenge(world_x)
 elif args.mission_type == "cargo":
@@ -1630,7 +1665,7 @@ while True:
             
             # MISSIONS
             if event.key == pygame.K_F1:
-                mission_manager.start_rings_challenge()
+                mission_manager.start_rings_challenge(world_x)
             if event.key == pygame.K_F2:
                 mission_manager.start_landing_challenge(world_x)
             if event.key == pygame.K_c and args.missions and args.aircraft == "cargo":
