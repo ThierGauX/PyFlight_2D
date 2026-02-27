@@ -383,7 +383,8 @@ puis cliquez sur LANCER LE VOL.
 
 
     def lancer_jeu(self):
-        self.destroy() 
+        # On cache le menu au lieu de le détruire
+        self.withdraw()
         
         dossier = os.path.dirname(os.path.abspath(__file__))
         path_game = os.path.join(dossier, "game.py")
@@ -436,6 +437,9 @@ puis cliquez sur LANCER LE VOL.
         
         print(f"Lancement de : {cmd}")
         subprocess.run(cmd)
+        
+        # Le jeu a été quitté (ex: touche Echap), on réaffiche le menu
+        self.deiconify()
 
 if __name__ == "__main__":
     app = MenuPrincipal()
