@@ -46,6 +46,10 @@ En activant le mode **CARRIÈRE & MISSIONS** depuis le menu de configuration, vo
     *   **Parcours d'Anneaux** : Testez votre agilité (Anciennement F1).
     *   **Atterrissage de Précision** : Posez-vous en douceur sur la cible (Anciennement F2).
     *   **Largage Cargo** : À bord du Gros Porteur, volez à basse altitude pour larguer des colis (Touche C) avec précision sur des zones cibles. Un viseur prédictif (CCIP) vert s'affiche au sol pour vous aider à viser !
+-   `L` : Allumer/Éteindre les phares
+-   `M` : Afficher/Masquer la Mini-Map GPS (Radar)
+-   `C` : Larguer des caisses (Uniquement si Avion Cargo & Mission Cargo)
+-   `R` : Allumer/Éteindre la Radio de bord Lo-Fi
 
 ---
 

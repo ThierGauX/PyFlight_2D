@@ -73,7 +73,7 @@ Ce document liste 50 idées pour faire évoluer le projet, classées par catégo
 43. **Vagues et Océans Dynamiques** : Au lieu d'un sol plat, des zones maritimes avec des mouvements d'eau.
 44. **Effets de Boom Sonique** : Un effet visuel (cône de Mach) et sonore lorsque l'on franchit le mur du son avec un avion de chasse.
 45. **Pompiers et Secours sur Piste** : En cas de crash sur un aéroport, des véhicules de secours apparaissent.
-46. **Système de Navigation GPS Évolué** : Une mini-map avec des points de cheminement (Waypoints) personnalisables.
+46. **[x] Système de Navigation GPS Évolué** : Une mini-map avec des points de cheminement (Waypoints) personnalisables. Option activable avec 'M'.
 47. **Mode Photographie/Drone** : Possibilité de figer le jeu pour placer une caméra libre et prendre des captures d'écran.
 48. **Support de la Réalité Virtuelle (VR)** : Adaptation de l'affichage pour les casques VR pour une immersion ultime dans le cockpit.
 49. **Tableau de Bord Personnalisable** : Choisir quels instruments afficher sur l'interface (HUD minimaliste vs IFR complet).

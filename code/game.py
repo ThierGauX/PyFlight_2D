@@ -878,20 +878,21 @@ class MissionManager:
              surface.blit(lbl, r)
              
         # Draw cargo targets
-        for t in self.cargo_targets:
-            if not t['active']: continue
-            px = (t['x'] - cam_x) * zoom + (L/2)
-            py = (-get_terrain_height(t['x']) - cam_y) * zoom + (H/2)
-            pw = t['w'] * zoom
-            if -pw < px < L+pw:
-                pygame.draw.rect(surface, (255, 50, 50), (px - pw/2, py - 5*zoom, pw, 10*zoom))
-                pygame.draw.line(surface, (255, 50, 50), (px, py), (px, py - 80*zoom), max(1, int(3*zoom)))
-                if zoom > 0.3:
-                    lbl = police_label.render("DROP ZONE", True, (255, 50, 50))
-                    surface.blit(lbl, (px - 40, py - 100*zoom))
-                    
+        if self.active_mission == "cargo":
+            for t in self.cargo_targets:
+                if not t['active']: continue
+                px = (t['x'] - cam_x) * zoom + (L/2)
+                py = (-get_terrain_height(t['x']) - cam_y) * zoom + (H/2)
+                pw = t['w'] * zoom
+                if -pw < px < L+pw:
+                    pygame.draw.rect(surface, (255, 50, 50), (px - pw/2, py - 5*zoom, pw, 10*zoom))
+                    pygame.draw.line(surface, (255, 50, 50), (px, py), (px, py - 80*zoom), max(1, int(3*zoom)))
+                    if zoom > 0.3:
+                        lbl = police_label.render("DROP ZONE", True, (255, 50, 50))
+                        surface.blit(lbl, (px - 40, py - 100*zoom))
+                        
         # CCIP (Continuously Computed Impact Point) - Aide à la visée
-        if args.missions and args.aircraft == "cargo":
+        if self.active_mission == "cargo":
             sim_x = world_x
             sim_y = world_y
             sim_vx = vx
@@ -1487,178 +1488,197 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     surface.blit(sf_f, sf_f.get_rect(center=(x_fuel, y_inst + s(25))))
 
 
-    # 6. RADAR / MAP
+    # Dimensions minimap (always defined for other UI elements positioning)
     x_map = L - s(380)
     y_map = y_base + s(10)
     w_map = s(300)
     h_map = s(120)
     
-    pygame.draw.rect(surface, (10, 20, 10), (x_map, y_map, w_map, h_map))
-    pygame.draw.rect(surface, (100, 100, 100), (x_map, y_map, w_map, h_map), s(2))
-    
-    center_map_x = x_map + w_map // 2
-    pygame.draw.line(surface, (0, 100, 0), (x_map, y_map+h_map-s(10)), (x_map+w_map, y_map+h_map-s(10)))
-    
-    # L'avion sera dessiné plus tard, par-dessus la trajectoire et le relief
-    
-    RANGE_MAP = 20000 
-    px_per_m = w_map / (RANGE_MAP * 2)
-    
-    min_dist_airport = 999999
-    
-    for piste_data in runways: 
-        if isinstance(piste_data, tuple):
-            rx = piste_data[0]
-            rw = piste_data[1]
-        else:
-            rx = piste_data
-            rw = 6000
+    if show_minimap:
+        
+        pygame.draw.rect(surface, (10, 20, 10), (x_map, y_map, w_map, h_map))
+        pygame.draw.rect(surface, (100, 100, 100), (x_map, y_map, w_map, h_map), s(2))
+        
+        center_map_x = x_map + w_map // 2
+        pygame.draw.line(surface, (0, 100, 0), (x_map, y_map+h_map-s(10)), (x_map+w_map, y_map+h_map-s(10)))
+        
+        # Position locale
+        # px_world = world_x # Already passed as argument
+        # Echelle: La map fait w_map pixels, pour representer RANGE_MAP m
+        RANGE_MAP = 20000 
+        px_per_m = w_map / (RANGE_MAP * 2)
+        
+        # Dessin Aeroports
+        # The original code used 'runways' argument, which is a list of tuples or ints.
+        # The provided edit uses 'airports' which is not defined in this context.
+        # I will adapt it to use 'runways' as per the function signature.
+        min_dist_airport = 999999
+        for piste_data in runways: 
+            if isinstance(piste_data, tuple):
+                rx = piste_data[0]
+                rw = piste_data[1]
+            else:
+                rx = piste_data
+                rw = 6000 # Default width if only x is provided
             
-        dist = rx - px_world
-        if abs(dist) < RANGE_MAP or abs(dist + rw) < RANGE_MAP:
-             mx1 = center_map_x + (dist * px_per_m)
-             mx2 = center_map_x + ((dist + rw) * px_per_m)
-             # Limiter l'affichage aux bords de la map
-             mx1 = max(x_map, min(x_map + w_map, mx1))
-             mx2 = max(x_map, min(x_map + w_map, mx2))
-             rect_w = max(2, mx2 - mx1) # Même si on est zoomé, toujours dessiner au moins 2 px
-             
-             pygame.draw.rect(surface, (180, 180, 180), (mx1, y_map+h_map-s(12), rect_w, s(4)))
-             
-             # Calcul Distance au plus près
-             dist_closest = min(abs(dist), abs(dist + rw))
-             if dist_closest < min_dist_airport:
-                 min_dist_airport = dist_closest
+            dist = rx - px_world
+            # Seulement si dans le range
+            if abs(dist) < RANGE_MAP or abs(dist + rw) < RANGE_MAP:
+                 mx1 = center_map_x + (dist * px_per_m)
+                 mx2 = center_map_x + ((dist + rw) * px_per_m)
+                 # Limiter l'affichage aux bords de la map
+                 mx1 = max(x_map, min(x_map + w_map, mx1))
+                 mx2 = max(x_map, min(x_map + w_map, mx2))
+                 rect_w = max(2, mx2 - mx1) # Même si on est zoomé, toujours dessiner au moins 2 px
                  
-    # Affichage de la distance si < 20km
-    if min_dist_airport < RANGE_MAP:
-        dist_km = min_dist_airport / 1000.0
-        lbl_dist = police_label.render(f"DIST: {dist_km:.1f}KM", True, (150, 200, 150))
-        surface.blit(lbl_dist, (x_map + s(5), y_map + s(5)))
+                 pygame.draw.rect(surface, (180, 180, 180), (mx1, y_map+h_map-s(12), rect_w, s(4)))
+                 
+                 # Calcul Distance au plus près
+                 dist_closest = min(abs(dist), abs(dist + rw))
+                 if dist_closest < min_dist_airport:
+                     min_dist_airport = dist_closest
+                     
+        # Label Distance Piste la plus proche
+        # The provided edit uses 'get_closest_airport' which is not defined.
+        # I will adapt it to use the 'min_dist_airport' calculated above.
+        if min_dist_airport < RANGE_MAP:
+            dist_km = min_dist_airport / 1000.0
+            lbl_dist = police_label.render(f"DIST: {dist_km:.1f}KM", True, (150, 200, 150))
+            surface.blit(lbl_dist, (x_map + s(5), y_map + s(5)))
         
-    # Dessin contour du Relief simplifié sur radar
-    points_map_relief = []
-    points_map_relief.append((x_map, y_map+h_map-s(10)))
-    for map_dx in range(0, w_map, s(5)):
-        wx = (map_dx - w_map/2) / px_per_m + px_world
-        ty = get_terrain_height(wx)
-        # On utilise la même échelle (0.02) que l'altitude de l'avion pour que ça corresponde
-        my = y_map+h_map-s(10) - (ty * (0.02 * UI_SCALE)) 
-        my = max(y_map, min(y_map+h_map-s(10), my))
-        points_map_relief.append((x_map + map_dx, my))
-    points_map_relief.append((x_map + w_map, y_map+h_map-s(10)))
-    pygame.draw.polygon(surface, (20, 50, 20), points_map_relief)
-    # DESSIN HISTORIQUE SUR MAP (Trajectoire)
-    px_per_m = w_map / (20000 * 2) 
-    if len(position_history) > 1:
-        points_map = []
-        for (hx, halt) in position_history[-300:]: # Ne garde que les 300 derniers pour éviter la surcharge (plus visible)
-             dist = hx - px_world
-             if abs(dist) < 20000: # RANGE_MAP
-                 mx = center_map_x + (dist * px_per_m)
-                 hy_rel = min(h_map - s(15), halt * (0.02 * UI_SCALE))
-                 my = y_map + h_map - s(10) - hy_rel
-                 points_map.append((mx, my))
-        
-        if len(points_map) > 1:
-            pygame.draw.lines(surface, (50, 255, 255), False, points_map, s(2)) # Cyan plus épais pour la trainée
-            
-    # DESSIN DE TOUS LES CRASHS (CROIX ROUGES)
-    for cx_w, calt in crash_sites:
-        dist_crash = cx_w - px_world
-        if abs(dist_crash) < 20000: # Même portée que le relief radar
-            # Position sur la map
-            mx_c = center_map_x + (dist_crash * px_per_m)
-            hy_c = min(h_map - s(15), calt * (0.02 * UI_SCALE))
-            my_c = y_map + h_map - s(10) - hy_c
-            
-            # Dessin de la croix
-            sz = s(5)
-            pygame.draw.line(surface, HUD_ROUGE, (mx_c - sz, my_c - sz), (mx_c + sz, my_c + sz), s(2))
-            pygame.draw.line(surface, HUD_ROUGE, (mx_c + sz, my_c - sz), (mx_c - sz, my_c + sz), s(2))
-
-    # OISEAUX
-    for b in birds:
-        dist_obj = b.x - px_world
-        if abs(dist_obj) < 20000:
-            mx_c = center_map_x + (dist_obj * px_per_m)
-            hy_c = min(h_map - s(15), -b.y * (0.02 * UI_SCALE))
-            my_c = y_map + h_map - s(10) - hy_c
-            pygame.draw.circle(surface, (200, 200, 200), (int(mx_c), int(my_c)), s(1))
-
-    # AVIONS IA (Triangles noirs)
-    if args.missions:
-        for aip in ai_planes:
-            dist_obj = aip.x - px_world
+        # Relief sur la minimap
+        points_map_relief = []
+        points_map_relief.append((x_map, y_map+h_map-s(10)))
+        for map_dx in range(0, w_map, s(5)):
+            wx = (map_dx - w_map/2) / px_per_m + px_world
+            ty = get_terrain_height(wx) 
+            # Echelle Y pour la map (arbitraire)
+            my = y_map+h_map-s(10) - (ty * (0.02 * UI_SCALE)) 
+            my = max(y_map, min(y_map+h_map-s(10), my))
+            points_map_relief.append((x_map + map_dx, my))
+        points_map_relief.append((x_map + w_map, y_map+h_map-s(10)))
+        pygame.draw.polygon(surface, (20, 50, 20), points_map_relief)
+    
+        # Dessin Historique Visuel (Ligne de vol)
+        px_per_m = w_map / (20000 * 2) 
+        if len(position_history) > 1:
+            points_map = []
+            # The original code used position_history[-300:]
+            # The provided edit uses the full history. I will keep the original behavior.
+            for hx, halt in position_history[-300:]:
+                 dist = hx - px_world
+                 if abs(dist) < 20000:
+                     mx = center_map_x + (dist * px_per_m)
+                     hy_rel = min(h_map - s(15), halt * (0.02 * UI_SCALE))
+                     my = y_map + h_map - s(10) - hy_rel
+                     points_map.append((mx, my))
+                     
+            if len(points_map) > 1:
+                pygame.draw.lines(surface, (50, 255, 255), False, points_map, s(2)) # Cyan plus épais pour la trainée
+                
+        # Dessin du lieu de crash
+        # The original code iterated through crash_sites.
+        # The provided edit uses 'crashed' and 'crash_pos' globals, which are not consistent with the original.
+        # I will adapt it to use 'crash_sites' as per the original code.
+        for cx_w, calt in crash_sites:
+            dist_crash = cx_w - px_world
+            if abs(dist_crash) < 20000: # Même portée que le relief radar
+                # Position sur la map
+                mx_c = center_map_x + (dist_crash * px_per_m)
+                hy_c = min(h_map - s(15), calt * (0.02 * UI_SCALE))
+                my_c = y_map + h_map - s(10) - hy_c
+                
+                # Dessin de la croix
+                sz = s(5) # Original was s(5), edit was s(6)
+                pygame.draw.line(surface, HUD_ROUGE, (mx_c - sz, my_c - sz), (mx_c + sz, my_c + sz), s(2))
+                pygame.draw.line(surface, HUD_ROUGE, (mx_c + sz, my_c - sz), (mx_c - sz, my_c + sz), s(2))
+    
+    
+        # OISEAUX
+        for b in birds:
+            dist_obj = b.x - px_world
             if abs(dist_obj) < 20000:
                 mx_c = center_map_x + (dist_obj * px_per_m)
-                hy_c = min(h_map - s(15), -aip.y * (0.02 * UI_SCALE))
+                hy_c = min(h_map - s(15), -b.y * (0.02 * UI_SCALE))
                 my_c = y_map + h_map - s(10) - hy_c
-                sz = s(8) # Triangle plus grand sur la carte
-                pygame.draw.polygon(surface, (0, 0, 0), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)])
-                pygame.draw.polygon(surface, (255, 255, 255), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)], s(1)) # Contour blanc
-
-    # DROP ZONES (Cibles Cargo)
-    if args.missions and args.aircraft == "cargo":
-        for t in mission_manager.cargo_targets:
-            if t['active']:
-                dist_obj = t['x'] - px_world
+                pygame.draw.circle(surface, (200, 200, 200), (int(mx_c), int(my_c)), s(1)) # Original was circle, edit was rect
+                
+        # AVIONS IA
+        if args.missions:
+            for aip in ai_planes:
+                dist_obj = aip.x - px_world
                 if abs(dist_obj) < 20000:
                     mx_c = center_map_x + (dist_obj * px_per_m)
-                    hy_c = min(h_map - s(15), get_terrain_height(t['x']) * (0.02 * UI_SCALE))
+                    hy_c = min(h_map - s(15), -aip.y * (0.02 * UI_SCALE))
                     my_c = y_map + h_map - s(10) - hy_c
-                    sz = s(4) # Un poil plus grand pour être bien visible
-                    pygame.draw.rect(surface, (255, 50, 50), (mx_c - sz, my_c - sz, sz*2, sz*2))
-                    
-    # ANNEAUX
-    if mission_manager.active_mission == "rings":
-        for r in mission_manager.rings:
-            if not r.passed:
-                dist_obj = r.x - px_world
-                if abs(dist_obj) < 20000:
-                    mx_c = center_map_x + (dist_obj * px_per_m)
-                    hy_c = min(h_map - s(15), -r.y * (0.02 * UI_SCALE))
-                    my_c = y_map + h_map - s(10) - hy_c
-                    pygame.draw.circle(surface, (255, 215, 0), (int(mx_c), int(my_c)), s(3), s(1))
-
-    # ZONE D'ATTERRISSAGE
-    if mission_manager.active_mission == "landing" and mission_manager.target_landing_zone:
-        x1, x2 = mission_manager.target_landing_zone
-        d1 = x1 - px_world
-        d2 = x2 - px_world
-        if abs(d1) < 20000 or abs(d2) < 20000:
-            mx1 = center_map_x + (d1 * px_per_m)
-            mx2 = center_map_x + (d2 * px_per_m)
-            # Au sol (altitude 0)
-            my_c = y_map + h_map - s(10)
-            pygame.draw.line(surface, (0, 255, 0), (mx1, my_c), (mx2, my_c), s(4))
+                    sz = s(8) # Triangle plus grand sur la carte
+                    pygame.draw.polygon(surface, (0, 0, 0), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)])
+                    pygame.draw.polygon(surface, (255, 255, 255), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)], s(1)) # Contour blanc
+    
+        # DROP ZONES (Cibles Cargo)
+        if mission_manager.active_mission == "cargo":
+            for t in mission_manager.cargo_targets:
+                if t['active']:
+                    dist_obj = t['x'] - px_world
+                    if abs(dist_obj) < 20000:
+                        mx_c = center_map_x + (dist_obj * px_per_m)
+                        hy_c = min(h_map - s(15), get_terrain_height(t['x']) * (0.02 * UI_SCALE))
+                        my_c = y_map + h_map - s(10) - hy_c
+                        sz = s(4) # Un poil plus grand pour être bien visible
+                        pygame.draw.rect(surface, (255, 50, 50), (mx_c - sz, my_c - sz, sz*2, sz*2))
+                        
+        # ANNEAUX
+        if mission_manager.active_mission == "rings":
+            for r in mission_manager.rings:
+                if not r.passed:
+                    dist_obj = r.x - px_world
+                    if abs(dist_obj) < 20000:
+                        mx_c = center_map_x + (dist_obj * px_per_m)
+                        hy_c = min(h_map - s(15), -r.y * (0.02 * UI_SCALE))
+                        my_c = y_map + h_map - s(10) - hy_c
+                        pygame.draw.circle(surface, (255, 215, 0), (int(mx_c), int(my_c)), s(3), s(1)) # Original was (255, 215, 0), edit was (0, 200, 255)
+                        
+        # ZONE D'ATTERRISSAGE
+        if mission_manager.active_mission == "landing" and mission_manager.target_landing_zone:
+            x1, x2 = mission_manager.target_landing_zone
+            d1 = x1 - px_world
+            d2 = x2 - px_world
+            if abs(d1) < 20000 or abs(d2) < 20000:
+                mx1 = center_map_x + (d1 * px_per_m)
+                mx2 = center_map_x + (d2 * px_per_m)
+                # Au sol (altitude 0)
+                my_c = y_map + h_map - s(10)
+                pygame.draw.line(surface, (0, 255, 0), (mx1, my_c), (mx2, my_c), s(4))
             
-    # DESSIN AVION SUR MAP (Marqueur)
-    h_rel = min(h_map - s(20), alt * (0.02 * UI_SCALE))
-    p_center = (center_map_x, y_map+h_map-s(10) - h_rel)
-    
-    # Calcul des points du triangle orienté selon l'angle (angle_pitch en degrés)
-    rad_a = math.radians(angle_pitch)
-    # Triangle de base pointant vers la droite (0 degrés)
-    t_size = s(6)
-    p1_base = (t_size, 0) # Nez
-    p2_base = (-t_size, -t_size + s(2)) # Aile gauche
-    p3_base = (-t_size, t_size - s(2)) # Aile droite
-    
-    def rotate_point(p, r):
-        # Rotation trigo : x*cos - y*sin, x*sin + y*cos
-        # Pygame Y est inversé, donc l'angle doit être adapté
-        # angle_pitch > 0 signifie on monte (Nez vers le HAUT de l'écran, donc Y diminue)
-        # Dans Pygame rotate usuel, un angle positif tourne dans le sens anti-horaire
-        rx = p[0] * math.cos(r) - p[1] * math.sin(r)
-        ry = -(p[0] * math.sin(r) + p[1] * math.cos(r)) # Inversion Y
-        return (p_center[0] + rx, p_center[1] + ry)
+        # Position du joueur sur minimap
+        # On fait clignoter le curseur du joureur (10 frames on, 10 frames off)
+        if (pygame.time.get_ticks() // 200) % 2 == 0:
+            h_rel = min(h_map - s(20), alt * (0.02 * UI_SCALE))
+            p_center = (center_map_x, y_map+h_map-s(10) - h_rel)
+            
+            # Calcul des points du triangle orienté selon l'angle (angle_pitch en degrés)
+            rad_a = math.radians(angle_pitch)
+            # Triangle de base pointant vers la droite (0 degrés)
+            t_size = s(6)
+            p1_base = (t_size, 0) # Nez
+            p2_base = (-t_size, -t_size + s(2)) # Aile gauche
+            p3_base = (-t_size, t_size - s(2)) # Aile droite
+            
+            def rotate_point(p, r):
+                # Rotation trigo : x*cos - y*sin, x*sin + y*cos
+                # Pygame Y est inversé, donc l'angle doit être adapté
+                # angle_pitch > 0 signifie on monte (Nez vers le HAUT de l'écran, donc Y diminue)
+                # Dans Pygame rotate usuel, un angle positif tourne dans le sens anti-horaire
+                rx = p[0] * math.cos(r) - p[1] * math.sin(r)
+                ry = -(p[0] * math.sin(r) + p[1] * math.cos(r)) # Inversion Y
+                return (p_center[0] + rx, p_center[1] + ry)
 
-    pt1 = rotate_point(p1_base, rad_a)
-    pt2 = rotate_point(p2_base, rad_a)
-    pt3 = rotate_point(p3_base, rad_a)
-    
-    pygame.draw.polygon(surface, (255, 255, 0), [pt1, pt2, pt3])
+            pt1 = rotate_point(p1_base, rad_a)
+            pt2 = rotate_point(p2_base, rad_a)
+            pt3 = rotate_point(p3_base, rad_a)
+            
+            pygame.draw.polygon(surface, (255, 255, 0), [pt1, pt2, pt3])
+
 
     # Infos Textes (THRUST & TEMP)
     x_panel = L - s(80)
@@ -1731,6 +1751,13 @@ elif args.mission_type == "cargo":
     mission_manager.time_left = 120.0
     mission_manager.mission_over = False
 
+# Initialisation des variables de zoom et minimap
+zoom = 0.5
+zoom_cible = 0.5
+show_minimap = True # Minimap toujours affichée
+show_large_map = False # Idée 46: Toggle carte interactive avec M
+flight_plan_waypoints = [] # Liste de points géographiques (x, y) pour le plan de vol
+
 while True:
     dt = horloge.tick(60) / 1000.0 
     
@@ -1755,6 +1782,24 @@ while True:
             exit()
         elif event.type == pygame.MOUSEWHEEL:
             zoom_cible += event.y * 0.2 # Zoom plus rapide 
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if show_large_map:
+                # Calcul de la position géographique du clic
+                # La carte fait L-100 x H-100, ancrée en 50,50
+                w_map = L - 100
+                h_map = H - 100
+                x_map = 50
+                y_map = 50
+                if x_map <= event.pos[0] <= x_map + w_map and y_map <= event.pos[1] <= y_map + h_map:
+                    if event.button == 1: # Clic Gauche -> Ajouter Waypoint
+                        # Echelle X : -150km à +150km
+                        px_w = (event.pos[0] - x_map) / w_map * 300000 - 150000
+                        # Echelle Y : 15000m à 0m (inversé)
+                        py_alt = (1.0 - (event.pos[1] - y_map) / h_map) * 15000
+                        flight_plan_waypoints.append((px_w, py_alt))
+                    elif event.button == 3: # Clic Droit -> Retirer dernier Waypoint
+                        if len(flight_plan_waypoints) > 0:
+                            flight_plan_waypoints.pop()
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_a:
                 moteur_allume = not moteur_allume
@@ -1764,6 +1809,8 @@ while True:
                 gear_sorti = not gear_sorti
             if event.key == pygame.K_l: # LANDING LIGHT
                 lumiere_allume = not lumiere_allume
+            if event.key == pygame.K_m: # TOGGLE LARGE MAP (Idée 46)
+                show_large_map = not show_large_map
             if event.key == pygame.K_ESCAPE:
                 pygame.quit()
                 exit()
@@ -1773,7 +1820,7 @@ while True:
                 mission_manager.start_rings_challenge(world_x)
             if event.key == pygame.K_F2:
                 mission_manager.start_landing_challenge(world_x)
-            if event.key == pygame.K_c and args.missions and args.aircraft == "cargo":
+            if event.key == pygame.K_c and mission_manager.active_mission == "cargo":
                 mission_manager.drop_cargo(world_x, world_y, vx, vy)
 
             if moteur_allume:
