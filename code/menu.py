@@ -186,6 +186,9 @@ PyFlight 2D vous offre une simulation aéronautique exigeante :
 
 • Physique de vol avancée (Décrochage, Inertie, Traînée)
 • Poids Dynamique & Surchauffe Moteur Réalistes
+• Nouvelles Missions (Anneaux, Cargo, Atterrissage)
+• Cibles au sol, Chronomètres et Statistiques de vol
+• Trafic IA ambiant et Tour de Contrôle (ATC)
 • Cycle Jour/Nuit & Météo Volumétrique 
 • Cockpit Interactif (HUD / Instruments Analogiques)
 
@@ -433,22 +436,22 @@ puis cliquez sur LANCER LE VOL.
                 f_stats.grid_columnconfigure((0,1,2), weight=1)
                 
                 # Bloc Meilleur
-                b1 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=6)
-                b1.grid(row=0, column=0, padx=5)
-                ctk.CTkLabel(b1, text="MEILLEUR SCORE", font=("Arial", 10, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(5,0))
-                ctk.CTkLabel(b1, text=f"{best}", font=("Impact", 24), text_color=COL_ACCENT).pack(pady=(0,5))
+                b1 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=8)
+                b1.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
+                ctk.CTkLabel(b1, text="MEILLEUR SCORE", font=("Arial", 12, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(15,5))
+                ctk.CTkLabel(b1, text=f"{best}", font=("Impact", 36), text_color=COL_ACCENT).pack(pady=(5,15))
                 
                 # Bloc Moyenne
-                b2 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=6)
-                b2.grid(row=0, column=1, padx=5)
-                ctk.CTkLabel(b2, text="MOYENNE", font=("Arial", 10, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(5,0))
-                ctk.CTkLabel(b2, text=f"{mean}", font=("Impact", 24), text_color=COL_PRIMARY).pack(pady=(0,5))
+                b2 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=8)
+                b2.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
+                ctk.CTkLabel(b2, text="MOYENNE", font=("Arial", 12, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(15,5))
+                ctk.CTkLabel(b2, text=f"{mean}", font=("Impact", 36), text_color=COL_PRIMARY).pack(pady=(5,15))
                 
                 # Bloc Médiane
-                b3 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=6)
-                b3.grid(row=0, column=2, padx=5)
-                ctk.CTkLabel(b3, text="MÉDIANE", font=("Arial", 10, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(5,0))
-                ctk.CTkLabel(b3, text=f"{median}", font=("Impact", 24), text_color="#A3B8CC").pack(pady=(0,5))
+                b3 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=8)
+                b3.grid(row=0, column=2, padx=10, pady=5, sticky="nsew")
+                ctk.CTkLabel(b3, text="MÉDIANE", font=("Arial", 12, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(15,5))
+                ctk.CTkLabel(b3, text=f"{median}", font=("Impact", 36), text_color="#A3B8CC").pack(pady=(5,15))
                 
                 ctk.CTkLabel(card, text=f"Parties jouées : {len(s_list)}", text_color=COL_TEXT_MUTED, font=("Arial", 12, "italic")).pack(pady=(5,0))
 

@@ -28,8 +28,8 @@ Ce document liste 50 idées pour faire évoluer le projet, classées par catégo
 
 ## Interface (UI/UX)
 
-16. **Carte Tactique Grande Échelle (Touche M)** : Une vue très dézoomée remplaçant tout l'écran, affichant la planète, tous les aéroports et tous les sites de crash en même temps (Map globale).
-17. **Radio de Bord / Musique** : Ajouter la touche **R** ou **M** pour allumer une radio Lo-Fi ou des grésillements de communications aéronautiques en fond sonore.
+16. **[x] Statistiques et Historique** : Un menu permettant de voir nos meilleurs scores, le temps médian et la moyenne par type de mission.
+17. **[x] Radio de Bord / Musique** : Ajouter la touche **R** ou **M** pour allumer une radio Lo-Fi ou des grésillements de communications aéronautiques en fond sonore.
 18. **Enregistrement de Vol (Replay)** : Sauvegarder toute la liste des positions `position_history` dans un fichier texte à la fin du vol pour pouvoir "rejouer" la trace plus tard.
 19. **Boussole / Cap (Heading Indicator)** : Remplacer l'indication gauche/droite par un vrai cap (0 à 360 degrés) qui tourne quand on fait demi-tour.
 20. **Caméra Externe Suiveuse ("Chase Cam")** : Une option pour que l'avion tourne visuellement au centre de l'écran (avec un décalage plus souple) au lieu d'une caméra toujours figée.
