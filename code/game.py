@@ -556,7 +556,7 @@ class CargoBox:
 class AIPlane:
     def __init__(self, wx, airports_list):
         self.active = True
-        self.mode = random.choices(["cruise", "takeoff", "landing"], weights=[0.4, 0.3, 0.3])[0]
+        self.mode = "cruise"
         
         closest_apt = min(airports_list, key=lambda a: abs(a.x_start - wx))
         
@@ -657,16 +657,6 @@ class AIPlane:
 
         r = s_plane_rot.get_rect(center=(px, py))
         surface.blit(s_plane_rot, r)
-        
-        # Draw a contrail behind it (only high alt)
-        if self.y < -3000:
-            tail_len = 150 * zoom
-            # from back of plane
-            back_x = px - math.cos(math.radians(angle)) * (pw/2)
-            back_y = py + math.sin(math.radians(angle)) * (pw/2)
-            end_x = back_x - math.cos(math.radians(angle)) * tail_len
-            end_y = back_y + math.sin(math.radians(angle)) * tail_len
-            pygame.draw.line(surface, (255, 255, 255, 100), (back_x, back_y), (end_x, end_y), max(1, int(2*zoom)))
 
 class MissionManager:
     def __init__(self):
