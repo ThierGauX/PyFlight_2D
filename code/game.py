@@ -66,6 +66,8 @@ parser.add_argument("--aircraft", type=str, default="cessna", help="Type d'avion
 parser.add_argument("--fuel", type=float, default=100.0, help="Carburant initial (%)")
 parser.add_argument("--missions", action="store_true", help="Activer le mode Missions (Confort passager, ATC, etc.)")
 parser.add_argument("--mission-type", type=str, default="none", choices=["none", "rings", "landing", "cargo"], help="Lancer une mission spécifique au démarrage")
+parser.add_argument("--num-birds", type=int, default=20, help="Nombre maximal d'oiseaux")
+parser.add_argument("--num-planes", type=int, default=5, help="Nombre maximal d'avions IA")
 
 # On parse uniquement si on est lancé en tant que script principal
 args = None
@@ -79,7 +81,8 @@ else:
                               unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False,
                               season="summer", aircraft="cessna", fuel=100.0,
                               no_stall=False, no_gear_crash=False, no_wind=False, auto_refuel=False,
-                              terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear", missions=False, mission_type="none")
+                              terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear", missions=False, mission_type="none",
+                              num_birds=20, num_planes=5)
 
 # AIRCRAFT CONFIGS
 AIRCRAFT_CONFIGS = {
@@ -482,7 +485,7 @@ class Bird:
             p3 = (px + wing_span, py - oscill)
             pygame.draw.lines(surface, (20, 20, 20), False, [p1, p2, p3], max(1, int(1.5*zoom)))
 
-birds = [Bird() for _ in range(20)]
+birds = [Bird() for _ in range(args.num_birds)]
 
 def spawn_explosion(x, y, vx, vy):
     # Génère une explosion massive de particules (feu/fumée)
@@ -559,7 +562,7 @@ class AIPlane:
         
         if self.mode == "cruise":
             self.x = wx + random.choice([-20000, 20000]) # Spawns far away
-            self.y = -random.randint(5000, 15000) # High altitude
+            self.y = -random.randint(2000, 4500) # Maximum altitude 4500m (Y is negative)
             self.vx = random.uniform(150, 250) * (1 if self.x < wx else -1)
             self.vy = 0
             self.dir_x = 1 if self.vx > 0 else -1
@@ -600,7 +603,8 @@ class AIPlane:
                 if self.vy < -40: self.vy = -40
             self.y += self.vy * dt
             
-            if self.y < -5000:
+            if self.y < -4500:
+                self.y = -4500
                 self.mode = "cruise"
                 self.vy = 0
             if abs(self.x - wx) > 30000:
@@ -628,20 +632,29 @@ class AIPlane:
         # Don't draw if outside screen
         if px < -200 or px > L+200 or py < -200 or py > H+200: return
         
-        # Angle calc
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
-        if self.dir_x == -1 and self.vy != 0:
-            angle = math.degrees(math.atan2(-self.vy, self.vx))
+        # Angle calc (avec valeur absolue sur vx pour gérer le flip séparément)
+        vx_safe = abs(self.vx) if self.vx != 0 else 1
+        angle = math.degrees(math.atan2(-self.vy, vx_safe))
         
-        # Draw a small shape (simple rect for distant plane)
-        pw = 40 * zoom # Plus grand pour être mieux vu
-        ph = 12 * zoom
+        # Define baseline width for contrails and rendering
+        pw = max(5, int(80 * zoom))
         
-        # We can just draw a rotated rect by making a small surface
-        s_plane = pygame.Surface((pw, ph), pygame.SRCALPHA)
-        pygame.draw.rect(s_plane, (40, 40, 40), (0, 0, pw, ph)) # Plus sombre pour contraste
-        s_plane_rot = pygame.transform.rotate(s_plane, angle)
-        
+        if images_ok:
+            target_h = max(2, int(img_avion_normal_base.get_height() * (pw / img_avion_normal_base.get_width())))
+            img_scaled = pygame.transform.scale(img_avion_normal_base, (pw, target_h))
+            
+            if self.dir_x == -1:
+                img_scaled = pygame.transform.flip(img_scaled, True, False)
+                
+            s_plane_rot = pygame.transform.rotate(img_scaled, angle)
+        else:
+            # Draw a small shape (simple rect for distant plane) fallback
+            pw = 40 * zoom # Plus grand pour être mieux vu
+            ph = 12 * zoom
+            s_plane = pygame.Surface((pw, ph), pygame.SRCALPHA)
+            pygame.draw.rect(s_plane, (40, 40, 40), (0, 0, pw, ph)) # Plus sombre pour contraste
+            s_plane_rot = pygame.transform.rotate(s_plane, angle if self.dir_x == 1 else -angle)
+
         r = s_plane_rot.get_rect(center=(px, py))
         surface.blit(s_plane_rot, r)
         
@@ -2379,7 +2392,7 @@ while True:
         
     # AI PLANES
     if args.missions:
-        if random.random() < 0.005 and len(ai_planes) < 5:
+        if random.random() < 0.005 and len(ai_planes) < args.num_planes:
             ai_planes.append(AIPlane(world_x, airports))
             
         for aip in ai_planes:

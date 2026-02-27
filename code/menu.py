@@ -77,6 +77,8 @@ class MenuPrincipal(ctk.CTk):
         self.var_fuel_initial = ctk.DoubleVar(value=100.0)
         self.var_missions = ctk.BooleanVar(value=False)
         self.var_mission_type = ctk.StringVar(value="none")
+        self.var_num_birds = ctk.IntVar(value=20)
+        self.var_num_planes = ctk.IntVar(value=5)
 
         # Layout Principal (2 Colonnes: Sidebar / Contenu)
         self.grid_columnconfigure(0, weight=0) # Sidebar width fixed
@@ -317,6 +319,17 @@ puis cliquez sur LANCER LE VOL.
 
         c_sound = self.card_frame(page, "VOLUME SONORE MOTEUR")
         ctk.CTkSlider(c_sound, from_=0.0, to=1.0, variable=self.var_volume).pack(fill="x", padx=15, pady=(10, 15))
+        
+        c_traffic = self.card_frame(page, "DENSITÉ DU TRAFIC & FAUNE")
+        self.lbl_birds = ctk.CTkLabel(c_traffic, text=f"Nombre maximum d'oiseaux : {self.var_num_birds.get()}", text_color=COL_TEXT_MUTED)
+        self.lbl_birds.pack(anchor="w", padx=15)
+        def update_birds_lbl(val): self.lbl_birds.configure(text=f"Nombre maximum d'oiseaux : {int(val)}")
+        ctk.CTkSlider(c_traffic, from_=0, to=100, number_of_steps=100, variable=self.var_num_birds, command=update_birds_lbl).pack(fill="x", padx=15, pady=(5, 10))
+        
+        self.lbl_planes = ctk.CTkLabel(c_traffic, text=f"Nombre maximum d'avions IA : {self.var_num_planes.get()}", text_color=COL_TEXT_MUTED)
+        self.lbl_planes.pack(anchor="w", padx=15)
+        def update_planes_lbl(val): self.lbl_planes.configure(text=f"Nombre maximum d'avions IA : {int(val)}")
+        ctk.CTkSlider(c_traffic, from_=0, to=20, number_of_steps=20, variable=self.var_num_planes, command=update_planes_lbl).pack(fill="x", padx=15, pady=(5, 15))
 
 
     def build_page_realism(self):
@@ -508,6 +521,10 @@ puis cliquez sur LANCER LE VOL.
 
         # Saison
         cmd.extend(["--season", self.var_season.get()])
+        
+        # Trafic
+        cmd.extend(["--num-birds", str(int(self.var_num_birds.get()))])
+        cmd.extend(["--num-planes", str(int(self.var_num_planes.get()))])
         
         print(f"Lancement de : {cmd}")
         subprocess.run(cmd)
