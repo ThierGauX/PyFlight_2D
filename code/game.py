@@ -680,9 +680,9 @@ class MissionManager:
         self.active_mission = "rings"
         self.rings = []
         self.score = 0
-        self.message = "MISSION: RINGS CHALLENGE START! (3 MINUTES)"
+        self.message = "MISSION: RINGS CHALLENGE START! (1 MIN 20)"
         self.timer_message = 180 # 3 sec
-        self.time_left = 180.0
+        self.time_left = 80.0
         self.mission_over = False
         
         # Trouver la piste la plus proche. La distance entre chaque aéroport est de 75000.
@@ -1691,8 +1691,11 @@ if args.mission_type == "rings":
 elif args.mission_type == "landing":
     mission_manager.start_landing_challenge(world_x)
 elif args.mission_type == "cargo":
-    mission_manager.message = "MISSION: LARGUEZ LES COLIS (Touche C)"
+    mission_manager.message = "MISSION: LARGUEZ LES COLIS (2 MIN)"
     mission_manager.timer_message = 200
+    mission_manager.active_mission = "cargo"
+    mission_manager.time_left = 120.0
+    mission_manager.mission_over = False
 
 while True:
     dt = horloge.tick(60) / 1000.0 
