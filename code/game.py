@@ -2725,6 +2725,9 @@ while True:
         lbl_inst = police_label.render("FLIGHT PLAN MAP: Left Click to Add Waypoint | Right Click to Remove | Press 'M' to Close", True, (200, 200, 200))
         fenetre.blit(lbl_inst, (x_lmap + s(10), y_lmap + s(10)))
         
+        lbl_quit = police_label.render("Press ESCAPE to Return to Menu", True, (255, 100, 100))
+        fenetre.blit(lbl_quit, (x_lmap + w_lmap - s(250), y_lmap + s(10)))
+        
         # Echelles de la grande carte
         X_MIN = -150000
         X_MAX = 150000

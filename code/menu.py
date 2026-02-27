@@ -88,7 +88,7 @@ class MenuPrincipal(ctk.CTk):
         # --- SIDEBAR (GAUCHE) ---
         self.sidebar_frame = ctk.CTkFrame(self, width=280, corner_radius=0, fg_color=COL_SIDEBAR)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsw")
-        self.sidebar_frame.grid_rowconfigure(5, weight=1) # Espaceur entre les menus et le bouton jouer
+        self.sidebar_frame.grid_rowconfigure(8, weight=1) # Espaceur entre les menus et le bouton jouer (Ligne 8)
         
         # En-Tête Sidebar
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="PYFLIGHT 2D", font=("Impact", 36), text_color=COL_TEXT)
@@ -106,18 +106,18 @@ class MenuPrincipal(ctk.CTk):
         self.btn_tab_gfx = self.create_sidebar_btn("📺  Affichage & Rendu", 6)
         self.btn_tab_stats = self.create_sidebar_btn("📊  Scores & Stats", 7)
         
-        # Spacer
-        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=8, column=0, sticky="ns", pady=20)
+        # Spacer pour repousser les boutons vers le bas grace au weight=1
+        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=8, column=0, sticky="nsew")
 
         # Boutons Action (Bas de Sidebar)
         self.btn_jouer = ctk.CTkButton(self.sidebar_frame, text="LANCER LE VOL", command=self.lancer_jeu,
                                        font=("Arial", 18, "bold"), height=55, fg_color=COL_ACCENT, hover_color=COL_ACCENT_HOVER)
-        self.btn_jouer.grid(row=9, column=0, padx=20, pady=(0, 15), sticky="ew")
+        self.btn_jouer.grid(row=9, column=0, padx=20, pady=(10, 10), sticky="ew")
 
         self.btn_quitter = ctk.CTkButton(self.sidebar_frame, text="QUITTER", command=self.quit,
                                          font=("Arial", 14, "bold"), height=40, fg_color="transparent", 
                                          border_width=2, border_color=COL_DANGER, text_color=COL_DANGER, hover_color="#451a1a")
-        self.btn_quitter.grid(row=10, column=0, padx=20, pady=(0, 30), sticky="ew")
+        self.btn_quitter.grid(row=10, column=0, padx=20, pady=(0, 20), sticky="ew")
 
         # --- CONTENU (DROITE) ---
         self.main_frame = ctk.CTkFrame(self, fg_color=COL_BG, corner_radius=0)
