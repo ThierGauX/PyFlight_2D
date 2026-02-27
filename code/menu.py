@@ -2,6 +2,8 @@ import customtkinter as ctk
 import sys
 import os
 import subprocess
+import json
+import statistics
 from PIL import Image, ImageTk
 
 def resource_path(relative_path):
@@ -100,19 +102,20 @@ class MenuPrincipal(ctk.CTk):
         self.btn_tab_env = self.create_sidebar_btn("⛅  Environnement", 4)
         self.btn_tab_realism = self.create_sidebar_btn("⚙️  Réalisme & Aides", 5)
         self.btn_tab_gfx = self.create_sidebar_btn("📺  Affichage & Rendu", 6)
+        self.btn_tab_stats = self.create_sidebar_btn("📊  Scores & Stats", 7)
         
         # Spacer
-        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=7, column=0, sticky="ns", pady=20)
+        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=8, column=0, sticky="ns", pady=20)
 
         # Boutons Action (Bas de Sidebar)
         self.btn_jouer = ctk.CTkButton(self.sidebar_frame, text="LANCER LE VOL", command=self.lancer_jeu,
                                        font=("Arial", 18, "bold"), height=55, fg_color=COL_ACCENT, hover_color=COL_ACCENT_HOVER)
-        self.btn_jouer.grid(row=8, column=0, padx=20, pady=(0, 15), sticky="ew")
+        self.btn_jouer.grid(row=9, column=0, padx=20, pady=(0, 15), sticky="ew")
 
         self.btn_quitter = ctk.CTkButton(self.sidebar_frame, text="QUITTER", command=self.quit,
                                          font=("Arial", 14, "bold"), height=40, fg_color="transparent", 
                                          border_width=2, border_color=COL_DANGER, text_color=COL_DANGER, hover_color="#451a1a")
-        self.btn_quitter.grid(row=9, column=0, padx=20, pady=(0, 30), sticky="ew")
+        self.btn_quitter.grid(row=10, column=0, padx=20, pady=(0, 30), sticky="ew")
 
         # --- CONTENU (DROITE) ---
         self.main_frame = ctk.CTkFrame(self, fg_color=COL_BG, corner_radius=0)
@@ -128,6 +131,7 @@ class MenuPrincipal(ctk.CTk):
         self.build_page_env()
         self.build_page_realism()
         self.build_page_gfx()
+        self.build_page_scores()
 
         # Init par défaut
         self.select_tab("🏠  Vue d'ensemble")
@@ -145,8 +149,11 @@ class MenuPrincipal(ctk.CTk):
         for nom, btn in self.tab_buttons:
             if nom == nom_tab:
                 btn.configure(fg_color=COL_PRIMARY, text_color=COL_TEXT)
-            else:
                 btn.configure(fg_color="transparent", text_color=COL_TEXT_MUTED)
+                
+        # Si c'est l'onglet des scores, on le reconstruit pour le mettre à jour
+        if nom_tab == "📊  Scores & Stats":
+            self.build_page_scores()
                 
         # Afficher la bonne page
         for t, page_frame in self.pages.items():
@@ -381,6 +388,70 @@ puis cliquez sur LANCER LE VOL.
         ctk.CTkCheckBox(f_sys, text="Mode Plein Écran Natif", variable=self.var_fullscreen).pack(side="left", padx=(0, 20))
         ctk.CTkCheckBox(f_sys, text="Afficher Compteur FPS", variable=self.var_show_fps).pack(side="left", padx=20)
 
+    def build_page_scores(self):
+        page_name = "📊  Scores & Stats"
+        # On recrée l'onglet si besoin (actualisation)
+        if page_name in self.pages:
+            self.pages[page_name].destroy()
+            
+        page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
+        self.pages[page_name] = page
+        
+        self.title_label(page, "Vos Statistiques et Performances")
+        
+        # Lecture du json
+        dossier = os.path.dirname(os.path.abspath(__file__))
+        path_scores = os.path.join(dossier, "scores.json")
+        scores_data = {"rings": [], "landing": [], "cargo": []}
+        
+        if os.path.exists(path_scores):
+            try:
+                with open(path_scores, "r", encoding="utf-8") as f:
+                    scores_data.update(json.load(f))
+            except Exception as e:
+                pass
+                
+        mission_labels = {
+            "rings": "Parcours d'Anneaux",
+            "landing": "Atterrissage de Précision",
+            "cargo": "Largage Cargo"
+        }
+        
+        for key, name in mission_labels.items():
+            card = self.card_frame(page, name.upper())
+            s_list = scores_data.get(key, [])
+            
+            if not s_list:
+                ctk.CTkLabel(card, text="Aucune donnée (Jouez une partie pour afficher les scores)", text_color=COL_TEXT_MUTED).pack(pady=10)
+            else:
+                best = max(s_list)
+                mean = int(statistics.mean(s_list))
+                median = int(statistics.median(s_list))
+                
+                f_stats = ctk.CTkFrame(card, fg_color="transparent")
+                f_stats.pack(fill="x", padx=15, pady=5)
+                f_stats.grid_columnconfigure((0,1,2), weight=1)
+                
+                # Bloc Meilleur
+                b1 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=6)
+                b1.grid(row=0, column=0, padx=5)
+                ctk.CTkLabel(b1, text="MEILLEUR SCORE", font=("Arial", 10, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(5,0))
+                ctk.CTkLabel(b1, text=f"{best}", font=("Impact", 24), text_color=COL_ACCENT).pack(pady=(0,5))
+                
+                # Bloc Moyenne
+                b2 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=6)
+                b2.grid(row=0, column=1, padx=5)
+                ctk.CTkLabel(b2, text="MOYENNE", font=("Arial", 10, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(5,0))
+                ctk.CTkLabel(b2, text=f"{mean}", font=("Impact", 24), text_color=COL_PRIMARY).pack(pady=(0,5))
+                
+                # Bloc Médiane
+                b3 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=6)
+                b3.grid(row=0, column=2, padx=5)
+                ctk.CTkLabel(b3, text="MÉDIANE", font=("Arial", 10, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(5,0))
+                ctk.CTkLabel(b3, text=f"{median}", font=("Impact", 24), text_color="#A3B8CC").pack(pady=(0,5))
+                
+                ctk.CTkLabel(card, text=f"Parties jouées : {len(s_list)}", text_color=COL_TEXT_MUTED, font=("Arial", 12, "italic")).pack(pady=(5,0))
+
 
     def lancer_jeu(self):
         # On cache le menu au lieu de le détruire
@@ -438,7 +509,8 @@ puis cliquez sur LANCER LE VOL.
         print(f"Lancement de : {cmd}")
         subprocess.run(cmd)
         
-        # Le jeu a été quitté (ex: touche Echap), on réaffiche le menu
+        # Le jeu a été quitté (ex: touche Echap), on réaffiche le menu et on actualise les scores
+        self.build_page_scores()
         self.deiconify()
 
 if __name__ == "__main__":

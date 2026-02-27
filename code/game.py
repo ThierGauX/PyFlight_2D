@@ -7,6 +7,7 @@ import argparse
 import argparse
 import sys
 import array # Pour generation son
+import json # Pour sauvegarder les scores
 
 def resource_path(relative_path):
     import os, sys
@@ -675,6 +676,32 @@ class MissionManager:
         for i in range(20):
             self.cargo_targets.append({'x': cx, 'w': 800, 'active': True}) # Cibles plus larges (800)
             cx += random.randint(4000, 15000)
+            
+    def save_score(self):
+        if not self.active_mission: return
+        
+        # Chemin du fichier
+        dossier = os.path.dirname(os.path.abspath(__file__))
+        path_scores = os.path.join(dossier, "scores.json")
+        
+        scores_data = {"rings": [], "landing": [], "cargo": []}
+        if os.path.exists(path_scores):
+            try:
+                with open(path_scores, "r", encoding="utf-8") as f:
+                    scores_data.update(json.load(f))
+            except Exception as e:
+                print(f"Erreur de lecture scores : {e}")
+                
+        # Ajouter le score actuel
+        if self.active_mission in scores_data:
+            scores_data[self.active_mission].append(self.score)
+            
+        # Sauvegarder
+        try:
+            with open(path_scores, "w", encoding="utf-8") as f:
+                json.dump(scores_data, f, indent=4)
+        except Exception as e:
+            print(f"Erreur d'écriture scores : {e}")
         
     def start_rings_challenge(self, current_x=0):
         self.active_mission = "rings"
@@ -740,12 +767,14 @@ class MissionManager:
                 if self.time_left <= 0:
                     self.mission_over = True
                     self.final_message = f"TEMPS ÉCOULÉ ! SCORE FINAL : {self.score}"
+                    self.save_score()
         elif self.active_mission == "cargo": # Le mode cargo a aussi 3 minutes si défini au lancement
             if self.time_left > 0:
                 self.time_left -= dt
                 if self.time_left <= 0:
                     self.mission_over = True
                     self.final_message = f"TEMPS ÉCOULÉ ! SCORE FINAL : {self.score}"
+                    self.save_score()
                     
         if self.active_mission == "rings":
             for r in self.rings:
@@ -770,6 +799,7 @@ class MissionManager:
                     
                     self.mission_over = True
                     self.final_message = f"RÉUSSI EN {int(self.stopwatch_time)}s ! SCORE FINAL : {self.score}"
+                    self.save_score()
                     self.timer_message = 300
                     self.target_landing_zone = None
                         
@@ -809,6 +839,7 @@ class MissionManager:
                 if all_done:
                     self.mission_over = True
                     self.final_message = f"TOUTES CIBLES ATTEINTES ! SCORE FINAL : {self.score}"
+                    self.save_score()
 
         if self.timer_message > 0:
             self.timer_message -= 1
