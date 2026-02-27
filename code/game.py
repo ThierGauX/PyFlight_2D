@@ -663,6 +663,11 @@ class MissionManager:
         self.timer_message = 0
         self.target_landing_zone = None # (x_start, x_end)
         
+        self.time_left = -1 # < 0 signifie pas de timer actif. > 0 est un compte à rebours en secondes.
+        self.stopwatch_time = 0 # Temps écoulé pour les atterrissages.
+        self.mission_over = False # True quand le temps est écoulé ou mission terminée
+        self.final_message = ""
+        
         # Cargo Missions
         self.cargos = []
         self.cargo_targets = []
@@ -675,8 +680,10 @@ class MissionManager:
         self.active_mission = "rings"
         self.rings = []
         self.score = 0
-        self.message = "MISSION: RINGS CHALLENGE START!"
+        self.message = "MISSION: RINGS CHALLENGE START! (3 MINUTES)"
         self.timer_message = 180 # 3 sec
+        self.time_left = 180.0
+        self.mission_over = False
         
         # Trouver la piste la plus proche. La distance entre chaque aéroport est de 75000.
         # Si on est au début (x=0), l'aéroport est à x=0. La piste fait 6000m.
@@ -706,8 +713,11 @@ class MissionManager:
     def start_landing_challenge(self, current_x=0):
         self.active_mission = "landing"
         self.score = 0
-        self.message = "MISSION: PRECISION LANDING SUR AEROPORT!"
+        self.message = "MISSION: PRECISION LANDING SUR AEROPORT! (CHRONOMETRÉ)"
         self.timer_message = 240
+        self.time_left = -1 # Pas de compte à rebours, mais un chronomètre
+        self.stopwatch_time = 0.0
+        self.mission_over = False
         
         # Trouver la prochaine piste devant l'avion
         # Les pistes sont à i * 75000
@@ -717,7 +727,26 @@ class MissionManager:
         # On place la cible d'atterrissage sur la première moitié de la piste (la piste fait 6000m)
         self.target_landing_zone = (x_start_piste + 500, x_start_piste + 2500)
         
-    def update(self, plane_x, plane_y, plane_vx, plane_vy):
+    def update(self, plane_x, plane_y, plane_vx, plane_vy, dt):
+        if self.mission_over:
+            return # Le jeu est figé, on ne met plus rien à jour
+            
+        # Chronomètres et Timers
+        if self.active_mission == "landing":
+            self.stopwatch_time += dt
+        elif self.active_mission == "rings":
+            if self.time_left > 0:
+                self.time_left -= dt
+                if self.time_left <= 0:
+                    self.mission_over = True
+                    self.final_message = f"TEMPS ÉCOULÉ ! SCORE FINAL : {self.score}"
+        elif self.active_mission == "cargo": # Le mode cargo a aussi 3 minutes si défini au lancement
+            if self.time_left > 0:
+                self.time_left -= dt
+                if self.time_left <= 0:
+                    self.mission_over = True
+                    self.final_message = f"TEMPS ÉCOULÉ ! SCORE FINAL : {self.score}"
+                    
         if self.active_mission == "rings":
             for r in self.rings:
                 if not r.passed:
@@ -734,11 +763,15 @@ class MissionManager:
             if x1 <= plane_x <= x2:
                 # Vérifier si l'avion est au sol (y proche de 0 sur piste) et quasiment à l'arrêt
                 if plane_y >= -5 and abs(plane_vx) < 2 and abs(plane_vy) < 2:
-                    self.score += 500
-                    self.message = f"ATTERRISSAGE REUSSI ! (+500) [{self.score}]"
+                    # Conversion du temps (stopwatch_time) en score additionnel
+                    # Base de 1000 points, -1 point par seconde (max 0)
+                    time_bonus = max(0, 1000 - int(self.stopwatch_time) * 10) 
+                    self.score += 500 + time_bonus
+                    
+                    self.mission_over = True
+                    self.final_message = f"RÉUSSI EN {int(self.stopwatch_time)}s ! SCORE FINAL : {self.score}"
                     self.timer_message = 300
                     self.target_landing_zone = None
-                    self.active_mission = None
                         
         # Update cargos
         for c in self.cargos:
@@ -766,6 +799,16 @@ class MissionManager:
                 if not hit:
                      self.message = "COLIS PERDU..."
                      self.timer_message = 120
+                     
+                # Check if all targets are inactive
+                all_done = True
+                for t in self.cargo_targets:
+                    if t['active']:
+                        all_done = False
+                        break
+                if all_done:
+                    self.mission_over = True
+                    self.final_message = f"TOUTES CIBLES ATTEINTES ! SCORE FINAL : {self.score}"
 
         if self.timer_message > 0:
             self.timer_message -= 1
@@ -845,11 +888,36 @@ class MissionManager:
             pygame.draw.line(surface, (0, 255, 0), (px, py - csz), (px, py + csz), max(1, int(2*zoom)))
             pygame.draw.circle(surface, (0, 255, 0), (px, py), csz, max(1, int(1*zoom)))
 
-        # Draw score for Missions
+        # Draw score and time for Missions
         if self.score > 0 and args.missions:
             lbl_score = police_alarme.render(f"SCORE: {self.score}", True, (255, 215, 0))
             # Alignement en haut à droite pour éviter de déborder
             surface.blit(lbl_score, lbl_score.get_rect(topright=(L - 20, 20)))
+            
+        # Draw Timer
+        if self.time_left > 0:
+            m = int(self.time_left) // 60
+            s = int(self.time_left) % 60
+            lbl_time = police_alarme.render(f"TEMPS RESTANT: {m:02d}:{s:02d}", True, (255, 0, 0) if self.time_left < 30 else (255, 215, 0))
+            surface.blit(lbl_time, lbl_time.get_rect(midtop=(L//2, 20)))
+        elif self.active_mission == "landing" and not self.mission_over:
+            m = int(self.stopwatch_time) // 60
+            s = int(self.stopwatch_time) % 60
+            lbl_time = police_alarme.render(f"CHRONO: {m:02d}:{s:02d}", True, (255, 255, 255))
+            surface.blit(lbl_time, lbl_time.get_rect(midtop=(L//2, 20)))
+            
+        # Draw Game Over Text
+        if self.mission_over:
+            # Fond semi-transparent
+            s_overlay = pygame.Surface((L, H), pygame.SRCALPHA)
+            s_overlay.fill((0, 0, 0, 150))
+            surface.blit(s_overlay, (0, 0))
+            
+            # Texte final
+            lbl_end = police_alarme.render(self.final_message, True, (255, 255, 0))
+            lbl_end2 = police_label.render("Appuyez sur ECHAP pour revenir au menu", True, (255, 255, 255))
+            surface.blit(lbl_end, lbl_end.get_rect(center=(L//2, H//2 - 20)))
+            surface.blit(lbl_end2, lbl_end2.get_rect(center=(L//2, H//2 + 30)))
 
         # Draw cargos
         for c in self.cargos:
@@ -2014,11 +2082,17 @@ while True:
              crashed = True
              crash_reason = f"CRASH: COLLISION RELIEF (Montagne)"
 
+    # Freeze game physics if mission is over
+    if args.missions and mission_manager.mission_over:
+        vx = 0.0
+        vy = 0.0
+        target_poussee = 0.0
+
     world_x += vx
     world_y += vy
     
     # Update Missions
-    mission_manager.update(world_x, world_y, vx, vy)
+    mission_manager.update(world_x, world_y, vx, vy, dt)
     
     # Update ATC Radios
     if args.missions:
