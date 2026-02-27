@@ -1681,6 +1681,9 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
 
         # DESSIN PLAN DE VOL MINIMAP
         if len(flight_plan_waypoints) > 0:
+            # Activer le clipping pour ne pas déborder de la minimap
+            surface.set_clip(pygame.Rect(x_map, y_map, w_map, h_map))
+            
             pts_wp_minimap = []
             for wp_x, wp_alt in flight_plan_waypoints:
                 dist = wp_x - px_world
@@ -1707,7 +1710,10 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
             h_rel_player = min(h_map - s(20), alt * (0.02 * UI_SCALE))
             pygame.draw.line(surface, (200, 50, 200), (center_map_x, y_map+h_map-s(10) - h_rel_player), (mx_first, my_first), s(1))
             
-            # Afficher distance et cap sur HUD pour le premier WP
+            # Désactiver le clipping
+            surface.set_clip(None)
+            
+            # Afficher distance et cap sur HUD pour le premier WP (en dehors du clipping)
             dist_to_wp = abs(dist_first)
             lbl_wp = police_valeur.render(f"WP1: {dist_to_wp/1000.0:.1f}KM", True, (255, 100, 255))
             surface.blit(lbl_wp, (x_map, y_map - s(25)))
