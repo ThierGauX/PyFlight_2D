@@ -2533,8 +2533,15 @@ while True:
             aip.update(world_x, dt)
             aip.draw(fenetre, world_x, world_y, zoom)
             
-        ai_planes = [p for p in ai_planes if p.active]
-        
+    # Gestion Waypoints (Navigation Automatique)
+    # Si le joueur a un plan de vol et s'approche à moins de 2000 mètres du waypoint actuel
+    if len(flight_plan_waypoints) > 0:
+        wp_x, wp_alt = flight_plan_waypoints[0]
+        # Distance en 2D (approximative)
+        dist_wp = math.hypot(world_x - wp_x, altitude - wp_alt)
+        if dist_wp < 2000.0:
+            flight_plan_waypoints.pop(0) # Waypoint atteint, on passe au suivant
+            
     # MISE A JOUR HISTORIQUE
     history_timer += 1
     if history_timer > 60: # Tous les 60 ticks (env 1 fois par seconde à 60fps)
