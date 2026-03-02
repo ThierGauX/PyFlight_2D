@@ -21,7 +21,8 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en
 *   Cycle Jour/Nuit : Transition fluide en temps réel (Aube, Jour, Crépuscule, Nuit).
 *   Météo Volumétrique (Nuages 2D, brouillard, éclairage selon l'heure)
 *   **Océans Dynamiques** : Zones maritimes aux extrêmes de la carte avec des vagues animées.
-*   **Mode Missions** : Largage de cargo, parcours d'anneaux, atterrissage de précision.
+*   **Missions Ciblées** : Largage de cargo, parcours d'anneaux, atterrissage de précision.
+*   **Combat Aérien** : Le Chasseur est désormais armé de bombes (B) et de missiles (V) pour des destructions au sol ou en l'air.
 *   **Statistiques et Scores** : Suivi des meilleures performances, moyennes et médianes pour chaque mission.
     *   Nuages Géants : Couche nuageuse massive au-delà de 1500m.
     *   Brouillard au sol : Visibilité réduite selon l'altitude.
@@ -65,6 +66,8 @@ En activant le mode **CARRIÈRE & MISSIONS** depuis le menu de configuration, vo
 | **F** | **Volets (Flaps)** | Augmente la portance à basse vitesse. |
 | **G** | **Train d'Atterrissage** | À rentrer pour la vitesse, sortir pour la pose. |
 | **L** | **Lumières (Landing lights)** | Essentiel pour la navigation nocturne. |
+| **B** | **Largage Bombe** | Disponible uniquement avec l'avion Chasseur. |
+| **V** | **Tir Missile** | Disponible uniquement avec l'avion Chasseur. |
 | **C** | **Largage Cargo** | Disponible uniquement avec l'avion Cargo en mode Missions. |
 | **R** | **Ravitaillement** | Maintenir à l'arrêt sur une piste. |
 | **Molette** | **Zoom Caméra** | Vue d'ensemble ou cockpit serré. |

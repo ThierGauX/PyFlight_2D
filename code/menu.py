@@ -194,6 +194,7 @@ PyFlight 2D vous offre une simulation aéronautique exigeante :
 • Cycle Jour/Nuit, Météo Volumétrique & Océans Dynamiques
 • Cockpit Interactif (HUD / Instruments Analogiques)
 • Plan de Vol Interactif GPS (Touche 'M')
+• Combat (Nouveau !) : Larguez des bombes (B) et tirez des missiles (V) avec le Chasseur.
 
 Configurez votre appareil via les onglets à gauche, 
 puis cliquez sur LANCER LE VOL.
@@ -215,10 +216,10 @@ puis cliquez sur LANCER LE VOL.
         # Avion
         c_avion = self.card_frame(page, "CHOIX DE L'APPAREIL")
         def set_aircraft(val):
-            map_a = {"Cessna (Standard)": "cessna", "Chasseur (Rapide)": "fighter",  "Gros Porteur (Lourd)": "cargo", "Acrobatique (Voltige)": "acro"}
+            map_a = {"Cessna (Standard)": "cessna", "Chasseur (Armé)": "fighter",  "Gros Porteur (Lourd)": "cargo", "Acrobatique (Voltige)": "acro"}
             self.var_aircraft.set(map_a.get(val, "cessna"))
             
-        opt_avion = ctk.CTkOptionMenu(c_avion, values=["Cessna (Standard)", "Chasseur (Rapide)", "Gros Porteur (Lourd)", "Acrobatique (Voltige)"], 
+        opt_avion = ctk.CTkOptionMenu(c_avion, values=["Cessna (Standard)", "Chasseur (Armé)", "Gros Porteur (Lourd)", "Acrobatique (Voltige)"], 
                                       command=set_aircraft, width=300, height=40)
         opt_avion.pack(anchor="w", padx=15, pady=5)
         opt_avion.set("Cessna (Standard)")

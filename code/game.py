@@ -446,6 +446,8 @@ class Cloud:
 num_clouds = 40 if args.weather != "clouds" else 80
 clouds = [Cloud() for _ in range(num_clouds)]
 ai_planes = []
+bombs = []
+missiles = []
 
 class Bird:
     def __init__(self, x=0.0, y=0.0):
@@ -657,6 +659,74 @@ class AIPlane:
 
         r = s_plane_rot.get_rect(center=(px, py))
         surface.blit(s_plane_rot, r)
+
+class Bomb:
+    def __init__(self, x, y, vx, vy):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.active = True
+
+    def update(self):
+        if not self.active: return
+        self.x += self.vx
+        self.y += self.vy
+        self.vy += GRAVITE * 1.5 # Tombe plus vite que l'avion
+        
+        self.vx *= 0.99
+        self.vy *= 0.99
+        
+    def draw(self, surface, cam_x, cam_y, zoom):
+        if not self.active: return
+        px = (self.x - cam_x) * zoom + (L/2)
+        py = (self.y - cam_y) * zoom + (H/2)
+        pr = max(2, 4 * zoom)
+        if -pr < px < L+pr and -pr < py < H+pr:
+            pygame.draw.ellipse(surface, (40, 40, 40), (px-pr*2, py-pr, pr*4, pr*2))
+
+class Missile:
+    def __init__(self, x, y, vx, vy, angle):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.angle = angle
+        self.active = True
+        self.life = 150
+        
+    def update(self):
+        if not self.active: return
+        self.life -= 1
+        if self.life <= 0:
+            self.active = False
+            return
+            
+        thrust = 20.0
+        rad = math.radians(self.angle)
+        self.vx += math.cos(rad) * thrust
+        self.vy -= math.sin(rad) * thrust
+        
+        self.x += self.vx
+        self.y += self.vy
+        self.vx *= 0.98
+        self.vy *= 0.98
+        
+        if not args.no_particles:
+             explosions.append([self.x, self.y, random.uniform(-1,1), random.uniform(-1,1), 0.3, 0.3, (255, 150, 0)])
+
+    def draw(self, surface, cam_x, cam_y, zoom):
+        if not self.active: return
+        px = (self.x - cam_x) * zoom + (L/2)
+        py = (self.y - cam_y) * zoom + (H/2)
+        rad = math.radians(self.angle)
+        length = 25 * zoom
+        if -length < px < L+length and -length < py < H+length:
+            px1 = px - math.cos(rad) * length / 2
+            py1 = py + math.sin(rad) * length / 2
+            px2 = px + math.cos(rad) * length / 2
+            py2 = py - math.sin(rad) * length / 2
+            pygame.draw.line(surface, (200, 200, 200), (px1, py1), (px2, py2), max(1, int(3*zoom)))
 
 class MissionManager:
     def __init__(self):
@@ -1919,6 +1989,12 @@ while True:
                 mission_manager.start_landing_challenge(world_x)
             if event.key == pygame.K_c and mission_manager.active_mission == "cargo":
                 mission_manager.drop_cargo(world_x, world_y, vx, vy)
+                
+            if args.aircraft == "fighter":
+                if event.key == pygame.K_b:
+                    bombs.append(Bomb(world_x, world_y, vx, vy))
+                if event.key == pygame.K_v:
+                    missiles.append(Missile(world_x, world_y, vx, vy, angle))
 
             if moteur_allume:
                 if event.key == pygame.K_LSHIFT: # PLEIN GAZ
@@ -2272,6 +2348,33 @@ while True:
     world_x += vx
     world_y += vy
     
+    # Update Weapons
+    for b in bombs:
+        if not b.active: continue
+        b.update()
+        terrain_h = get_terrain_height(b.x)
+        if b.y >= -terrain_h:
+            b.active = False
+            spawn_explosion(b.x, b.y, b.vx, b.vy)
+            
+    for m in missiles:
+        if not m.active: continue
+        m.update()
+        terrain_h = get_terrain_height(m.x)
+        if m.y >= -terrain_h:
+            m.active = False
+            spawn_explosion(m.x, m.y, m.vx, m.vy)
+            continue
+            
+        for aip in ai_planes:
+            if aip.active:
+                dist = math.hypot(m.x - aip.x, m.y - aip.y)
+                if dist < 80:
+                    aip.active = False
+                    m.active = False
+                    spawn_explosion(aip.x, aip.y, aip.vx, aip.vy)
+                    break
+
     # Update Missions
     mission_manager.update(world_x, world_y, vx, vy, dt)
     
@@ -2405,6 +2508,8 @@ while True:
             # RESET COMPLET
             crashed = False
             position_history = [] # Efface la trajectoire après le crash
+            bombs.clear()
+            missiles.clear()
             world_x = 0
             world_y = 0
             vx, vy = 0, 0
@@ -2532,6 +2637,12 @@ while True:
         for aip in ai_planes:
             aip.update(world_x, dt)
             aip.draw(fenetre, world_x, world_y, zoom)
+            
+    # ARMES DRAW
+    for b in bombs:
+        b.draw(fenetre, world_x, world_y, zoom)
+    for m in missiles:
+        m.draw(fenetre, world_x, world_y, zoom)
             
     # Gestion Waypoints (Navigation Automatique)
     # Si le joueur a un plan de vol et s'approche à moins de 2000 mètres du waypoint actuel
