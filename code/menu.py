@@ -195,6 +195,7 @@ PyFlight 2D vous offre une simulation aéronautique exigeante :
 • Cockpit Interactif (HUD / Instruments Analogiques)
 • Plan de Vol Interactif GPS (Touche 'M')
 • Combat (Nouveau !) : Larguez des bombes (B) et tirez des missiles (V) avec le Chasseur.
+• Radio & Musique : Écoutez vos morceaux (K pour On/Off, N pour Suivant).
 
 Configurez votre appareil via les onglets à gauche, 
 puis cliquez sur LANCER LE VOL.

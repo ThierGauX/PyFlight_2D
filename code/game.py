@@ -792,6 +792,64 @@ class Missile:
             rect_rot = surf_rot.get_rect(center=(px, py))
             surface.blit(surf_rot, rect_rot)
 
+class MusicPlayer:
+    def __init__(self, musique_dir):
+        self.musique_dir = musique_dir
+        self.playlist = []
+        self.current_index = 0
+        self.active = False
+        self.volume = 0.5
+        
+        if os.path.exists(musique_dir):
+            for f in os.listdir(musique_dir):
+                if f.lower().endswith(('.mp3', '.wav', '.ogg')):
+                    self.playlist.append(f)
+        
+        self.playlist.sort()
+        
+    def toggle(self):
+        self.active = not self.active
+        if self.active:
+            if self.playlist:
+                self.play_current()
+        else:
+            pygame.mixer.music.stop()
+            
+    def play_current(self):
+        if not self.playlist: return
+        try:
+            p = os.path.join(self.musique_dir, self.playlist[self.current_index])
+            pygame.mixer.music.load(p)
+            pygame.mixer.music.set_volume(self.volume)
+            pygame.mixer.music.play()
+        except Exception as e:
+            print(f"Erreur Lecture Musique: {e}")
+            
+    def next(self):
+        if not self.playlist: return
+        self.current_index = (self.current_index + 1) % len(self.playlist)
+        if self.active:
+            self.play_current()
+            
+    def update(self):
+        # Auto-next at end of song
+        if self.active and not pygame.mixer.music.get_busy():
+            self.next()
+            
+    def get_current_title(self):
+        if not self.active or not self.playlist:
+            return "RADIO: OFF"
+        title = self.playlist[self.current_index]
+        # On enlève l'extension et on tronque si trop long
+        title = os.path.splitext(title)[0]
+        if len(title) > 25: title = title[:22] + "..."
+        return f"RADIO: {title.upper()}"
+
+# Initialisation du lecteur
+dossier_musique = os.path.join(dossier_son, "musique")
+music_player = MusicPlayer(dossier_musique)
+music_player.volume = args.volume
+
 class MissionManager:
     def __init__(self):
         self.active_mission = None # "rings", "landing", None
@@ -1967,6 +2025,10 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     lbl_ti = police_valeur.render(f"{int(heure_dec):02d}:{int((heure_dec%1)*60):02d}", True, HUD_VERT)
     surface.blit(lbl_ti, (L - s(80), y_map + s(20)))
 
+    # RADIO DISPLAY
+    lbl_radio = police_label.render(music_player.get_current_title(), True, (200, 200, 255))
+    surface.blit(lbl_radio, (s(20), H - s(230)))
+
 # --- INITIALISATION MISSIONS SPECIFIQUES ---
 if args.mission_type == "rings":
     mission_manager.start_rings_challenge(world_x)
@@ -2042,6 +2104,10 @@ while True:
                 lumiere_allume = not lumiere_allume
             if event.key == pygame.K_m: # TOGGLE LARGE MAP (Idée 46)
                 show_large_map = not show_large_map
+            if event.key == pygame.K_k: # TOGGLE RADIO
+                music_player.toggle()
+            if event.key == pygame.K_n: # NEXT SONG
+                music_player.next()
             if event.key == pygame.K_ESCAPE:
                 pygame.quit()
                 exit()

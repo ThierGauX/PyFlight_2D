@@ -69,6 +69,8 @@ En activant le mode **CARRIÈRE & MISSIONS** depuis le menu de configuration, vo
 | **B** | **Largage Bombe** | Disponible uniquement avec l'avion Chasseur. |
 | **V** | **Tir Missile** | Disponible uniquement avec l'avion Chasseur. |
 | **C** | **Largage Cargo** | Disponible uniquement avec l'avion Cargo en mode Missions. |
+| **K** | **Radio On/Off** | Touche de bascule pour la musique. |
+| **N** | **Musique Suivante** | Passe au morceau suivant dans la playlist. |
 | **R** | **Ravitaillement** | Maintenir à l'arrêt sur une piste. |
 | **Molette** | **Zoom Caméra** | Vue d'ensemble ou cockpit serré. |
 | **ECHAP** | **Quitter** | Ferme le jeu instantanément. |
