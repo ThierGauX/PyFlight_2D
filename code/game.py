@@ -89,34 +89,38 @@ AIRCRAFT_CONFIGS = {
     "cessna": {
         "mass": 1000.0,
         "thrust_max": 3000.0,
-        "drag_factor": 0.008,      # Matches 0.992 friction
-        "lift_factor": 0.1,        # Scaled x0.15 -> 0.0015
-        "fuel_rate": 0.005,        # Matches 0.005 burn
-        "rot_speed": 2.0           # Scaled x0.02 -> 0.04
+        "v_vne": 300,
+        "drag_factor": 0.008,
+        "lift_factor": 0.1,
+        "fuel_rate": 0.005,
+        "rot_speed": 2.0
     },
     "fighter": {
         "mass": 5000.0,
-        "thrust_max": 7500.0,      # ~2.5x thrust
-        "drag_factor": 0.004,      # Less drag (0.996)
-        "lift_factor": 0.07,       # Less lift/mass
-        "fuel_rate": 0.020,        # 4x fuel
-        "rot_speed": 3.0           # Agility
+        "thrust_max": 7500.0,
+        "v_vne": 1500,
+        "drag_factor": 0.004,
+        "lift_factor": 0.07,
+        "fuel_rate": 0.020,
+        "rot_speed": 3.0
     },
     "cargo": {
         "mass": 20000.0,
-        "thrust_max": 6000.0,      # 2x thrust but heavy
-        "drag_factor": 0.020,      # Draggy (0.98)
-        "lift_factor": 0.25,       # High lift
-        "fuel_rate": 0.015,        # 3x fuel
-        "rot_speed": 0.8           # Heavy controls
+        "thrust_max": 6000.0,
+        "v_vne": 500,
+        "drag_factor": 0.020,
+        "lift_factor": 0.25,
+        "fuel_rate": 0.015,
+        "rot_speed": 0.8
     },
     "acro": {
-        "mass": 800.0,             # Very light
-        "thrust_max": 4000.0,      # Lots of power relative to mass
-        "drag_factor": 0.010,      # Normal drag
-        "lift_factor": 0.15,       # High lift for sharp turns
-        "fuel_rate": 0.010,        # Moderate fuel
-        "rot_speed": 4.5           # Extremely fast rotation
+        "mass": 800.0,
+        "thrust_max": 4000.0,
+        "v_vne": 450,
+        "drag_factor": 0.010,
+        "lift_factor": 0.15,
+        "fuel_rate": 0.010,
+        "rot_speed": 4.5
     }
 }
 
@@ -864,7 +868,7 @@ class MenuBar:
             "ENVIR": ["METEO: CLAIR", "METEO: NUAGES", "METEO: BROUILLARD", "TEMPS: MIDI", "TEMPS: NUIT", "TEMPS: DYNAMIQUE", "TEMPS: REEL", "SAISON: ETE", "SAISON: AUTOMNE", "SAISON: HIVER", "SAISON: PRINTEMPS"],
             "AIDES": ["INVINCIBILITÉ", "FUEL ILLIMITÉ", "PAS DE DÉCROCHAGE", "SURCHAUFFE OFF", "POIDS STATIQUE"],
             "AFFICHAGE": ["HUD", "TABLEAU DE BORD", "NUAGES", "PARTICULES", "ATMOSPHÈRE", "TERRAIN", "FPS"],
-            "APPAREIL": ["RAVITAILLEMENT", "ARMES (Fighter Only)"],
+            "APPAREIL": ["CESSNA", "CARGO", "FIGHTER", "ACRO", "RAVITAILLEMENT"],
             "SCORES": ["AFFICHER STATS"]
         }
         
@@ -958,7 +962,10 @@ class MenuBar:
             if item == "FPS": args.show_fps = not args.show_fps
 
         elif cat == "APPAREIL":
-            if item == "RAVITAILLEMENT" and altitude < 5 and vitesse_kph < 10: fuel = 100.0
+            if item == "RAVITAILLEMENT":
+                if altitude < 5 and vitesse_kph < 10: fuel = 100.0
+            else:
+                switch_aircraft(item.lower())
             
         elif cat == "SCORES":
             if item == "AFFICHER STATS": self.show_stats_window = not self.show_stats_window
@@ -1045,9 +1052,10 @@ class MenuBar:
         stats = [
             f"Vitesse Max: {int(max_vitesse_session)} KPH",
             f"Altitude Max: {int(max_alt_session)} FT",
-            f"Distance Parcourue: {distance_totale_session/1000.0:.1f} KM",
+            f"Distance Parcourue: {distance_totale_session/1000.0:.2f} KM",
             f"Temps de vol: {int(temps_vol_session)//60}m {int(temps_vol_session)%60}s",
-            f"Score Actuel: {int(mission_manager.score)} PTS"
+            f"Consommation Est.: {int(distance_totale_session * current_ac['fuel_rate'] / 100)} L",
+            f"Score Mission: {int(mission_manager.score)} PTS"
         ]
         
         for i, txt in enumerate(stats):
@@ -1085,6 +1093,29 @@ def update_particles():
     particules = []
     for _ in range(nb_particules): 
         particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 2.0), random.randint(1, 3)])
+
+def switch_aircraft(name):
+    global current_ac, PUISSANCE_MOTEUR, FRICTION_AIR, ACCEL_ROTATION, COEFF_PORTANCE, V_DECOLLAGE, V_DECROCHAGE, V_VNE, args
+    if name in AIRCRAFT_CONFIGS:
+        args.aircraft = name
+        current_ac = AIRCRAFT_CONFIGS[name]
+        # Re-calcul dynamique des constantes physiques
+        PUISSANCE_MOTEUR = current_ac["thrust_max"] / 8500.0
+        FRICTION_AIR = 1.0 - current_ac["drag_factor"]
+        ACCEL_ROTATION = current_ac["rot_speed"] * 0.02
+        COEFF_PORTANCE = current_ac["lift_factor"] * 0.015
+        V_VNE = current_ac.get("v_vne", 300)
+        
+        # Ajustement des seuils de vitesse selon l'appareil
+        if name == "fighter":
+            V_DECOLLAGE, V_DECROCHAGE = 180, 150
+        elif name == "cargo":
+            V_DECOLLAGE, V_DECROCHAGE = 160, 130
+        else: # Cessna / Acro
+            V_DECOLLAGE, V_DECROCHAGE = 100, 85
+            
+        mission_manager.message = f"PASSAGE SUR : {name.upper()}"
+        mission_manager.timer_message = 180
 
 # Couleur primaire du thème pour le menu
 COL_PRIMARY_RGB = (37, 99, 235)
