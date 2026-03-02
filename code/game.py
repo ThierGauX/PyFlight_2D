@@ -2524,7 +2524,7 @@ while True:
     # --- STATISTIQUES DE SESSION ---
     max_vitesse_session = max(max_vitesse_session, vitesse_kph)
     max_alt_session = max(max_alt_session, altitude)
-    distance_totale_session += abs(vitesse_px) * dt
+    distance_totale_session += (vitesse_kph / 3.6) * dt
     temps_vol_session += dt
         
     if moteur_temp < 0: moteur_temp = 0
