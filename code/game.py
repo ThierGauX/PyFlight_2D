@@ -214,13 +214,15 @@ C_CIEL_JOUR_BAS = (135, 206, 235)
 C_CIEL_JOUR_HAUT = (10, 20, 40)
 C_CIEL_NUIT_BAS = (20, 20, 40)
 C_CIEL_NUIT_HAUT = (0, 0, 10)
-C_CIEL_COUCHER_BAS = (255, 100, 50)
-C_CIEL_COUCHER_HAUT = (50, 20, 40)
-
 C_SOL_JOUR_FONCE = (20, 60, 20)
 C_SOL_JOUR_CLAIR = (50, 120, 50)
 C_SOL_NUIT_FONCE = (5, 15, 5)
 C_SOL_NUIT_CLAIR = (10, 30, 10)
+
+C_CIEL_COUCHER_BAS = (255, 100, 50)
+C_CIEL_COUCHER_HAUT = (50, 20, 40)
+C_SOL_COUCHER_FONCE = (15, 30, 15)
+C_SOL_COUCHER_CLAIR = (25, 60, 25)
 
 # Variables globales de couleur (seront mises à jour)
 CIEL_HAUT = C_CIEL_JOUR_HAUT      
@@ -229,40 +231,13 @@ SOL_HERBE_BASE = (34, 100, 34)
 SOL_HERBE_FONCE = C_SOL_JOUR_FONCE
 SOL_HERBE_CLAIR = C_SOL_JOUR_CLAIR
 SOL_PISTE = (50, 50, 55)      
+C_SOL_PISTE_JOUR = (50, 50, 55)
+C_SOL_PISTE_NUIT = (10, 10, 15)
 SOL_MARQUAGE = (240, 240, 240)
+COLOR_TREE_LEAF = (20, 100, 20)
+COLOR_TREE_TRUNK = (100, 60, 20)
 
-# AJUSTEMENT SAISON
-# AJUSTEMENT SAISON
-# AJUSTEMENT SAISON
-if args.season == "snow":
-    # AMBIANCE HIVER (Neige avec un peu de vert)
-    SOL_HERBE_BASE = (200, 220, 210)    # Blanc verdatre
-    SOL_HERBE_FONCE = (150, 170, 160)   
-    SOL_HERBE_CLAIR = (230, 250, 240)   
-    SOL_PISTE = (140, 140, 150)         
-    
-    CIEL_BAS = (190, 200, 210)          
-    CIEL_HAUT = (100, 110, 130)         
 
-elif args.season in ["rain", "autumn"]:
-    # AMBIANCE AUTOMNE (Feuilles mortes / Pluie)
-    SOL_HERBE_BASE = (139, 69, 19)      # Saddle Brown
-    SOL_HERBE_FONCE = (101, 67, 33)     # Dark Brown
-    SOL_HERBE_CLAIR = (205, 133, 63)    # Peru (Orange/Brun)
-    SOL_PISTE = (60, 60, 65)            
-    
-    CIEL_BAS = (80, 90, 100)             
-    CIEL_HAUT = (30, 35, 45)            
-
-elif args.season == "spring":
-    # AMBIANCE PRINTEMPS (Jaune / Vert tendre)
-    SOL_HERBE_BASE = (154, 205, 50)     # Yellow Green
-    SOL_HERBE_FONCE = (85, 107, 47)     # Olive Drab
-    SOL_HERBE_CLAIR = (173, 255, 47)    # Green Yellow
-    
-    # Ciel clair mais doux
-    CIEL_BAS = (176, 224, 230)          
-    CIEL_HAUT = (70, 130, 180)
 
 
 # COULEURS COCKPIT
@@ -276,7 +251,7 @@ TXT_GRIS = (150, 150, 150)
 # Polices
 police_label = pygame.font.SysFont("arial", int(12 * UI_SCALE), bold=True)
 police_valeur = pygame.font.SysFont("consolas", int(22 * UI_SCALE), bold=True)
-police_alarme = pygame.font.SysFont("arial", int(40 * UI_SCALE), bold=True)
+police_alarme = pygame.font.SysFont("arial", int(28 * UI_SCALE), bold=True)
 
 # VARIABLES
 world_y = 0      
@@ -855,17 +830,17 @@ music_player.volume = args.volume
 
 class MenuBar:
     def __init__(self):
-        self.height = s(30)
+        self.height = s(24)
         self.visible = True
         self.active_menu = None
-        self.font = pygame.font.SysFont("arial", s(14), bold=True)
-        self.item_font = pygame.font.SysFont("arial", s(13))
+        self.font = pygame.font.SysFont("arial", s(11), bold=True)
+        self.item_font = pygame.font.SysFont("arial", s(10))
         
         # Structure des menus
         self.menus = {
             "FICHIER": ["RECOMMENCER", "QUITTER"],
             "AUDIO": ["RADIO ON/OFF", "MUSIQUE +", "MUSIQUE -", "BRUITAGES +", "BRUITAGES -"],
-            "ENVIR": ["METEO: CLAIR", "METEO: NUAGES", "METEO: BROUILLARD", "TEMPS: MIDI", "TEMPS: NUIT", "TEMPS: DYNAMIQUE", "TEMPS: REEL", "SAISON: ETE", "SAISON: AUTOMNE", "SAISON: HIVER", "SAISON: PRINTEMPS"],
+            "ENVIR": ["METEO: CLAIR", "METEO: NUAGES", "METEO: BROUILLARD", "TEMPS: MIDI", "TEMPS: NUIT", "TEMPS: DYNAMIQUE", "TEMPS: REEL", "SAISON: ETE", "SAISON: AUTOMNE", "SAISON: HIVER", "SAISON: PRINTEMPS", "SAISON: TEMPÊTE"],
             "AIDES": ["INVINCIBILITÉ", "FUEL ILLIMITÉ", "PAS DE DÉCROCHAGE", "SURCHAUFFE OFF", "POIDS STATIQUE"],
             "AFFICHAGE": ["HUD", "TABLEAU DE BORD", "NUAGES", "PARTICULES", "ATMOSPHÈRE", "TERRAIN", "FPS"],
             "APPAREIL": ["CESSNA", "CARGO", "FIGHTER", "ACRO", "RAVITAILLEMENT"],
@@ -914,7 +889,7 @@ class MenuBar:
 
     def execute_action(self, cat, item):
         global args, fuel, autopilot_active, show_minimap, show_large_map, mtemp, sfx_volume
-        global mode_temps_reel, mode_temps_dynamique, heure_actuelle, SOL_HERBE_BASE, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, CIEL_BAS, CIEL_HAUT, SOL_PISTE, nb_particules, particules
+        global mode_temps_reel, mode_temps_dynamique, heure_actuelle, offset_temps, SOL_HERBE_BASE, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, CIEL_BAS, CIEL_HAUT, SOL_PISTE, nb_particules, particules
         
         if cat == "FICHIER":
             if item == "RECOMMENCER": os.execl(sys.executable, sys.executable, *sys.argv)
@@ -933,16 +908,20 @@ class MenuBar:
                 
         elif cat == "ENVIR":
             if "METEO" in item:
-                args.weather = item.split(": ")[1].lower()
+                m_val = item.split(": ")[1]
+                m_map = {"CLAIR": "clear", "NUAGES": "clouds", "BROUILLARD": "fog"}
+                args.weather = m_map.get(m_val, "clear")
             elif "TEMPS" in item:
                 t = item.split(": ")[1]
                 mode_temps_reel = (t == "REEL")
                 mode_temps_dynamique = (t == "DYNAMIQUE")
-                if t == "MIDI": heure_actuelle = 12.0
-                if t == "NUIT": heure_actuelle = 0.0
+                if t == "MIDI": offset_temps = 12.0
+                if t == "NUIT": offset_temps = 0.0
             elif "SAISON" in item:
-                args.season = item.split(": ")[1].lower()
-                # Appliquer les couleurs de saison (copie simplifiée de la logique initiale)
+                s_val = item.split(": ")[1]
+                mapping = {"ETE": "summer", "AUTOMNE": "autumn", "HIVER": "snow", "PRINTEMPS": "spring", "TEMPÊTE": "wind"}
+                args.season = mapping.get(s_val, "summer")
+                # Appliquer les couleurs de saison
                 update_season_visuals()
 
         elif cat == "AIDES":
@@ -1017,7 +996,7 @@ class MenuBar:
             
             # Ajout d'une coche pour les toggles (approximation)
             prefix = ""
-            if cat == "AIDES" or cat == "AFFICHAGE":
+            if cat in ["AIDES", "AFFICHAGE", "ENVIR"]:
                 if self.is_option_active(item): prefix = "[x] "
                 else: prefix = "[ ] "
                 
@@ -1038,6 +1017,21 @@ class MenuBar:
         if item == "ATMOSPHÈRE": return not args.no_atmo
         if item == "TERRAIN": return not args.no_terrain
         if item == "FPS": return args.show_fps
+        # Toggles Saison
+        if "SAISON: " in item:
+            s_map = {"ETE": "summer", "AUTOMNE": "autumn", "HIVER": "snow", "PRINTEMPS": "spring", "TEMPÊTE": "wind"}
+            return args.season == s_map.get(item.split(": ")[1], "")
+        # Toggles Temps
+        if "TEMPS: " in item:
+            t_val = item.split(": ")[1]
+            if t_val == "REEL": return mode_temps_reel
+            if t_val == "DYNAMIQUE": return mode_temps_dynamique
+            if t_val == "MIDI": return not mode_temps_reel and not mode_temps_dynamique and offset_temps == 12.0
+            if t_val == "NUIT": return not mode_temps_reel and not mode_temps_dynamique and offset_temps == 0.0
+        # Toggles Meteo
+        if "METEO: " in item:
+            m_map = {"CLAIR": "clear", "NUAGES": "clouds", "BROUILLARD": "fog"}
+            return args.weather == m_map.get(item.split(": ")[1], "")
         return False
 
     def draw_stats_popup(self, surface):
@@ -1072,19 +1066,69 @@ def update_sfx_volume():
 
 def update_season_visuals():
     global SOL_HERBE_BASE, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, SOL_PISTE, CIEL_BAS, CIEL_HAUT
-    # On ré-exécute la logique de game.py (lignes 230+)
+    global C_SOL_JOUR_FONCE, C_SOL_JOUR_CLAIR, C_CIEL_JOUR_BAS, C_CIEL_JOUR_HAUT
+    global C_SOL_NUIT_FONCE, C_SOL_NUIT_CLAIR, C_SOL_PISTE_JOUR, C_SOL_PISTE_NUIT
+    global C_CIEL_NUIT_BAS, C_CIEL_NUIT_HAUT, C_CIEL_COUCHER_BAS, C_CIEL_COUCHER_HAUT
+    global C_SOL_COUCHER_FONCE, C_SOL_COUCHER_CLAIR
+    global COLOR_TREE_LEAF, COLOR_TREE_TRUNK
+    
     if args.season == "snow":
-        SOL_HERBE_BASE = (200, 220, 210); SOL_HERBE_FONCE = (150, 170, 160); SOL_HERBE_CLAIR = (230, 250, 240); SOL_PISTE = (140, 140, 150)
-        CIEL_BAS = (190, 200, 210); CIEL_HAUT = (100, 110, 130)
+        # AMBIANCE HIVER
+        C_SOL_JOUR_FONCE = (150, 170, 160); C_SOL_JOUR_CLAIR = (230, 250, 240)
+        C_SOL_NUIT_FONCE = (40, 50, 45); C_SOL_NUIT_CLAIR = (60, 70, 65)
+        C_SOL_PISTE_JOUR = (140, 140, 150); C_SOL_PISTE_NUIT = (40, 40, 45)
+        C_CIEL_JOUR_BAS = (190, 200, 210); C_CIEL_JOUR_HAUT = (100, 110, 130)
+        C_CIEL_NUIT_BAS = (30, 35, 50); C_CIEL_NUIT_HAUT = (10, 15, 25)
+        C_CIEL_COUCHER_BAS = (200, 150, 180); C_CIEL_COUCHER_HAUT = (60, 50, 80)
+        C_SOL_COUCHER_FONCE = (80, 90, 100); C_SOL_COUCHER_CLAIR = (120, 130, 150)
+        COLOR_TREE_LEAF = (200, 220, 210); COLOR_TREE_TRUNK = (60, 40, 20)
     elif args.season in ["rain", "autumn"]:
-        SOL_HERBE_BASE = (139, 69, 19); SOL_HERBE_FONCE = (101, 67, 33); SOL_HERBE_CLAIR = (205, 133, 63); SOL_PISTE = (60, 60, 65)
-        CIEL_BAS = (80, 90, 100); CIEL_HAUT = (30, 35, 45)
+        # AMBIANCE AUTOMNE
+        C_SOL_JOUR_FONCE = (101, 67, 33); C_SOL_JOUR_CLAIR = (205, 133, 63)
+        C_SOL_NUIT_FONCE = (15, 10, 5); C_SOL_NUIT_CLAIR = (25, 20, 10)
+        C_SOL_PISTE_JOUR = (60, 60, 65); C_SOL_PISTE_NUIT = (15, 15, 20)
+        C_CIEL_JOUR_BAS = (80, 90, 100); C_CIEL_JOUR_HAUT = (30, 35, 45)
+        C_CIEL_NUIT_BAS = (15, 15, 25); C_CIEL_NUIT_HAUT = (5, 5, 10)
+        C_CIEL_COUCHER_BAS = (180, 80, 40); C_CIEL_COUCHER_HAUT = (40, 20, 20)
+        C_SOL_COUCHER_FONCE = (40, 30, 15); C_SOL_COUCHER_CLAIR = (60, 45, 25)
+        COLOR_TREE_LEAF = (139, 69, 19); COLOR_TREE_TRUNK = (80, 50, 20)
     elif args.season == "spring":
-        SOL_HERBE_BASE = (154, 205, 50); SOL_HERBE_FONCE = (85, 107, 47); SOL_HERBE_CLAIR = (173, 255, 47)
-        CIEL_BAS = (176, 224, 230); CIEL_HAUT = (70, 130, 180)
+        # AMBIANCE PRINTEMPS
+        C_SOL_JOUR_FONCE = (85, 107, 47); C_SOL_JOUR_CLAIR = (173, 255, 47)
+        C_SOL_NUIT_FONCE = (10, 15, 5); C_SOL_NUIT_CLAIR = (20, 30, 10)
+        C_SOL_PISTE_JOUR = (50, 50, 55); C_SOL_PISTE_NUIT = (10, 10, 15)
+        C_CIEL_JOUR_BAS = (176, 224, 230); C_CIEL_JOUR_HAUT = (70, 130, 180)
+        C_CIEL_NUIT_BAS = (15, 25, 30); C_CIEL_NUIT_HAUT = (5, 10, 15)
+        C_CIEL_COUCHER_BAS = (255, 180, 100); C_CIEL_COUCHER_HAUT = (100, 80, 120)
+        C_SOL_COUCHER_FONCE = (30, 40, 20); C_SOL_COUCHER_CLAIR = (50, 70, 30)
+        COLOR_TREE_LEAF = (34, 139, 34); COLOR_TREE_TRUNK = (100, 60, 20)
+    elif args.season == "wind":
+        # AMBIANCE TEMPÊTE
+        C_SOL_JOUR_FONCE = (40, 45, 40); C_SOL_JOUR_CLAIR = (60, 70, 60)
+        C_SOL_NUIT_FONCE = (5, 8, 5); C_SOL_NUIT_CLAIR = (10, 15, 10)
+        C_SOL_PISTE_JOUR = (40, 45, 50); C_SOL_PISTE_NUIT = (5, 5, 8)
+        C_CIEL_JOUR_BAS = (100, 110, 120); C_CIEL_JOUR_HAUT = (40, 45, 50)
+        C_CIEL_NUIT_BAS = (10, 10, 15); C_CIEL_NUIT_HAUT = (2, 2, 5)
+        C_CIEL_COUCHER_BAS = (80, 70, 80); C_CIEL_COUCHER_HAUT = (20, 20, 25)
+        C_SOL_COUCHER_FONCE = (15, 15, 15); C_SOL_COUCHER_CLAIR = (25, 25, 25)
+        COLOR_TREE_LEAF = (60, 70, 60); COLOR_TREE_TRUNK = (50, 30, 10)
     else: # Summer
-        SOL_HERBE_BASE = (34, 100, 34); SOL_HERBE_FONCE = (20, 60, 20); SOL_HERBE_CLAIR = (50, 120, 50); SOL_PISTE = (50, 50, 55)
-        CIEL_BAS = (135, 206, 235); CIEL_HAUT = (10, 20, 40)
+        C_SOL_JOUR_FONCE = (20, 60, 20); C_SOL_JOUR_CLAIR = (50, 120, 50)
+        C_SOL_NUIT_FONCE = (5, 15, 5); C_SOL_NUIT_CLAIR = (10, 30, 10)
+        C_SOL_PISTE_JOUR = (50, 50, 55); C_SOL_PISTE_NUIT = (10, 10, 15)
+        C_CIEL_JOUR_BAS = (135, 206, 235); C_CIEL_JOUR_HAUT = (10, 20, 40)
+        C_CIEL_NUIT_BAS = (20, 20, 40); C_CIEL_NUIT_HAUT = (0, 0, 10)
+        C_CIEL_COUCHER_BAS = (255, 100, 50); C_CIEL_COUCHER_HAUT = (50, 20, 40)
+        C_SOL_COUCHER_FONCE = (15, 30, 15); C_SOL_COUCHER_CLAIR = (25, 60, 25)
+        COLOR_TREE_LEAF = (20, 100, 20); COLOR_TREE_TRUNK = (100, 60, 20)
+    
+    # Update immediate background colors
+    SOL_HERBE_FONCE = C_SOL_JOUR_FONCE; SOL_HERBE_CLAIR = C_SOL_JOUR_CLAIR
+    SOL_HERBE_BASE = lerp_color(SOL_HERBE_FONCE, SOL_HERBE_CLAIR, 0.5)
+    SOL_PISTE = C_SOL_PISTE_JOUR
+    CIEL_BAS = C_CIEL_JOUR_BAS; CIEL_HAUT = C_CIEL_JOUR_HAUT
+    
+    update_particles()
 
 def update_particles():
     global nb_particules, particules
@@ -1396,20 +1440,20 @@ class MissionManager:
         # Draw score and time for Missions
         if self.score > 0 and args.missions:
             lbl_score = police_alarme.render(f"SCORE: {self.score}", True, (255, 215, 0))
-            # Alignement en haut à droite pour éviter de déborder
-            surface.blit(lbl_score, lbl_score.get_rect(topright=(L - 20, 20)))
+            # Positionné sous la barre de menu
+            surface.blit(lbl_score, lbl_score.get_rect(topright=(L - 20, s(35))))
             
         # Draw Timer
         if self.time_left > 0:
             m = int(self.time_left) // 60
             s = int(self.time_left) % 60
             lbl_time = police_alarme.render(f"TEMPS RESTANT: {m:02d}:{s:02d}", True, (255, 0, 0) if self.time_left < 30 else (255, 215, 0))
-            surface.blit(lbl_time, lbl_time.get_rect(midtop=(L//2, 20)))
+            surface.blit(lbl_time, lbl_time.get_rect(midtop=(L//2, s(35))))
         elif self.active_mission == "landing" and not self.mission_over:
             m = int(self.stopwatch_time) // 60
             s = int(self.stopwatch_time) % 60
             lbl_time = police_alarme.render(f"CHRONO: {m:02d}:{s:02d}", True, (255, 255, 255))
-            surface.blit(lbl_time, lbl_time.get_rect(midtop=(L//2, 20)))
+            surface.blit(lbl_time, lbl_time.get_rect(midtop=(L//2, s(35))))
             
         # Draw Game Over Text
         if self.mission_over:
@@ -1467,7 +1511,7 @@ class Airport:
                 surface.blit(img_scaled, (img_x, img_y))
 
         # 1. Bitume renforcé (bordures plus claires, centre foncé)
-        pygame.draw.rect(surface, (60, 65, 70), (px, py, pw, ph)) # Piste
+        pygame.draw.rect(surface, SOL_PISTE, (px, py, pw, ph)) # Piste
         pygame.draw.rect(surface, (150, 150, 150), (px, py, pw, ph), max(1, int(2*zoom))) # Contour béton
         
         # Bandes Seuils (Piano keys) - Plus réalistes
@@ -1667,7 +1711,7 @@ def lerp_color(c1, c2, t):
     )
 
 def mettre_a_jour_couleurs(heure):
-    global CIEL_BAS, CIEL_HAUT, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, SOL_HERBE_BASE, est_nuit
+    global CIEL_BAS, CIEL_HAUT, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, SOL_HERBE_BASE, SOL_PISTE, est_nuit
     
     # Cycle 24h
     # 00-06h: Nuit
@@ -1683,6 +1727,7 @@ def mettre_a_jour_couleurs(heure):
         CIEL_HAUT = lerp_color(C_CIEL_NUIT_HAUT, C_CIEL_JOUR_HAUT, ratio)
         SOL_HERBE_FONCE = lerp_color(C_SOL_NUIT_FONCE, C_SOL_JOUR_FONCE, ratio)
         SOL_HERBE_CLAIR = lerp_color(C_SOL_NUIT_CLAIR, C_SOL_JOUR_CLAIR, ratio)
+        SOL_PISTE = lerp_color(C_SOL_PISTE_NUIT, C_SOL_PISTE_JOUR, ratio)
         
     elif 8 <= heure < 18: # PLEIN JOUR
         est_nuit = False
@@ -1690,30 +1735,33 @@ def mettre_a_jour_couleurs(heure):
         CIEL_HAUT = C_CIEL_JOUR_HAUT
         SOL_HERBE_FONCE = C_SOL_JOUR_FONCE
         SOL_HERBE_CLAIR = C_SOL_JOUR_CLAIR
+        SOL_PISTE = C_SOL_PISTE_JOUR
         
-    elif 18 <= heure < 20: # CRÉPUSCULE
+    elif 18 <= heure < 19: # CRÉPUSCULE (JOUR -> COUCHER)
         est_nuit = False
-        # 18h-19h: Orange
-        # 19h-20h: Nuit
-        if heure < 19:
-            ratio = (heure - 18)
-            CIEL_BAS = lerp_color(C_CIEL_JOUR_BAS, C_CIEL_COUCHER_BAS, ratio)
-            CIEL_HAUT = lerp_color(C_CIEL_JOUR_HAUT, C_CIEL_COUCHER_HAUT, ratio)
-            SOL_HERBE_FONCE = lerp_color(C_SOL_JOUR_FONCE, C_SOL_NUIT_FONCE, ratio * 0.5)
-            SOL_HERBE_CLAIR = lerp_color(C_SOL_JOUR_CLAIR, C_SOL_NUIT_CLAIR, ratio * 0.5)
-        else:
-            ratio = (heure - 19)
-            CIEL_BAS = lerp_color(C_CIEL_COUCHER_BAS, C_CIEL_NUIT_BAS, ratio)
-            CIEL_HAUT = lerp_color(C_CIEL_COUCHER_HAUT, C_CIEL_NUIT_HAUT, ratio)
-            SOL_HERBE_FONCE = lerp_color(C_SOL_JOUR_FONCE, C_SOL_NUIT_FONCE, 0.5 + ratio * 0.5)
-            SOL_HERBE_CLAIR = lerp_color(C_SOL_JOUR_CLAIR, C_SOL_NUIT_CLAIR, 0.5 + ratio * 0.5)
+        ratio = (heure - 18)
+        CIEL_BAS = lerp_color(C_CIEL_JOUR_BAS, C_CIEL_COUCHER_BAS, ratio)
+        CIEL_HAUT = lerp_color(C_CIEL_JOUR_HAUT, C_CIEL_COUCHER_HAUT, ratio)
+        SOL_HERBE_FONCE = lerp_color(C_SOL_JOUR_FONCE, C_SOL_COUCHER_FONCE, ratio)
+        SOL_HERBE_CLAIR = lerp_color(C_SOL_JOUR_CLAIR, C_SOL_COUCHER_CLAIR, ratio)
+        SOL_PISTE = lerp_color(C_SOL_PISTE_JOUR, C_SOL_PISTE_NUIT, ratio * 0.5)
+        
+    elif 19 <= heure < 20: # CRÉPUSCULE (COUCHER -> NUIT)
+        est_nuit = False
+        ratio = (heure - 19)
+        CIEL_BAS = lerp_color(C_CIEL_COUCHER_BAS, C_CIEL_NUIT_BAS, ratio)
+        CIEL_HAUT = lerp_color(C_CIEL_COUCHER_HAUT, C_CIEL_NUIT_HAUT, ratio)
+        SOL_HERBE_FONCE = lerp_color(C_SOL_COUCHER_FONCE, C_SOL_NUIT_FONCE, ratio)
+        SOL_HERBE_CLAIR = lerp_color(C_SOL_COUCHER_CLAIR, C_SOL_NUIT_CLAIR, ratio)
+        SOL_PISTE = lerp_color(C_SOL_PISTE_JOUR, C_SOL_PISTE_NUIT, 0.5 + ratio * 0.5)
             
-    else: # NUIT
+    else: # NUIT (20h-06h)
         est_nuit = True
         CIEL_BAS = C_CIEL_NUIT_BAS
         CIEL_HAUT = C_CIEL_NUIT_HAUT
         SOL_HERBE_FONCE = C_SOL_NUIT_FONCE
         SOL_HERBE_CLAIR = C_SOL_NUIT_CLAIR
+        SOL_PISTE = C_SOL_PISTE_NUIT
         
     SOL_HERBE_BASE = lerp_color(SOL_HERBE_FONCE, SOL_HERBE_CLAIR, 0.5)
 
@@ -2325,6 +2373,9 @@ zoom_cible = 0.5
 show_minimap = True # Minimap toujours affichée
 show_large_map = False # Idée 46: Toggle carte interactive avec M
 flight_plan_waypoints = [] # Liste de points géographiques (x, y) pour le plan de vol
+
+# Initialisation des couleurs selon la saison
+update_season_visuals()
 
 while True:
     dt = horloge.tick(60) / 1000.0 
@@ -3266,11 +3317,11 @@ while True:
                              if zoom > 0.2: # Arbres invisibles de très haut
                                 tronc_w = 4 * zoom
                                 tronc_h = 10 * zoom
-                                pygame.draw.rect(fenetre, (100, 60, 20), (px + pw/2 - tronc_w/2, py, tronc_w, tronc_h))
+                                pygame.draw.rect(fenetre, COLOR_TREE_TRUNK, (px + pw/2 - tronc_w/2, py, tronc_w, tronc_h))
                                 p1 = (px + pw/2, py - 20*zoom)
                                 p2 = (px + pw/2 - 15*zoom, py)
                                 p3 = (px + pw/2 + 15*zoom, py)
-                                pygame.draw.polygon(fenetre, (20, 100, 20), [p1, p2, p3])
+                                pygame.draw.polygon(fenetre, COLOR_TREE_LEAF, [p1, p2, p3])
                         else:
                             pygame.draw.rect(fenetre, couleur_p, (px, py, pw, ph))
 
