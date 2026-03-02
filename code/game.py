@@ -865,6 +865,19 @@ class MenuBar:
         if event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = event.pos
             
+            # Gestion de la fermeture de la fenêtre Stats
+            if self.show_stats_window:
+                w_pop, h_pop = s(400), s(300)
+                x_pop, y_pop = (L - w_pop) // 2, (H - h_pop) // 2
+                pop_rect = pygame.Rect(x_pop, y_pop, w_pop, h_pop)
+                
+                # Zone du bouton fermer (approximative en bas à droite)
+                close_rect = pygame.Rect(x_pop + w_pop - s(120), y_pop + h_pop - s(50), s(110), s(40))
+                
+                if close_rect.collidepoint(mx, my) or not pop_rect.collidepoint(mx, my):
+                    self.show_stats_window = False
+                return True # Bloquer les clics si la fenêtre est ouverte
+            
             # Clic sur une catégorie
             for i, rect in enumerate(self.cat_rects):
                 if rect.collidepoint(mx, my):

@@ -23,7 +23,7 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en
 *   **Océans Dynamiques** : Zones maritimes aux extrêmes de la carte avec des vagues animées.
 *   **Missions Ciblées** : Largage de cargo, parcours d'anneaux, atterrissage de précision.
 *   **Combat Aérien** : Le Chasseur est désormais armé de bombes (B) et de missiles (V) pour des destructions au sol ou en l'air.
-*   **Statistiques et Scores** : Suivi des meilleures performances, moyennes et médianes pour chaque mission.
+*   **Statistiques et Scores** : Suivi des meilleures performances (fenêtre refermable via bouton ou clic extérieur).
     *   Nuages Géants : Couche nuageuse massive au-delà de 1500m.
     *   Brouillard au sol : Visibilité réduite selon l'altitude.
     *   Saisons : Printemps, Été, Automne (pluie), Hiver (neige), Tempête (gris).
