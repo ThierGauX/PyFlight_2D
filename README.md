@@ -97,6 +97,8 @@ Consultez le fichier `idees amelioration.txt` pour découvrir 50 idées d'évolu
 
 **Jules** : Design visuel et direction artistique, création des sprites haute résolution (avions, décors), conception de l'interface utilisateur (UI/UX) et intégration des effets visuels dynamiques (particules de fumée, reflets, animations météo).
 
+**Armand** : Designer Goatsque
+
 
 ## Licence
 Ce projet est sous licence MIT.
