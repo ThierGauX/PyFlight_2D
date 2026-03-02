@@ -1121,10 +1121,25 @@ def get_terrain_height(x):
     h *= args.terrain_intensity
     
     # Aplatir pour les Océans
+    beach_factor = 1.0
     for (ox_start, ox_end) in OCEAN_ZONES:
         if ox_start <= x <= ox_end:
             return 0.0 # Parfaitement plat pour l'eau
             
+        # Pente douce (plage) sur 4000m avant l'eau
+        if x < ox_start:
+            dist = ox_start - x
+            if dist < 4000:
+                f = dist / 4000.0
+                beach_factor = min(beach_factor, f * f)
+        elif x > ox_end:
+            dist = x - ox_end
+            if dist < 4000:
+                f = dist / 4000.0
+                beach_factor = min(beach_factor, f * f)
+                
+    h *= beach_factor
+
     # Aplatir uniquement pour la piste
     for piste_data in RUNWAYS:
         if isinstance(piste_data, tuple):
@@ -1574,16 +1589,30 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
         points_map_relief.append((x_map + w_map, y_map+h_map-s(10)))
         pygame.draw.polygon(surface, (20, 50, 20), points_map_relief)
         
-        # Océans sur minimap
+        # Plages et Océans sur minimap
         for (ox_start, ox_end) in OCEAN_ZONES:
+            # Plage Ouest
+            dist_b1_start = (ox_start - 4000) - px_world
+            mx_b1_start = center_map_x + (dist_b1_start * px_per_m)
+            mw_b1 = 4000 * px_per_m
+            if mx_b1_start + mw_b1 > x_map and mx_b1_start < x_map + w_map:
+                pygame.draw.rect(surface, (220, 200, 140), (mx_b1_start, y_map + h_map - s(10), mw_b1, s(10)))
+                
+            # Océan
             dist_o_start = ox_start - px_world
-            dist_o_end = ox_end - px_world
             mx_o_start = center_map_x + (dist_o_start * px_per_m)
             mw_o = (ox_end - ox_start) * px_per_m
             
             # Seulement si dans la zone visible
             if mx_o_start + mw_o > x_map and mx_o_start < x_map + w_map:
                 pygame.draw.rect(surface, (30, 130, 200), (mx_o_start, y_map + h_map - s(10), mw_o, s(10)))
+                
+            # Plage Est
+            dist_b2_start = ox_end - px_world
+            mx_b2_start = center_map_x + (dist_b2_start * px_per_m)
+            mw_b2 = 4000 * px_per_m
+            if mx_b2_start + mw_b2 > x_map and mx_b2_start < x_map + w_map:
+                pygame.draw.rect(surface, (220, 200, 140), (mx_b2_start, y_map + h_map - s(10), mw_b2, s(10)))
     
         # Dessin Historique Visuel (Ligne de vol)
         px_per_m = w_map / (20000 * 2) 
@@ -2544,6 +2573,45 @@ while True:
             
             pygame.draw.polygon(fenetre, SOL_HERBE_BASE, points_relief)
             
+            # --- DESSIN DES PLAGES (Transition Terre->Mer) ---
+            C_SABLE = (220, 200, 140)
+            for (ox_start, ox_end) in OCEAN_ZONES:
+                # Plage côte Ouest
+                beach1_start = ox_start - 4000
+                beach1_end = ox_start + 100 # Un peu dans l'eau
+                v1_s = (beach1_start - world_x) * zoom + L/2 + offset_shake_x
+                v1_e = (beach1_end - world_x) * zoom + L/2 + offset_shake_x
+                
+                if v1_e > -100 and v1_s < L + 100:
+                    pts_sable = [(max(-100, v1_s), H)]
+                    for cx in range(int(max(-100, v1_s)), int(min(L + 200, v1_e)), step_x):
+                        wx = (cx - L/2 - offset_shake_x) / zoom + world_x
+                        ty = get_terrain_height(wx)
+                        cy = (-ty - world_y) * zoom + (H // 2) + offset_shake_y
+                        pts_sable.append((cx, cy))
+                    pts_sable.append((min(L+200, v1_e), pts_sable[-1][1] if len(pts_sable)>1 else H))
+                    pts_sable.append((min(L+200, v1_e), H))
+                    if len(pts_sable) > 3:
+                        pygame.draw.polygon(fenetre, C_SABLE, pts_sable)
+                        
+                # Plage côte Est
+                beach2_start = ox_end - 100
+                beach2_end = ox_end + 4000
+                v2_s = (beach2_start - world_x) * zoom + L/2 + offset_shake_x
+                v2_e = (beach2_end - world_x) * zoom + L/2 + offset_shake_x
+                
+                if v2_e > -100 and v2_s < L + 100:
+                    pts_sable2 = [(max(-100, v2_s), H)]
+                    for cx in range(int(max(-100, v2_s)), int(min(L + 200, v2_e)), step_x):
+                        wx = (cx - L/2 - offset_shake_x) / zoom + world_x
+                        ty = get_terrain_height(wx)
+                        cy = (-ty - world_y) * zoom + (H // 2) + offset_shake_y
+                        pts_sable2.append((cx, cy))
+                    pts_sable2.append((min(L+200, v2_e), pts_sable2[-1][1] if len(pts_sable2)>1 else H))
+                    pts_sable2.append((min(L+200, v2_e), H))
+                    if len(pts_sable2) > 3:
+                        pygame.draw.polygon(fenetre, C_SABLE, pts_sable2)
+                        
             # --- DESSINS OCEANS DYNAMIQUES ---
             for (ox_start, ox_end) in OCEAN_ZONES:
                 # Vérifier si l'océan est visible à l'écran
@@ -2843,11 +2911,22 @@ while True:
                 
             pygame.draw.rect(fenetre, (180, 180, 180), (map_x(pt_x), map_y(0) - s(4), (pt_w / X_RANGE) * w_lmap, s(8)))
             
-        # Océans Grande Carte
+        # Plages et Océans Grande Carte
         for (ox_start, ox_end) in OCEAN_ZONES:
+            # Plage Ouest
+            b1_map = map_x(ox_start - 4000)
+            b1_w = (4000) / X_RANGE * w_lmap
+            pygame.draw.rect(fenetre, (220, 200, 140), (b1_map, map_y(0), b1_w, h_lmap - (map_y(0) - y_lmap)))
+            
+            # Océan
             ox_map = map_x(ox_start)
             ow_map = (ox_end - ox_start) / X_RANGE * w_lmap
             pygame.draw.rect(fenetre, (30, 130, 200), (ox_map, map_y(0), ow_map, h_lmap - (map_y(0) - y_lmap)))
+            
+            # Plage Est
+            b2_map = map_x(ox_end)
+            b2_w = (4000) / X_RANGE * w_lmap
+            pygame.draw.rect(fenetre, (220, 200, 140), (b2_map, map_y(0), b2_w, h_lmap - (map_y(0) - y_lmap)))
             
         # Joueur
         px_map = map_x(world_x)
