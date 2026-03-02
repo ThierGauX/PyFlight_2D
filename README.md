@@ -1,6 +1,6 @@
 # PyFlight 2D - Simulateur de Vol Pro
 
-Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en Python. Alliant physique aérodynamique, rendu haute résolution et systèmes météo dynamiques, il offre une expérience de pilotage immersive et personnalisable.
+Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet (Terrain étendu) développé en Python. Alliant physique aérodynamique, rendu haute résolution et systèmes météo dynamiques, il offre une expérience de pilotage immersive et personnalisable.
 
 ---
 
@@ -20,7 +20,7 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet développé en
 ### Monde Dynamique & Météo
 *   Cycle Jour/Nuit : Transition fluide en temps réel (Aube, Jour, Crépuscule, Nuit).
 *   Météo Volumétrique (Nuages 2D, brouillard, éclairage selon l'heure)
-*   **Océans Dynamiques** : Zones maritimes aux extrêmes de la carte avec des vagues animées.
+*   **Océans Dynamiques** : Zones maritimes aux extrêmes de la carte (éloignés du spawn pour plus de terre ferme) avec des vagues animées.
 *   **Missions Ciblées** : Largage de cargo, parcours d'anneaux, atterrissage de précision.
 *   **Combat Aérien** : Le Chasseur est désormais armé de bombes (B) et de missiles (V) pour des destructions au sol ou en l'air.
 *   **Statistiques et Scores** : Suivi des meilleures performances (fenêtre refermable via bouton ou clic extérieur).

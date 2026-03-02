@@ -1610,9 +1610,8 @@ for i in range(-2, 3):
 
 # ZONES MARITIMES (Ocean et Lacs)
 OCEAN_ZONES = [
-    (-150000, -50000), # Océan Ouest
-    (-7500, -2000),    # Lac proche du spawn (5.5km)
-    (100000, 150000)   # Océan Est
+    (-450000, -350000), # Océan Ouest (poussé très loin)
+    (100000, 150000)    # Océan Est
 ]
 
 # --- SYSTEMES AVION (Carburant, Dégâts) ---
