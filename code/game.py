@@ -845,10 +845,257 @@ class MusicPlayer:
         if len(title) > 25: title = title[:22] + "..."
         return f"RADIO: {title.upper()}"
 
-# Initialisation du lecteur
 dossier_musique = os.path.join(dossier_son, "musique")
 music_player = MusicPlayer(dossier_musique)
 music_player.volume = args.volume
+
+class MenuBar:
+    def __init__(self):
+        self.height = s(30)
+        self.visible = True
+        self.active_menu = None
+        self.font = pygame.font.SysFont("arial", s(14), bold=True)
+        self.item_font = pygame.font.SysFont("arial", s(13))
+        
+        # Structure des menus
+        self.menus = {
+            "FICHIER": ["RECOMMENCER", "QUITTER"],
+            "AUDIO": ["RADIO ON/OFF", "MUSIQUE +", "MUSIQUE -", "BRUITAGES +", "BRUITAGES -"],
+            "ENVIR": ["METEO: CLAIR", "METEO: NUAGES", "METEO: BROUILLARD", "TEMPS: MIDI", "TEMPS: NUIT", "TEMPS: DYNAMIQUE", "TEMPS: REEL", "SAISON: ETE", "SAISON: AUTOMNE", "SAISON: HIVER", "SAISON: PRINTEMPS"],
+            "AIDES": ["INVINCIBILITÉ", "FUEL ILLIMITÉ", "PAS DE DÉCROCHAGE", "SURCHAUFFE OFF", "POIDS STATIQUE"],
+            "AFFICHAGE": ["HUD", "TABLEAU DE BORD", "NUAGES", "PARTICULES", "ATMOSPHÈRE", "TERRAIN", "FPS"],
+            "APPAREIL": ["RAVITAILLEMENT", "ARMES (Fighter Only)"],
+            "SCORES": ["AFFICHER STATS"]
+        }
+        
+        self.categories = list(self.menus.keys())
+        self.cat_rects = []
+        self.menu_rects = {} # category -> list of (item_rect, item_text)
+        
+        self.show_stats_window = False
+        
+        # Pré-calcul des positions
+        x_start = s(10)
+        for cat in self.categories:
+            text_surf = self.font.render(cat, True, (255, 255, 255))
+            w = text_surf.get_width() + s(30)
+            self.cat_rects.append(pygame.Rect(x_start, 0, w, self.height))
+            x_start += w
+            
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            mx, my = event.pos
+            
+            # Clic sur une catégorie
+            for i, rect in enumerate(self.cat_rects):
+                if rect.collidepoint(mx, my):
+                    if self.active_menu == self.categories[i]:
+                        self.active_menu = None
+                    else:
+                        self.active_menu = self.categories[i]
+                    return True
+            
+            # Clic sur un item de menu ouvert
+            if self.active_menu:
+                if self.active_menu in self.menu_rects:
+                    for item_rect, item_text in self.menu_rects[self.active_menu]:
+                        if item_rect.collidepoint(mx, my):
+                            self.execute_action(self.active_menu, item_text)
+                            self.active_menu = None
+                            return True
+            
+            # Fermer le menu si on clique ailleurs
+            self.active_menu = None
+        return False
+
+    def execute_action(self, cat, item):
+        global args, fuel, autopilot_active, show_minimap, show_large_map, mtemp, sfx_volume
+        global mode_temps_reel, mode_temps_dynamique, heure_actuelle, SOL_HERBE_BASE, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, CIEL_BAS, CIEL_HAUT, SOL_PISTE, nb_particules, particules
+        
+        if cat == "FICHIER":
+            if item == "RECOMMENCER": os.execl(sys.executable, sys.executable, *sys.argv)
+            if item == "QUITTER": pygame.quit(); sys.exit()
+            
+        elif cat == "AUDIO":
+            if item == "RADIO ON/OFF": music_player.toggle()
+            if item == "MUSIQUE +": music_player.volume = min(1.0, music_player.volume + 0.1); pygame.mixer.music.set_volume(music_player.volume)
+            if item == "MUSIQUE -": music_player.volume = max(0.0, music_player.volume - 0.1); pygame.mixer.music.set_volume(music_player.volume)
+            if item == "BRUITAGES +": 
+                args.volume = min(1.0, args.volume + 0.1)
+                update_sfx_volume()
+            if item == "BRUITAGES -": 
+                args.volume = max(0.0, args.volume - 0.1)
+                update_sfx_volume()
+                
+        elif cat == "ENVIR":
+            if "METEO" in item:
+                args.weather = item.split(": ")[1].lower()
+            elif "TEMPS" in item:
+                t = item.split(": ")[1]
+                mode_temps_reel = (t == "REEL")
+                mode_temps_dynamique = (t == "DYNAMIQUE")
+                if t == "MIDI": heure_actuelle = 12.0
+                if t == "NUIT": heure_actuelle = 0.0
+            elif "SAISON" in item:
+                args.season = item.split(": ")[1].lower()
+                # Appliquer les couleurs de saison (copie simplifiée de la logique initiale)
+                update_season_visuals()
+
+        elif cat == "AIDES":
+            if item == "INVINCIBILITÉ": args.god_mode = not args.god_mode
+            if item == "FUEL ILLIMITÉ": args.unlimited_fuel = not args.unlimited_fuel
+            if item == "PAS DE DÉCROCHAGE": args.no_stall = not args.no_stall
+            if item == "SURCHAUFFE OFF": args.no_overheat = not args.no_overheat
+            if item == "POIDS STATIQUE": args.static_weight = not args.static_weight
+
+        elif cat == "AFFICHAGE":
+            if item == "HUD": args.no_hud = not args.no_hud
+            if item == "TABLEAU DE BORD": args.no_dash = not args.no_dash
+            if item == "NUAGES": args.no_clouds = not args.no_clouds
+            if item == "PARTICULES": args.no_particles = not args.no_particles; update_particles()
+            if item == "ATMOSPHÈRE": args.no_atmo = not args.no_atmo
+            if item == "TERRAIN": args.no_terrain = not args.no_terrain
+            if item == "FPS": args.show_fps = not args.show_fps
+
+        elif cat == "APPAREIL":
+            if item == "RAVITAILLEMENT" and altitude < 5 and vitesse_kph < 10: fuel = 100.0
+            
+        elif cat == "SCORES":
+            if item == "AFFICHER STATS": self.show_stats_window = not self.show_stats_window
+
+    def draw(self, surface):
+        # Barre principale
+        pygame.draw.rect(surface, (20, 20, 20, 200), (0, 0, L, self.height))
+        pygame.draw.line(surface, (60, 60, 60), (0, self.height), (L, self.height), 1)
+        
+        mx, my = pygame.mouse.get_pos()
+        
+        for i, rect in enumerate(self.cat_rects):
+            cat = self.categories[i]
+            hover = rect.collidepoint(mx, my) or self.active_menu == cat
+            
+            if hover:
+                pygame.draw.rect(surface, (60, 60, 70), rect)
+            
+            text_surf = self.font.render(cat, True, (255, 255, 255))
+            surface.blit(text_surf, (rect.x + s(15), rect.y + (self.height - text_surf.get_height())//2))
+            
+            # Dessin du menu déroulant si actif
+            if self.active_menu == cat:
+                self.draw_dropdown(surface, cat, rect.x, self.height)
+
+        # Fenêtre Stats si active
+        if self.show_stats_window:
+            self.draw_stats_popup(surface)
+
+    def draw_dropdown(self, surface, cat, x, y):
+        items = self.menus[cat]
+        item_h = s(25)
+        menu_w = s(180)
+        menu_h = len(items) * item_h
+        
+        # Fond du menu
+        pygame.draw.rect(surface, (30, 30, 35), (x, y, menu_w, menu_h))
+        pygame.draw.rect(surface, (100, 100, 100), (x, y, menu_w, menu_h), 1)
+        
+        self.menu_rects[cat] = []
+        mx, my = pygame.mouse.get_pos()
+        
+        for i, item in enumerate(items):
+            item_rect = pygame.Rect(x, y + i * item_h, menu_w, item_h)
+            hover = item_rect.collidepoint(mx, my)
+            
+            if hover:
+                pygame.draw.rect(surface, (50, 80, 150), item_rect)
+            
+            # Ajout d'une coche pour les toggles (approximation)
+            prefix = ""
+            if cat == "AIDES" or cat == "AFFICHAGE":
+                if self.is_option_active(item): prefix = "[x] "
+                else: prefix = "[ ] "
+                
+            text_surf = self.item_font.render(prefix + item, True, (220, 220, 220))
+            surface.blit(text_surf, (item_rect.x + s(10), item_rect.y + (item_h - text_surf.get_height())//2))
+            self.menu_rects[cat].append((item_rect, item))
+
+    def is_option_active(self, item):
+        if item == "INVINCIBILITÉ": return args.god_mode
+        if item == "FUEL ILLIMITÉ": return args.unlimited_fuel
+        if item == "PAS DE DÉCROCHAGE": return args.no_stall
+        if item == "SURCHAUFFE OFF": return args.no_overheat
+        if item == "POIDS STATIQUE": return args.static_weight
+        if item == "HUD": return not args.no_hud
+        if item == "TABLEAU DE BORD": return not args.no_dash
+        if item == "NUAGES": return not args.no_clouds
+        if item == "PARTICULES": return not args.no_particles
+        if item == "ATMOSPHÈRE": return not args.no_atmo
+        if item == "TERRAIN": return not args.no_terrain
+        if item == "FPS": return args.show_fps
+        return False
+
+    def draw_stats_popup(self, surface):
+        w, h = s(400), s(300)
+        x, y = (L-w)//2, (H-h)//2
+        pygame.draw.rect(surface, (20, 25, 30), (x, y, w, h))
+        pygame.draw.rect(surface, COL_PRIMARY_RGB, (x, y, w, h), 2)
+        
+        title = self.font.render("STATISTIQUES DE SESSION", True, (255, 255, 255))
+        surface.blit(title, (x + s(20), y + s(20)))
+        
+        stats = [
+            f"Vitesse Max: {int(max_vitesse_session)} KPH",
+            f"Altitude Max: {int(max_alt_session)} FT",
+            f"Distance Parcourue: {distance_totale_session/1000.0:.1f} KM",
+            f"Temps de vol: {int(temps_vol_session)//60}m {int(temps_vol_session)%60}s",
+            f"Score Actuel: {int(mission_manager.score)} PTS"
+        ]
+        
+        for i, txt in enumerate(stats):
+            s_txt = self.item_font.render(txt, True, (200, 200, 200))
+            surface.blit(s_txt, (x + s(30), y + s(70) + i * s(30)))
+            
+        btn_close = self.item_font.render("[ FERMER ]", True, (100, 150, 255))
+        surface.blit(btn_close, (x + w - s(100), y + h - s(40)))
+
+# Helpers pour le menu
+def update_sfx_volume():
+    if son_moteur: son_moteur.set_volume(args.volume)
+    if son_alarme: son_alarme.set_volume(args.volume)
+
+def update_season_visuals():
+    global SOL_HERBE_BASE, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, SOL_PISTE, CIEL_BAS, CIEL_HAUT
+    # On ré-exécute la logique de game.py (lignes 230+)
+    if args.season == "snow":
+        SOL_HERBE_BASE = (200, 220, 210); SOL_HERBE_FONCE = (150, 170, 160); SOL_HERBE_CLAIR = (230, 250, 240); SOL_PISTE = (140, 140, 150)
+        CIEL_BAS = (190, 200, 210); CIEL_HAUT = (100, 110, 130)
+    elif args.season in ["rain", "autumn"]:
+        SOL_HERBE_BASE = (139, 69, 19); SOL_HERBE_FONCE = (101, 67, 33); SOL_HERBE_CLAIR = (205, 133, 63); SOL_PISTE = (60, 60, 65)
+        CIEL_BAS = (80, 90, 100); CIEL_HAUT = (30, 35, 45)
+    elif args.season == "spring":
+        SOL_HERBE_BASE = (154, 205, 50); SOL_HERBE_FONCE = (85, 107, 47); SOL_HERBE_CLAIR = (173, 255, 47)
+        CIEL_BAS = (176, 224, 230); CIEL_HAUT = (70, 130, 180)
+    else: # Summer
+        SOL_HERBE_BASE = (34, 100, 34); SOL_HERBE_FONCE = (20, 60, 20); SOL_HERBE_CLAIR = (50, 120, 50); SOL_PISTE = (50, 50, 55)
+        CIEL_BAS = (135, 206, 235); CIEL_HAUT = (10, 20, 40)
+
+def update_particles():
+    global nb_particules, particules
+    nb_particules = 300 if args.season in ["rain", "snow"] else 50
+    if args.no_particles: nb_particules = 0
+    particules = []
+    for _ in range(nb_particules): 
+        particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 2.0), random.randint(1, 3)])
+
+# Couleur primaire du thème pour le menu
+COL_PRIMARY_RGB = (37, 99, 235)
+
+# Variables de session pour les stats
+max_vitesse_session = 0
+max_alt_session = 0
+distance_totale_session = 0
+temps_vol_session = 0
+
+menu_bar = MenuBar()
 
 class MissionManager:
     def __init__(self):
@@ -2067,6 +2314,9 @@ while True:
     mettre_a_jour_couleurs(heure_actuelle) 
 
     for event in pygame.event.get():
+        if menu_bar.handle_event(event):
+            continue
+            
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
@@ -2265,8 +2515,17 @@ while True:
             moteur_endommage = True
             moteur_allume = False
             son_moteur.stop()
+            mission_manager.message = "MOTEUR EN FEU ! ATTERRISSEZ D'URGENCE !"
+            mission_manager.timer_message = 300
+            
     else:
         moteur_temp -= 0.1 # Refroidit si éteint ou si no_overheat
+        
+    # --- STATISTIQUES DE SESSION ---
+    max_vitesse_session = max(max_vitesse_session, vitesse_kph)
+    max_alt_session = max(max_alt_session, altitude)
+    distance_totale_session += abs(vitesse_px) * dt
+    temps_vol_session += dt
         
     if moteur_temp < 0: moteur_temp = 0
 
@@ -3257,5 +3516,8 @@ while True:
             fenetre.blit(s_drop, (dx-15, dy))
 
     # Fin de boucle
+
+    # --- BARRE DE MENU (FlightGear Style) ---
+    menu_bar.draw(fenetre)
 
     pygame.display.flip()
