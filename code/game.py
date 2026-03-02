@@ -672,18 +672,39 @@ class Bomb:
         if not self.active: return
         self.x += self.vx
         self.y += self.vy
-        self.vy += GRAVITE * 1.5 # Tombe plus vite que l'avion
+        self.vy += GRAVITE * 3.0 # Chute plus rapide (demande utilisateur)
         
-        self.vx *= 0.99
-        self.vy *= 0.99
+        # Résistance de l'air légère
+        self.vx *= 0.995
+        self.vy *= 0.995
         
     def draw(self, surface, cam_x, cam_y, zoom):
         if not self.active: return
         px = (self.x - cam_x) * zoom + (L/2)
         py = (self.y - cam_y) * zoom + (H/2)
-        pr = max(2, 4 * zoom)
-        if -pr < px < L+pr and -pr < py < H+pr:
-            pygame.draw.ellipse(surface, (40, 40, 40), (px-pr*2, py-pr, pr*4, pr*2))
+        
+        # Angle de la bombe basé sur sa trajectoire
+        angle_rad = math.atan2(-self.vy, self.vx)
+        angle_deg = math.degrees(angle_rad)
+        
+        bw = 16 * zoom
+        bh = 8 * zoom
+        if -50 < px < L+50 and -50 < py < H+50:
+            # Création d'une surface pour la bombe détaillée
+            surf_bomb = pygame.Surface((bw * 2, bh * 2), pygame.SRCALPHA)
+            
+            # Corps de la bombe (Ellipse)
+            pygame.draw.ellipse(surf_bomb, (50, 60, 50), (bw*0.5, bh*0.5, bw, bh))
+            
+            # Ailerons arrière
+            pygame.draw.polygon(surf_bomb, (30, 40, 30), [
+                (bw*0.5, bh*0.7), (bw*0.2, bh*0.3), (bw*0.2, bh*1.7), (bw*0.5, bh*1.3)
+            ])
+            
+            # Rotation selon la trajectoire
+            surf_rot = pygame.transform.rotate(surf_bomb, angle_deg)
+            rect_rot = surf_rot.get_rect(center=(px, py))
+            surface.blit(surf_rot, rect_rot)
 
 class Missile:
     def __init__(self, x, y, vx, vy, angle):
@@ -693,40 +714,83 @@ class Missile:
         self.vy = vy
         self.angle = angle
         self.active = True
-        self.life = 150
+        self.life = 200
+        self.launch_timer = 30 # Environ 0.5s de chute libre
+        self.engine_started = False
         
     def update(self):
         if not self.active: return
-        self.life -= 1
-        if self.life <= 0:
-            self.active = False
-            return
-            
-        thrust = 20.0
-        rad = math.radians(self.angle)
-        self.vx += math.cos(rad) * thrust
-        self.vy -= math.sin(rad) * thrust
         
+        if self.launch_timer > 0:
+            self.launch_timer -= 1
+            # Phase de chute : gravité uniquement
+            self.vy += GRAVITE * 2.0
+            # L'angle suit la trajectoire
+            self.angle = math.degrees(math.atan2(-self.vy, self.vx))
+        else:
+            if not self.engine_started:
+                self.engine_started = True
+                # Boost initial à l'allumage
+                rad = math.radians(self.angle)
+                self.vx += math.cos(rad) * 40.0
+                self.vy -= math.sin(rad) * 40.0
+            
+            self.life -= 1
+            if self.life <= 0:
+                self.active = False
+                return
+                
+            # Propulsion continue
+            thrust = 2.0
+            rad = math.radians(self.angle)
+            self.vx += math.cos(rad) * thrust
+            self.vy -= math.sin(rad) * thrust
+            
+            # Traînée de fumée plus fine
+            if not args.no_particles and random.random() > 0.5:
+                 # Particules plus petites et plus sombres pour la fumée
+                 explosions.append([self.x, self.y, random.uniform(-0.5,0.5), random.uniform(-0.5,0.5), 0.15, 0.15, (100, 100, 100)])
+
         self.x += self.vx
         self.y += self.vy
-        self.vx *= 0.98
-        self.vy *= 0.98
-        
-        if not args.no_particles:
-             explosions.append([self.x, self.y, random.uniform(-1,1), random.uniform(-1,1), 0.3, 0.3, (255, 150, 0)])
+        self.vx *= 0.995
+        self.vy *= 0.995
 
     def draw(self, surface, cam_x, cam_y, zoom):
         if not self.active: return
         px = (self.x - cam_x) * zoom + (L/2)
         py = (self.y - cam_y) * zoom + (H/2)
-        rad = math.radians(self.angle)
-        length = 25 * zoom
-        if -length < px < L+length and -length < py < H+length:
-            px1 = px - math.cos(rad) * length / 2
-            py1 = py + math.sin(rad) * length / 2
-            px2 = px + math.cos(rad) * length / 2
-            py2 = py - math.sin(rad) * length / 2
-            pygame.draw.line(surface, (200, 200, 200), (px1, py1), (px2, py2), max(1, int(3*zoom)))
+        
+        if -100 < px < L+100 and -100 < py < H+100:
+            bw = 16 * zoom
+            bh = 6 * zoom # Plus fin qu'une bombe
+            
+            # Surface du missile (même base que la bombe)
+            surf_m = pygame.Surface((bw * 2, bh * 3), pygame.SRCALPHA)
+            
+            # Corps (Ellipse grise)
+            pygame.draw.ellipse(surf_m, (160, 160, 160), (bw*0.5, bh, bw, bh))
+            
+            # Nez (plus pointu)
+            pygame.draw.polygon(surf_m, (100, 100, 100), [
+                (bw*1.5, bh), (bw*1.5 + 5*zoom, bh*1.5), (bw*1.5, bh*2)
+            ])
+            
+            # Ailerons arrière
+            pygame.draw.polygon(surf_m, (80, 80, 80), [
+                (bw*0.5, bh*1.2), (bw*0.2, bh*0.5), (bw*0.2, bh*2.5), (bw*0.5, bh*1.8)
+            ])
+            
+            # Flamme moteur si allumé
+            if self.engine_started and random.random() > 0.1:
+                flame_len = random.uniform(8, 20) * zoom
+                pygame.draw.polygon(surf_m, (255, 180, 50), [
+                    (bw*0.5, bh*1.3), (bw*0.5 - flame_len, bh*1.5), (bw*0.5, bh*1.7)
+                ])
+            
+            surf_rot = pygame.transform.rotate(surf_m, self.angle)
+            rect_rot = surf_rot.get_rect(center=(px, py))
+            surface.blit(surf_rot, rect_rot)
 
 class MissionManager:
     def __init__(self):
