@@ -79,3 +79,5 @@ Ce document liste 50 idées pour faire évoluer le projet, classées par catégo
 50. **[x] Barre de Menu Complète** : Accès météo, audio, réalisme, sélection d'avion et stats de vol en temps réel.
 51. **[x] Système de Saisons et Heure** : Cycle jour/nuit, palettes saisonnières persistantes et indicateurs [x] dans le menu.
 18. **[x] Suppression Mer Spawn** : L'océan ouest a été repoussé à 350km pour éviter l'eau au décollage.
+20. **[x] Silence Moteur** : Option pour couper le moteur et n'écouter que la musique.
+21. **[x] Fix Moteur Audio** : Correction de la boucle sonore qui écrasait le commutateur ON/OFF.

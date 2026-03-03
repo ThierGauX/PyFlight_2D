@@ -827,6 +827,7 @@ class MusicPlayer:
 dossier_musique = os.path.join(dossier_son, "musique")
 music_player = MusicPlayer(dossier_musique)
 music_player.volume = args.volume
+engine_sound_active = True
 
 class MenuBar:
     def __init__(self):
@@ -839,7 +840,7 @@ class MenuBar:
         # Structure des menus
         self.menus = {
             "FICHIER": ["RECOMMENCER", "QUITTER"],
-            "AUDIO": ["RADIO ON/OFF", "MUSIQUE +", "MUSIQUE -", "BRUITAGES +", "BRUITAGES -"],
+            "AUDIO": ["RADIO ON/OFF", "MOTEUR ON/OFF", "---", "VOLUME MUSIQUE", "MUSIQUE +", "MUSIQUE -", "---", "VOLUME MOTEUR", "BRUITAGES +", "BRUITAGES -"],
             "ENVIR": ["METEO: CLAIR", "METEO: NUAGES", "METEO: BROUILLARD", "TEMPS: MIDI", "TEMPS: NUIT", "TEMPS: DYNAMIQUE", "TEMPS: REEL", "SAISON: ETE", "SAISON: AUTOMNE", "SAISON: HIVER", "SAISON: PRINTEMPS", "SAISON: TEMPÊTE"],
             "AIDES": ["INVINCIBILITÉ", "FUEL ILLIMITÉ", "PAS DE DÉCROCHAGE", "SURCHAUFFE OFF", "POIDS STATIQUE"],
             "AFFICHAGE": ["HUD", "TABLEAU DE BORD", "NUAGES", "PARTICULES", "ATMOSPHÈRE", "TERRAIN", "FPS"],
@@ -892,8 +893,11 @@ class MenuBar:
                 if self.active_menu in self.menu_rects:
                     for item_rect, item_text in self.menu_rects[self.active_menu]:
                         if item_rect.collidepoint(mx, my):
+                            if item_text == "---": return True
                             self.execute_action(self.active_menu, item_text)
-                            self.active_menu = None
+                            # Garder le menu ouvert pour les réglages de volume
+                            if not ("+" in item_text or "-" in item_text):
+                                self.active_menu = None
                             return True
             
             # Fermer le menu si on clique ailleurs
@@ -901,7 +905,7 @@ class MenuBar:
         return False
 
     def execute_action(self, cat, item):
-        global args, fuel, autopilot_active, show_minimap, show_large_map, mtemp, sfx_volume
+        global args, fuel, autopilot_active, show_minimap, show_large_map, mtemp, sfx_volume, engine_sound_active
         global mode_temps_reel, mode_temps_dynamique, heure_actuelle, offset_temps, SOL_HERBE_BASE, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, CIEL_BAS, CIEL_HAUT, SOL_PISTE, nb_particules, particules
         
         if cat == "FICHIER":
@@ -910,6 +914,9 @@ class MenuBar:
             
         elif cat == "AUDIO":
             if item == "RADIO ON/OFF": music_player.toggle()
+            if item == "MOTEUR ON/OFF": 
+                engine_sound_active = not engine_sound_active
+                update_sfx_volume()
             if item == "MUSIQUE +": music_player.volume = min(1.0, music_player.volume + 0.1); pygame.mixer.music.set_volume(music_player.volume)
             if item == "MUSIQUE -": music_player.volume = max(0.0, music_player.volume - 0.1); pygame.mixer.music.set_volume(music_player.volume)
             if item == "BRUITAGES +": 
@@ -1002,22 +1009,39 @@ class MenuBar:
         
         for i, item in enumerate(items):
             item_rect = pygame.Rect(x, y + i * item_h, menu_w, item_h)
-            hover = item_rect.collidepoint(mx, my)
             
+            if item == "---":
+                pygame.draw.line(surface, (60, 60, 70), (x + s(10), y + i * item_h + item_h//2), (x + menu_w - s(10), y + i * item_h + item_h//2), 1)
+                self.menu_rects[cat].append((item_rect, item))
+                continue
+
+            hover = item_rect.collidepoint(mx, my)
             if hover:
                 pygame.draw.rect(surface, (50, 80, 150), item_rect)
             
+            # Affichage spécial pour les volumes
+            display_text = item
+            if item == "VOLUME MUSIQUE":
+                display_text = f"MUSIQUE: {int(music_player.volume * 100)}%"
+            elif item == "VOLUME MOTEUR":
+                display_text = f"MOTEUR: {int(args.volume * 100)}%"
+            
             # Ajout d'une coche pour les toggles (approximation)
             prefix = ""
-            if cat in ["AIDES", "AFFICHAGE", "ENVIR"]:
+            if cat in ["AIDES", "AFFICHAGE", "ENVIR"] or item in ["RADIO ON/OFF", "MOTEUR ON/OFF"]:
                 if self.is_option_active(item): prefix = "[x] "
                 else: prefix = "[ ] "
                 
-            text_surf = self.item_font.render(prefix + item, True, (220, 220, 220))
+            text_surf = self.item_font.render(prefix + display_text, True, (220, 220, 220))
+            if "VOLUME" in item:
+                text_surf = self.item_font.render(display_text, True, (150, 200, 255))
+                
             surface.blit(text_surf, (item_rect.x + s(10), item_rect.y + (item_h - text_surf.get_height())//2))
             self.menu_rects[cat].append((item_rect, item))
 
     def is_option_active(self, item):
+        if item == "RADIO ON/OFF": return music_player.active
+        if item == "MOTEUR ON/OFF": return engine_sound_active
         if item == "INVINCIBILITÉ": return args.god_mode
         if item == "FUEL ILLIMITÉ": return args.unlimited_fuel
         if item == "PAS DE DÉCROCHAGE": return args.no_stall
@@ -1074,8 +1098,9 @@ class MenuBar:
 
 # Helpers pour le menu
 def update_sfx_volume():
-    if son_moteur: son_moteur.set_volume(args.volume)
-    if son_alarme: son_alarme.set_volume(args.volume)
+    vol = args.volume if engine_sound_active else 0.0
+    if son_moteur: son_moteur.set_volume(vol)
+    if son_alarme: son_alarme.set_volume(vol)
 
 def update_season_visuals():
     global SOL_HERBE_BASE, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, SOL_PISTE, CIEL_BAS, CIEL_HAUT
@@ -2650,6 +2675,10 @@ while True:
             if son_moteur.get_num_channels() == 0: 
                 son_moteur.play(loops=-1)
             vol = 0.3 + (niveau_poussee_reelle / 100.0) * 0.7
+            if not engine_sound_active:
+                vol = 0.0
+            else:
+                vol *= args.volume
             son_moteur.set_volume(vol)
         else:
             son_moteur.stop()

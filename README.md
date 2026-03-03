@@ -31,7 +31,7 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet (Terrain éten
 
 ### Interface & Graphismes "Pro"
 *   **Launcher Premium "Dashboard"** : Menu de configuration sous forme d'onglets (Vol, Environnement, Réalisme, Affichage) avec un design sombre et minimaliste ("Aero Dark").
-*   **Barre de Menu In-Game** : Accédez à tous les réglages (Audio, Météo, Réalisme, Stats) directement en plein vol via la barre supérieure (style FlightGear). Un indicateur `[x]` affiche désormais les réglages actifs pour plus de clarté.
+*   **Barre de Menu In-Game** : Accédez à tous les réglages (Audio avec mixeur et silence moteur, Météo, Réalisme, Stats) directement en plein vol via la barre supérieure (style FlightGear). Un indicateur `[x]` affiche désormais les réglages actifs.
 *   Haute Résolution Native : Support du plein écran avec mise à l'échelle dynamique (UI Scaling) pour une netteté parfaite sur tous les moniteurs.
 *   Cockpit Hybride :
     *   HUD de Chasse : Speed & Alt tapes, Pitch ladder et vecteur de vitesse.
