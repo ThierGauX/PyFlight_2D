@@ -1,4 +1,4 @@
-# PyFlight 2D - Simulateur de Vol Pro (Ultimate Edition)
+# PyFlight 2D
 
 Bienvenue dans **PyFlight 2D**, un simulateur de vol 2D ultra-complet développé en Python. Alliant physique aérodynamique avancée, rendu haute résolution et systèmes météo dynamiques, il offre une expérience de pilotage immersive et entièrement personnalisable via son Launcher Premium.
 
