@@ -1505,13 +1505,13 @@ class MissionManager:
         # Draw Timer
         if self.time_left > 0:
             m = int(self.time_left) // 60
-            s = int(self.time_left) % 60
-            lbl_time = police_alarme.render(f"TEMPS RESTANT: {m:02d}:{s:02d}", True, (255, 0, 0) if self.time_left < 30 else (255, 215, 0))
+            sec = int(self.time_left) % 60
+            lbl_time = police_alarme.render(f"TEMPS RESTANT: {m:02d}:{sec:02d}", True, (255, 0, 0) if self.time_left < 30 else (255, 215, 0))
             surface.blit(lbl_time, lbl_time.get_rect(midtop=(L//2, s(35))))
         elif self.active_mission == "landing" and not self.mission_over:
             m = int(self.stopwatch_time) // 60
-            s = int(self.stopwatch_time) % 60
-            lbl_time = police_alarme.render(f"CHRONO: {m:02d}:{s:02d}", True, (255, 255, 255))
+            sec = int(self.stopwatch_time) % 60
+            lbl_time = police_alarme.render(f"CHRONO: {m:02d}:{sec:02d}", True, (255, 255, 255))
             surface.blit(lbl_time, lbl_time.get_rect(midtop=(L//2, s(35))))
             
         # Draw Game Over Text
