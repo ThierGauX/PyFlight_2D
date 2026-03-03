@@ -126,4 +126,4 @@ Le projet utilise **GitHub Actions** pour compiler automatiquement le jeu à cha
 ---
 
 ## Améliorations Futures
-N'hésitez pas à consulter le fichier `idees amelioration.txt` pour voir la feuille de route du projet (+50 idées d'évolution !).
+N'hésitez pas à consulter le fichier [idees amelioration.txt](docs/idees%20amelioration.txt) dans le dossier `docs/` pour voir la feuille de route du projet (+50 idées d'évolution !).
