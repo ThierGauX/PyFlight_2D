@@ -100,7 +100,7 @@ Vous pouvez ajuster le simulateur selon votre niveau :
 
 ### Lancement via Python
 1.  Prérequis : Python 3.x.
-2.  Installation : `pip install pygame customtkinter pillow`
+2.  Installation : `pip install -r requirements.txt`
 3.  Lancement : `python code/menu.py`
 
 ### Version Exécutable (Automatisée)
