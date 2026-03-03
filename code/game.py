@@ -69,18 +69,18 @@ parser.add_argument("--mission-type", type=str, default="none", choices=["none",
 parser.add_argument("--num-birds", type=int, default=20, help="Nombre maximal d'oiseaux")
 parser.add_argument("--num-planes", type=int, default=5, help="Nombre maximal d'avions IA")
 
-# On parse uniquement si on est lancé en tant que script principal
-args = None
-if __name__ == "__main__":
-    args, unknown = parser.parse_known_args()
-else:
-    # Valeurs par défaut si importé (ou pas de main)
+# On parse systématiquement pour que ça marche aussi quand importé par menu.py
+args, unknown = parser.parse_known_args()
+
+# Valeurs par défaut de secours si jamais args est None (peu probable ici)
+if args is None:
     args = argparse.Namespace(time="real", difficulty="easy", volume=0.5, 
                               no_hud=False, no_dash=False, no_clouds=False, 
                               no_particles=False, no_atmo=False, no_terrain=False,
                               unlimited_fuel=False, god_mode=False, fullscreen=False, show_fps=False,
                               season="summer", aircraft="cessna", fuel=100.0,
                               no_stall=False, no_gear_crash=False, no_wind=False, auto_refuel=False,
+                              no_overheat=False, static_weight=False,
                               terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear", missions=False, mission_type="none",
                               num_birds=20, num_planes=5)
 
@@ -155,8 +155,14 @@ pygame.display.set_caption("Pyflight 2D")
 # --- RESSOURCES ---
 dossier = os.path.dirname(os.path.abspath(__file__))
 dossier_parent = os.path.dirname(dossier)
-dossier_img = os.path.join(dossier_parent, "image")
-dossier_son = os.path.join(dossier_parent, "son")
+
+if getattr(sys, 'frozen', False):
+    dossier_img = os.path.join(sys._MEIPASS, "image")
+    dossier_son = os.path.join(sys._MEIPASS, "son")
+else:
+    dossier_img = os.path.join(dossier_parent, "image")
+    dossier_son = os.path.join(dossier_parent, "son")
+
 
 images_ok = False
 son_moteur = None
@@ -1247,8 +1253,12 @@ class MissionManager:
         if not self.active_mission: return
         
         # Chemin du fichier
-        dossier = os.path.dirname(os.path.abspath(__file__))
-        path_scores = os.path.join(dossier, "scores.json")
+        if getattr(sys, 'frozen', False):
+            dossier_exe = os.path.dirname(sys.executable)
+            path_scores = os.path.join(dossier_exe, "scores.json")
+        else:
+            dossier = os.path.dirname(os.path.abspath(__file__))
+            path_scores = os.path.join(dossier, "scores.json")
         
         scores_data = {"rings": [], "landing": [], "cargo": []}
         if os.path.exists(path_scores):

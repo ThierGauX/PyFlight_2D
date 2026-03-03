@@ -78,8 +78,7 @@ En activant le mode **CARRIÈRE & MISSIONS** depuis le menu de configuration, vo
 
 ---
 
-## Installation & Lancement
-
+### Lancement (Python)
 1.  Prérequis : Python 3.x installé.
 2.  Installation des dépendances :
     ```bash
@@ -87,8 +86,22 @@ En activant le mode **CARRIÈRE & MISSIONS** depuis le menu de configuration, vo
     ```
 3.  Lancement :
     ```bash
-    python menu.py
+    python code/menu.py
     ```
+
+### Version Exécutable (.exe)
+
+#### Linux (ou déjà compilé)
+1.  Allez dans le dossier `dist/`.
+2.  Lancez `./menu`.
+3.  Le fichier `scores.json` sera créé automatiquement à côté de l'exécutable.
+
+#### Windows (Génération du .exe)
+Comme je tourne actuellement sur un environnement Linux, je ne peux pas générer directement le binaire Windows. Cependant, j'ai tout préparé pour vous :
+1.  Transférez tout le dossier du projet sur une machine Windows.
+2.  Double-cliquez sur le fichier `build_windows.bat`.
+3.  Le script va automatiquement créer un environnement virtuel, installer les bibliothèques nécessaires et générer votre `menu.exe`.
+4.  Retrouvez votre jeu dans le dossier `dist/`.
 
 ---
 

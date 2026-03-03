@@ -82,3 +82,4 @@ Ce document liste 50 idées pour faire évoluer le projet, classées par catégo
 20. **[x] Silence Moteur** : Option pour couper le moteur et n'écouter que la musique.
 21. **[x] Fix Moteur Audio** : Correction de la boucle sonore qui écrasait le commutateur ON/OFF.
 22. **[x] Effets Visuels Missiles** : Remplacement de la simple traînée par un panache volumétrique feu/fumée basé sur le système de particules.
+23. **[x] Version Exécutable (.exe)** : Exportation du jeu complet dans un seul fichier autonome incluant toutes les dépendances et ressources.

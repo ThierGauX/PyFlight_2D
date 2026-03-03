@@ -6,6 +6,12 @@ import json
 import statistics
 from PIL import Image, ImageTk
 
+if "--run-game-internal" in sys.argv:
+    # On retire l'argument de sys.argv pour ne pas perturber l'argparse de game.py
+    sys.argv.remove("--run-game-internal")
+    import game
+    sys.exit(0)
+
 def resource_path(relative_path):
     import os, sys
     try:
@@ -418,9 +424,14 @@ puis cliquez sur LANCER LE VOL.
         
         self.title_label(page, "Vos Statistiques et Performances")
         
-        # Lecture du json
-        dossier = os.path.dirname(os.path.abspath(__file__))
-        path_scores = os.path.join(dossier, "scores.json")
+        # Lecture du json. On le garde à côté de l'exécutable pour qu'il soit persistant
+        if getattr(sys, 'frozen', False):
+            dossier_exe = os.path.dirname(sys.executable)
+            path_scores = os.path.join(dossier_exe, "scores.json")
+        else:
+            dossier = os.path.dirname(os.path.abspath(__file__))
+            path_scores = os.path.join(dossier, "scores.json")
+        
         scores_data = {"rings": [], "landing": [], "cargo": []}
         
         if os.path.exists(path_scores):
@@ -476,9 +487,7 @@ puis cliquez sur LANCER LE VOL.
         # On cache le menu au lieu de le détruire
         self.withdraw()
         
-        dossier = os.path.dirname(os.path.abspath(__file__))
-        path_game = os.path.join(dossier, "game.py")
-        cmd = [sys.executable, path_game]
+        cmd = [sys.executable, "--run-game-internal"]
         
         # Mapping base
         cmd.extend(["--difficulty", self.var_difficulte.get()])
