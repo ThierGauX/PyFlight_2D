@@ -1,123 +1,113 @@
-# PyFlight 2D - Simulateur de Vol Pro
+# PyFlight 2D - Simulateur de Vol Pro (Ultimate Edition)
 
-Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet (Terrain étendu) développé en Python. Alliant physique aérodynamique, rendu haute résolution et systèmes météo dynamiques, il offre une expérience de pilotage immersive et personnalisable.
-
----
-
-## Fonctionnalités Majeures
-
-### Expérience de Vol & Voltige
-*   Physique Avancée : Simulation de la portance, traînée, inertie et décrochage (Stall).
-*   **Poids Dynamique** : La charge en carburant modifie de manière réaliste le poids et la maniabilité de l'avion en plein vol. (Désactivable)
-*   Mode Voltige : Pilotez l'avion d'acrobatie pour réaliser des loopings à 360° sans aucune limite d'angle.
-*   Portance Vectorisée : Un modèle physique précis où la portance suit l'inclinaison de vos ailes.
-*   Effet de Sol : Ressentez le coussin d'air lors des atterrissages et décollages.
-
-### Gestion Réaliste des Systèmes
-*   **Température Moteur** : Risque de surchauffe dynamique ! Refroidissez votre moteur en prenant de l'altitude ou augmentez votre vitesse de croisière. (Désactivable)
-*   **Consommation Carburant** : Surveillez votre jauge et ravitaillez sur l'un des nombreux aéroports (espacés de 75km).
-
-### Monde Dynamique & Météo
-*   Cycle Jour/Nuit : Transition fluide en temps réel (Aube, Jour, Crépuscule, Nuit).
-*   Météo Volumétrique (Nuages 2D, brouillard, éclairage selon l'heure)
-*   **Océans Dynamiques** : Zones maritimes aux extrêmes de la carte (éloignés du spawn pour plus de terre ferme) avec des vagues animées.
-*   **Missions Ciblées** : Largage de cargo, parcours d'anneaux, atterrissage de précision.
-*   **Combat Aérien** : Le Chasseur est désormais armé de bombes (B) et de missiles (V) pour des destructions au sol ou en l'air. Effets visuels repensés (longue traînée de fumée volumétrique pour les missiles).
-*   **Statistiques et Scores** : Suivi des meilleures performances (fenêtre refermable via bouton ou clic extérieur).
-    *   Nuages Géants : Couche nuageuse massive au-delà de 1500m.
-    *   Brouillard au sol : Visibilité réduite selon l'altitude.
-    *   Saisons : Printemps, Été, Automne (pluie), Hiver (neige), Tempête (gris).
-*   Relief Alpin : Génération procédurale de montagnes majestueuses avec détection de collision.
-
-### Interface & Graphismes "Pro"
-*   **Launcher Premium "Dashboard"** : Menu de configuration sous forme d'onglets (Vol, Environnement, Réalisme, Affichage) avec un design sombre et minimaliste ("Aero Dark").
-*   **Barre de Menu In-Game** : Accédez à tous les réglages (Audio avec mixeur et silence moteur, Météo, Réalisme, Stats) directement en plein vol via la barre supérieure (style FlightGear). Un indicateur `[x]` affiche désormais les réglages actifs.
-*   Haute Résolution Native : Support du plein écran avec mise à l'échelle dynamique (UI Scaling) pour une netteté parfaite sur tous les moniteurs.
-*   Cockpit Hybride :
-    *   HUD de Chasse : Speed & Alt tapes, Pitch ladder et vecteur de vitesse.
-    *   Dashboard Analogique : Horizon artificiel, Altimètre, Tachymètre et Jauge de portance (LIFT).
-    *   Radar Multifonction : Profil altimétrique du terrain, trajectoire historique et navigation vers les pistes.
-*   Suivi des Crashs et Explosions : Le radar garde une trace de chaque accident avec des croix rouges persistantes. Les crashs déclenchent également un effet de particules d'explosion.
-*   Effets Visuels : Phares d'atterrissage, gouttes de pluie sur le cockpit, et traînées de fumée colorées personnalisables.
-
-### Missions & Défis (Nouveau !)
-En activant le mode **CARRIÈRE & MISSIONS** depuis le menu de configuration, vous accédez à :
-*   **Trafic IA** : Avions de ligne sillonnant le ciel générés procéduralement.
-*   **Contrôle Aérien (ATC)** : La tour de contrôle vous contacte par messages radio lors du décollage et des approches. Elle communique aussi aléatoirement en vol de croisière.
-*   **Missions Ciblées** : Depuis le menu "MODE DE JEU", vous pouvez choisir explicitement :
-    *   **Aucune** : Juste le trafic IA et l'ATC pour une ambiance ralaxante.
-    *   **Parcours d'Anneaux** : Testez votre agilité (Anciennement F1).
-    *   **Atterrissage de Précision** : Posez-vous en douceur sur la cible (Anciennement F2).
-    *   **Largage Cargo** : À bord du Gros Porteur, volez à basse altitude pour larguer des colis (Touche C) avec précision sur des zones cibles. Un viseur prédictif (CCIP) vert s'affiche au sol pour vous aider à viser !
--   `L` : Allumer/Éteindre les phares
--   `M` : Afficher/Masquer la Mini-Map GPS (Radar)
--   `C` : Larguer des caisses (Uniquement si Avion Cargo & Mission Cargo)
--   `R` : Allumer/Éteindre la Radio de bord Lo-Fi
+Bienvenue dans **PyFlight 2D**, un simulateur de vol 2D ultra-complet développé en Python. Alliant physique aérodynamique avancée, rendu haute résolution et systèmes météo dynamiques, il offre une expérience de pilotage immersive et entièrement personnalisable via son Launcher Premium.
 
 ---
 
-## Commandes de Vol
+## ✈️ Les Appareils (Aircrafts)
+
+Chaque avion possède son propre modèle physique (masse, poussée, traînée, inertie) :
+
+*   **Cessna 172 (Standard)** : L'équilibre parfait. Idéal pour l'apprentissage et la navigation.
+*   **Chasseur Mirage (Armé)** : Vitesse extrême (VNE 1500 km/h). Équipé d'un système d'armement (Bombes & Missiles).
+*   **Gros Porteur (Lourd)** : Une masse imposante de 20 tonnes. Lent à la réaction, il demande une grande anticipation pour les atterrissages et les missions de fret.
+*   **Acrobatique (Acro)** : Conçu pour les loopings à 360° et les figures extrêmes. Rotation ultra-rapide et fumées colorées.
+
+---
+
+## 🎯 Modes de Jeu & Missions
+
+### 1. Vol Libre
+Explorez un monde de 600km de large sans contrainte. Le trafic aérien IA et la tour de contrôle (ATC) sont actifs pour rendre le ciel vivant.
+
+### 2. Carrière & Missions
+Activez ce mode pour accéder aux défis spécifiques et au système de scoring :
+*   **Parcours d'Anneaux** : Testez votre agilité en traversant une série d'anneaux disposés dans le ciel.
+*   **Atterrissage de Précision** : Posez-vous le plus près possible de la cible sur la piste pour maximiser vos points.
+*   **Largage Cargo** : (Exclusif au Gros Porteur) Larguez des caisses de ravitaillement sur des zones cibles au sol. Utilisez le viseur prédictif vert (CCIP) pour viser.
+
+---
+
+## ⛅ Environnement & Météo Dynamique
+
+Le simulateur simule un monde riche et évolutif :
+
+*   **Saisons** : 
+    *   *Été* : Ciel clair, conditions optimales.
+    *   *Pluie* : Gouttes d'eau sur le cockpit, ciel gris et visibilité réduite.
+    *   *Neige* : Particules de neige et ambiance hivernale.
+    *   *Tempête* : Turbulences fortes et vents violents.
+*   **Conditions Météo** : 
+    *   *Nuages* : Couche nuageuse massive au-delà de 1500m.
+    *   *Brouillard* : Visibilité au sol réduite selon l'intensité.
+*   **Cycle Temporel** : 
+    *   *Réel* : Synchronisé sur l'heure de votre ordinateur.
+    *   *Dynamique* : Le temps défile (Aube, Jour, Crépuscule, Nuit).
+    *   *Manuel* : Fixez l'heure de votre choix.
+
+---
+
+## ⚙️ Paramètres de Réalisme (Customisation Totale)
+
+Vous pouvez ajuster le simulateur selon votre niveau :
+
+*   **Mode de Pilotage** : 
+    *   *Facile* : L'avion se stabilise automatiquement et la physique est simplifiée.
+    *   *Réaliste* : Gestion complexe de la portance, de l'angle d'attaque et de l'inertie.
+*   **Systèmes Avancés** (Activables/Désactivables) :
+    *   **Température Moteur** : Risque de surchauffe en cas de gaz excessifs à basse altitude.
+    *   **Poids Dynamique** : Le poids de l'avion diminue à mesure que vous consommez du carburant.
+    *   **Décrochage (Stall)** : Perte de portance si la vitesse est trop faible ou l'angle trop élevé.
+    *   **Vent & Turbulences** : Secousses aléatoires et dérive liée au vent.
+    *   **Gestion du Train** : Risque de crash en cas d'atterrissage train rentré.
+
+---
+
+## 📺 Interface & Cockpit (HUD/IFR)
+
+*   **HUD de Chasse** : Échelles de vitesse (gauche), altitude (droite), échelle de tangage et vecteur de trajectoire.
+*   **Dashboard Analogique** : 
+    *   *Horizon Artificiel* : Inclinaison et assiette.
+    *   *Altimètre & Tachymètre* (Vitesse).
+    *   *Indicateur de Portance (LIFT)* : Crucial pour éviter le décrochage.
+*   **Radar Interactif (Touche M)** : 
+    *   Carte GPS plein écran ou mini-map.
+    *   Profil altimétrique du terrain en temps réel.
+    *   Historique de trajectoire et marquage des zones de crash.
+
+---
+
+## ⌨️ Commandes de Vol
 
 | Touche | Action | Note |
 | :--- | :--- | :--- |
-| **Flèche HAUT** | **Piquer (Nez Bas)** | Pousse le manche. |
-| **Flèche BAS** | **Cabrer (Nez Haut)** | Tire le manche. |
-| **Flèches G/D** | **Gaz (Throttle)** | Contrôle la puissance moteur. |
-| **ESPACE / B** | **Freins de roues** | Utile lors du roulage. |
-| **F** | **Volets (Flaps)** | Augmente la portance à basse vitesse. |
-| **G** | **Train d'Atterrissage** | À rentrer pour la vitesse, sortir pour la pose. |
-| **L** | **Lumières (Landing lights)** | Essentiel pour la navigation nocturne. |
-| **B** | **Largage Bombe** | Disponible uniquement avec l'avion Chasseur. |
-| **V** | **Tir Missile** | Disponible uniquement avec l'avion Chasseur. |
-| **C** | **Largage Cargo** | Disponible uniquement avec l'avion Cargo en mode Missions. |
-| **K** | **Radio On/Off** | Touche de bascule pour la musique. |
-| **N** | **Musique Suivante** | Passe au morceau suivant dans la playlist. |
-| **R** | **Ravitaillement** | Maintenir à l'arrêt sur une piste. |
-| **Molette** | **Zoom Caméra** | Vue d'ensemble ou cockpit serré. |
-| **ECHAP** | **Quitter** | Ferme le jeu instantanément. |
+| **Flèches HAUT/BAS** | **Profondeur** | Piquer ou cabrer le nez de l'avion. |
+| **Flèches GAUCHE/DROITE** | **Gaz (Throttle)** | Augmenter ou réduire la puissance moteur. |
+| **ESPACE / B** | **Freins** | Freins de roue pour le roulage au sol. |
+| **F** | **Volets (Flaps)** | Sortir les volets pour plus de portance au décollage/atterrissage. |
+| **G** | **Train (Gear)** | Entrer/Sortir le train d'atterrissage. |
+| **L** | **Phares** | Activer les feux d'atterrissage. |
+| **B / V** | **Armement** | Larguer des bombes (B) ou tirer des missiles (V) - Mirage uniquement. |
+| **C** | **Cargo** | Larguer du fret - Gros Porteur uniquement. |
+| **R** | **Ravitaillement** | Maintenir à l'arrêt sur une piste pour faire le plein. |
+| **K / N** | **Radio** | **K** pour On/Off, **N** pour changer de piste (Lo-Fi Radio). |
+| **Molette** | **Zoom** | Zoomer ou dézoomer la vue caméra. |
+| **ECHAP** | **Menu/Quitter** | Quitter le vol en cours. |
 
 ---
 
-### Lancement (Python)
-1.  Prérequis : Python 3.x installé.
-2.  Installation des dépendances :
-    ```bash
-    pip install pygame customtkinter pillow
-    ```
-3.  Lancement :
-    ```bash
-    python code/menu.py
-    ```
+## 🛠️ Installation & Lancement
+
+### Lancement via Python
+1.  Prérequis : Python 3.x.
+2.  Installation : `pip install pygame customtkinter pillow`
+3.  Lancement : `python code/menu.py`
 
 ### Version Exécutable (.exe)
-
-#### Linux (ou déjà compilé)
-1.  Allez dans le dossier `dist/`.
-2.  Lancez `./menu`.
-3.  Le fichier `scores.json` sera créé automatiquement à côté de l'exécutable.
-
-#### Windows (Génération du .exe)
-Comme je tourne actuellement sur un environnement Linux, je ne peux pas générer directement le binaire Windows. Cependant, j'ai tout préparé pour vous :
-1.  Transférez tout le dossier du projet sur une machine Windows.
-2.  Double-cliquez sur le fichier `build_windows.bat`.
-3.  Le script va automatiquement créer un environnement virtuel, installer les bibliothèques nécessaires et générer votre `menu.exe`.
-4.  Retrouvez votre jeu dans le dossier `dist/`.
+*   **Windows** : Double-cliquez sur `build_windows.bat` pour générer votre propre `.exe` dans le dossier `dist`.
+*   **Linux** : Lancez `./dist/menu` (si déjà compilé).
 
 ---
 
-## Améliorations Futures
-Consultez le fichier `idees amelioration.txt` pour découvrir 50 idées d'évolution (physique, gameplay, IA, etc.) !
-
----
-
-## Développeurs
-
-**Gauthier** : Architecture logicielle, simulation physique avancée (portance vectorisée, traînée, décrochage), développement des systèmes de bord (HUD haute résolution, radar, instruments analogiques) et moteur météo procédural.
-
-**Jules** : Design visuel et direction artistique, création des sprites haute résolution (avions, décors), conception de l'interface utilisateur (UI/UX) et intégration des effets visuels dynamiques (particules de fumée, reflets, animations météo).
-
-**Armand** : Designer Goatsque
-
-
-## Licence
-Ce projet est sous licence MIT.
+## 🚀 Améliorations Futures
+N'hésitez pas à consulter le fichier `idees amelioration.txt` pour voir la feuille de route du projet (+50 idées d'évolution !).
