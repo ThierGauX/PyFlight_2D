@@ -103,8 +103,24 @@ Vous pouvez ajuster le simulateur selon votre niveau :
 2.  Installation : `pip install pygame customtkinter pillow`
 3.  Lancement : `python code/menu.py`
 
-### Version Exécutable (.exe)
-*   **Windows** : Double-cliquez sur `build_windows.bat` pour générer votre propre `.exe` dans le dossier `dist`.
+### Version Exécutable (Automatisée)
+
+Le projet utilise **GitHub Actions** pour compiler automatiquement le jeu à chaque mise à jour. C'est la méthode la plus simple pour obtenir un fichier fonctionnel sans rien installer :
+
+1.  Allez sur l'onglet **"Actions"** de ce dépôt GitHub.
+2.  Cliquez sur le dernier build réussi dans la liste.
+3.  Descendez jusqu'à la section **"Artifacts"**.
+4.  Téléchargez `PyFlight2D-Windows-exe` pour Windows ou `PyFlight2D-Linux-binary` pour Linux.
+
+### Génération Manuelle
+
+#### Windows
+1.  Transférez le projet sur une machine Windows.
+2.  Double-cliquez sur `build_windows.bat`.
+
+#### Linux
+1.  `source venv/bin/activate`
+2.  `pyinstaller menu.spec`
 *   **Linux** : Lancez `./dist/menu` (si déjà compilé).
 
 ---
