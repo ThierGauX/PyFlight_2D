@@ -476,13 +476,13 @@ def spawn_explosion(x, y, vx, vy):
         angle = random.uniform(0, math.pi * 2)
         speed = random.uniform(20, 150) # Vitesse très rapide (immédiat)
         # Expansion sphérique beaucoup plus forte, plus la vélocité
-        p_vx = math.cos(angle) * speed + (vx * 0.1)
-        p_vy = math.sin(angle) * speed + (vy * 0.1)
+        p_vx = math.cos(rad) * speed
+        p_vy = math.sin(rad) * speed
         # Durée de vie plus longue pour profiter du spectacle
         life = random.uniform(1.0, 3.0) 
-        # [x, y, vx, vy, vie, vie_initiale, couleur]
+        # [x, y, vx, vy, vie, vie_initiale, couleur, taille]
         color = random.choice([(255,50,0), (255,100,0), (255,200,0), (200,30,0), (80,80,80), (40,40,40), (20,20,20)])
-        explosions.append([x, y, p_vx, p_vy, life, life, color])
+        explosions.append([x, y, p_vx, p_vy, life, life, color, 80])
 
 # --- MISSIONS & CHALLENGES ---
 class Ring:
@@ -725,10 +725,21 @@ class Missile:
             self.vx += math.cos(rad) * thrust
             self.vy -= math.sin(rad) * thrust
             
-            # Traînée de fumée plus fine
-            if not args.no_particles and random.random() > 0.5:
-                 # Particules plus petites et plus sombres pour la fumée
-                 explosions.append([self.x, self.y, random.uniform(-0.5,0.5), random.uniform(-0.5,0.5), 0.15, 0.15, (100, 100, 100)])
+            # Traînée de fumée volumétrique et feu
+            if not args.no_particles:
+                rad_back = math.radians(self.angle + 180)
+                # 1 particule de feu (rapide à mourir)
+                explosions.append([self.x, self.y, 
+                                   math.cos(rad_back)*2 + random.uniform(-1,1), 
+                                   -math.sin(rad_back)*2 + random.uniform(-1,1), 
+                                   0.2, 0.2, (255, random.randint(150, 200), 0), 10]) # Rayon feu: 10
+                
+                # 2-3 particules de fumée épaisse (plus longue durée)
+                for _ in range(2):
+                    explosions.append([self.x + random.uniform(-5,5), self.y + random.uniform(-5,5), 
+                                       math.cos(rad_back)*1 + random.uniform(-0.5,0.5), 
+                                       -math.sin(rad_back)*1 + random.uniform(-0.5,0.5), 
+                                       random.uniform(0.3, 0.6), 0.6, (60, 60, 60), random.randint(15, 25)]) # Rayon fumée: ~20
 
         self.x += self.vx
         self.y += self.vy
@@ -3443,8 +3454,8 @@ while True:
             
             if px > -200 and px < L+200 and py > -200 and py < H+200:
                 ratio_vie = p[4] / p[5]
-                # Rayon beaucoup plus grand pour une énorme explosion (rayon de base * 3)
-                radius = int(80 * (1 - ratio_vie) * zoom) + 2
+                # Rayon dynamique (p[7] est le base_radius)
+                radius = int(p[7] * (1 - ratio_vie) * zoom) + 2
                 # Opaque au début, disparaît vers la fin
                 alpha = int(255 * ratio_vie)
                 

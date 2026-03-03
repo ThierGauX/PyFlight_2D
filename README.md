@@ -22,7 +22,7 @@ Bienvenue dans PyFlight 2D, un simulateur de vol 2D ultra-complet (Terrain éten
 *   Météo Volumétrique (Nuages 2D, brouillard, éclairage selon l'heure)
 *   **Océans Dynamiques** : Zones maritimes aux extrêmes de la carte (éloignés du spawn pour plus de terre ferme) avec des vagues animées.
 *   **Missions Ciblées** : Largage de cargo, parcours d'anneaux, atterrissage de précision.
-*   **Combat Aérien** : Le Chasseur est désormais armé de bombes (B) et de missiles (V) pour des destructions au sol ou en l'air.
+*   **Combat Aérien** : Le Chasseur est désormais armé de bombes (B) et de missiles (V) pour des destructions au sol ou en l'air. Effets visuels repensés (longue traînée de fumée volumétrique pour les missiles).
 *   **Statistiques et Scores** : Suivi des meilleures performances (fenêtre refermable via bouton ou clic extérieur).
     *   Nuages Géants : Couche nuageuse massive au-delà de 1500m.
     *   Brouillard au sol : Visibilité réduite selon l'altitude.
