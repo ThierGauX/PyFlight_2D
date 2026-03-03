@@ -926,7 +926,11 @@ class MenuBar:
         global mode_temps_reel, mode_temps_dynamique, heure_actuelle, offset_temps, SOL_HERBE_BASE, SOL_HERBE_FONCE, SOL_HERBE_CLAIR, CIEL_BAS, CIEL_HAUT, SOL_PISTE, nb_particules, particules
         
         if cat == "FICHIER":
-            if item == "RECOMMENCER": os.execl(sys.executable, sys.executable, *sys.argv)
+            if item == "RECOMMENCER": 
+                if getattr(sys, 'frozen', False):
+                    os.execl(sys.executable, sys.executable, *sys.argv)
+                else:
+                    os.execl(sys.executable, sys.executable, sys.argv[0], *sys.argv[1:])
             if item == "QUITTER": pygame.quit(); sys.exit()
             
         elif cat == "AUDIO":

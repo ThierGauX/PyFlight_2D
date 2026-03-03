@@ -487,7 +487,10 @@ puis cliquez sur LANCER LE VOL.
         # On cache le menu au lieu de le détruire
         self.withdraw()
         
-        cmd = [sys.executable, "--run-game-internal"]
+        if getattr(sys, 'frozen', False):
+            cmd = [sys.executable, "--run-game-internal"]
+        else:
+            cmd = [sys.executable, sys.argv[0], "--run-game-internal"]
         
         # Mapping base
         cmd.extend(["--difficulty", self.var_difficulte.get()])
