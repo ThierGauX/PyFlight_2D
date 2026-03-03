@@ -16,8 +16,8 @@ venv_win/
 Thumbs.db
 
 # Executables in root
-menu
-menu.exe
+/menu
+/menu.exe
 
 # Zip releases (kept in releases folder but ignore local zips if any)
 *.zip

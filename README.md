@@ -112,6 +112,13 @@ Le projet utilise **GitHub Actions** pour compiler automatiquement le jeu à cha
 3.  Descendez jusqu'à la section **"Artifacts"**.
 4.  Téléchargez `PyFlight2D-Windows-exe` pour Windows ou `PyFlight2D-Linux-binary` pour Linux.
 
+### Versions Directes (Nouveauté)
+
+Les derniers fichiers exécutables sont également disponibles directement dans le dossier `releases/` du dépôt pour un accès immédiat sans passer par les artifacts d'Actions.
+
+*   **Windows** : [PyFlight2D-Windows-exe/menu.exe](releases/PyFlight2D-Windows-exe/menu.exe)
+*   **Linux** : [PyFlight2D-Linux-binary/menu](releases/PyFlight2D-Linux-binary/menu)
+
 ### Génération Manuelle
 
 #### Windows
