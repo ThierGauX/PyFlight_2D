@@ -82,17 +82,26 @@ Vous pouvez ajuster le simulateur selon votre niveau :
 | Touche | Action | Note |
 | :--- | :--- | :--- |
 | **Flèches HAUT/BAS** | **Profondeur** | Piquer ou cabrer le nez de l'avion. |
-| **Flèches GAUCHE/DROITE** | **Gaz (Throttle)** | Augmenter ou réduire la puissance moteur. |
+| **Flèches GAUCHE/DROITE** | **Gaz (Throttle)** | Ajuster finement la puissance (+/- 10%). |
+| **LSHIFT / LCTRL** | **Gaz Rapides** | Plein Gaz (SHIFT) ou Couper les Gaz (CTRL). |
+| **A** | **Moteur** | Allumer ou éteindre le moteur (Toggle). |
 | **ESPACE / B** | **Freins** | Freins de roue pour le roulage au sol. |
-| **F** | **Volets (Flaps)** | Sortir les volets pour plus de portance au décollage/atterrissage. |
+| **F** | **Volets (Flaps)** | Sortir les volets pour plus de portance (Vmax réduite). |
 | **G** | **Train (Gear)** | Entrer/Sortir le train d'atterrissage. |
 | **L** | **Phares** | Activer les feux d'atterrissage. |
-| **B / V** | **Armement** | Larguer des bombes (B) ou tirer des missiles (V) - Mirage uniquement. |
-| **C** | **Cargo** | Larguer du fret - Gros Porteur uniquement. |
+| **M** | **Carte GPS** | Afficher/Masquer la grande carte interactive. |
+| **B / V** | **Armement** | Bombes (B) ou Missiles (V) - Mirage uniquement. |
+| **C** | **Cargo** | Larguer du fret - Gros Porteur uniquement (Mission Cargo). |
 | **R** | **Ravitaillement** | Maintenir à l'arrêt sur une piste pour faire le plein. |
-| **K / N** | **Radio** | **K** pour On/Off, **N** pour changer de piste (Lo-Fi Radio). |
+| **K / N** | **Radio** | **K** pour On/Off, **N** pour changer de piste. |
+| **F1 / F2** | **Challenges** | Lancer instantanément un défi (Anneaux / Atterrissage). |
 | **Molette** | **Zoom** | Zoomer ou dézoomer la vue caméra. |
 | **ECHAP** | **Menu/Quitter** | Quitter le vol en cours. |
+
+### Interaction Carte (Touche M)
+*   **Clic Gauche** : Ajouter un Waypoint de navigation sur la carte.
+*   **Clic Droit** : Supprimer le dernier Waypoint.
+*   **Affichage** : Le premier Waypoint (WP1) affiche sa distance et son cap sur le HUD.
 
 ---
 
