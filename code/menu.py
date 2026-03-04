@@ -5,6 +5,7 @@ import subprocess
 import json
 import statistics
 from PIL import Image, ImageTk
+import pygame
 
 if "--run-game-internal" in sys.argv:
     # On retire l'argument de sys.argv pour ne pas perturber l'argparse de game.py
@@ -46,6 +47,14 @@ class MenuPrincipal(ctk.CTk):
         self.resizable(False, False)
         self.configure(fg_color=COL_BG)
 
+        # Initialisation Sonore pour le Menu
+        try:
+            pygame.mixer.init()
+            self.click_sound = pygame.mixer.Sound(resource_path("son/clique.mp3"))
+        except Exception as e:
+            print(f"Erreur initialisation son menu: {e}")
+            self.click_sound = None
+
         # Variables de base
         self.var_difficulte = ctk.StringVar(value="easy")
         self.var_temps = ctk.StringVar(value="real")
@@ -53,6 +62,7 @@ class MenuPrincipal(ctk.CTk):
         self.var_season = ctk.StringVar(value="summer")
         self.var_weather = ctk.StringVar(value="clear")
         self.var_volume = ctk.DoubleVar(value=0.5)
+        self.var_ui_sounds = ctk.BooleanVar(value=True)
 
         # Variables Graphiques
         self.var_show_hud = ctk.BooleanVar(value=True)
@@ -141,6 +151,9 @@ class MenuPrincipal(ctk.CTk):
         self.build_page_gfx()
         self.build_page_scores()
 
+        # Binding du clic pour le son d'interface
+        self.bind("<Button-1>", self.on_global_click)
+
         # Init par défaut
         self.select_tab("🏠  Vue d'ensemble")
 
@@ -151,6 +164,13 @@ class MenuPrincipal(ctk.CTk):
         btn.grid(row=row_idx, column=0, sticky="ew", padx=15, pady=5)
         self.tab_buttons.append((texte, btn))
         return btn
+
+    def on_global_click(self, event):
+        if self.var_ui_sounds.get() and self.click_sound:
+            try:
+                self.click_sound.play()
+            except:
+                pass
 
     def select_tab(self, nom_tab):
         # Update colors on sidebar
@@ -330,6 +350,8 @@ puis cliquez sur LANCER LE VOL.
         c_sound = self.card_frame(page, "VOLUME SONORE MOTEUR")
         ctk.CTkSlider(c_sound, from_=0.0, to=1.0, variable=self.var_volume).pack(fill="x", padx=15, pady=(10, 15))
         
+        ctk.CTkCheckBox(c_sound, text="Activer les sons d'interface (Clics)", variable=self.var_ui_sounds).pack(anchor="w", padx=15, pady=(0, 10))
+
         c_traffic = self.card_frame(page, "DENSITÉ DU TRAFIC & FAUNE")
         self.lbl_birds = ctk.CTkLabel(c_traffic, text=f"Nombre maximum d'oiseaux : {self.var_num_birds.get()}", text_color=COL_TEXT_MUTED)
         self.lbl_birds.pack(anchor="w", padx=15)
@@ -496,6 +518,7 @@ puis cliquez sur LANCER LE VOL.
         # Mapping base
         cmd.extend(["--difficulty", self.var_difficulte.get()])
         cmd.extend(["--volume", str(self.var_volume.get())])
+        if self.var_ui_sounds.get(): cmd.append("--ui-sounds")
         cmd.extend(["--aircraft", self.var_aircraft.get()])
         
         if self.var_temps.get() == "real": cmd.extend(["--time", "real"])

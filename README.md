@@ -60,6 +60,7 @@ Vous pouvez ajuster le simulateur selon votre niveau :
     *   **Décrochage (Stall)** : Perte de portance si la vitesse est trop faible ou l'angle trop élevé.
     *   **Vent & Turbulences** : Secousses aléatoires et dérive liée au vent.
     *   **Gestion du Train** : Risque de crash en cas d'atterrissage train rentré.
+    *   **Sons d'Interface** : Activation/Désactivation du son de clic dans les menus et le jeu.
 
 ---
 
@@ -99,7 +100,7 @@ Vous pouvez ajuster le simulateur selon votre niveau :
 | **ECHAP** | **Menu/Quitter** | Quitter le vol en cours. |
 
 ### Interaction Carte (Touche M)
-*   **Clic Gauche** : Ajouter un Waypoint de navigation sur la carte.
+*   **Clic Gauche** : Ajouter un Waypoint de navigation sur la carte (ou clic dans le jeu). Joue un son de clic si activé.
 *   **Clic Droit** : Supprimer le dernier Waypoint.
 *   **Affichage** : Le premier Waypoint (WP1) affiche sa distance et son cap sur le HUD.
 

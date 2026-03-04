@@ -68,6 +68,7 @@ parser.add_argument("--missions", action="store_true", help="Activer le mode Mis
 parser.add_argument("--mission-type", type=str, default="none", choices=["none", "rings", "landing", "cargo"], help="Lancer une mission spécifique au démarrage")
 parser.add_argument("--num-birds", type=int, default=20, help="Nombre maximal d'oiseaux")
 parser.add_argument("--num-planes", type=int, default=5, help="Nombre maximal d'avions IA")
+parser.add_argument("--ui-sounds", action="store_true", help="Activer les sons d'interface (Clics)")
 
 # On parse systématiquement pour que ça marche aussi quand importé par menu.py
 args, unknown = parser.parse_known_args()
@@ -82,7 +83,7 @@ if args is None:
                               no_stall=False, no_gear_crash=False, no_wind=False, auto_refuel=False,
                               no_overheat=False, static_weight=False,
                               terrain_intensity=1.0, show_trail=False, trail_color="white", weather="clear", missions=False, mission_type="none",
-                              num_birds=20, num_planes=5)
+                              num_birds=20, num_planes=5, ui_sounds=False)
 
 # AIRCRAFT CONFIGS
 AIRCRAFT_CONFIGS = {
@@ -203,6 +204,15 @@ try:
     if os.path.exists(p_alarme):
         son_alarme = pygame.mixer.Sound(p_alarme)
         son_alarme.set_volume(args.volume)
+except: pass
+
+son_clic = None
+try:
+    if args.ui_sounds:
+        p_clic = os.path.join(dossier_son, "clique.mp3")
+        if os.path.exists(p_clic):
+            son_clic = pygame.mixer.Sound(p_clic)
+            son_clic.set_volume(args.volume)
 except: pass
 
 # 3. GENERATION SON VENT
@@ -2458,6 +2468,9 @@ while True:
     mettre_a_jour_couleurs(heure_actuelle) 
 
     for event in pygame.event.get():
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if args.ui_sounds and son_clic:
+                son_clic.play()
         if menu_bar.handle_event(event):
             continue
             
