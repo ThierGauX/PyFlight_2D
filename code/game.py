@@ -77,6 +77,9 @@ parser.add_argument("--pseudo", type=str, default="Pilote_1", help="Pseudo du jo
 # On parse systématiquement pour que ça marche aussi quand importé par menu.py
 args, unknown = parser.parse_known_args()
 
+if args.multiplayer:
+    args.num_planes = 0
+
 # Valeurs par défaut de secours si jamais args est None (peu probable ici)
 if args is None:
     args = argparse.Namespace(time="real", difficulty="easy", volume=0.5, 
@@ -3563,6 +3566,15 @@ while True:
             fenetre.blit(faisceau_rot, rect_light)
     
         fenetre.blit(img_rot, rect_img)
+        
+        # --- Local Player Nametag (Multiplayer) ---
+        if args.multiplayer:
+            lbl_local = police_label.render(args.pseudo, True, (255, 255, 255))
+            lbl_rect_local = lbl_local.get_rect(center=(L//2, H//2 - s(50)))
+            bg_rect_local = lbl_rect_local.inflate(s(10), s(6))
+            pygame.draw.rect(fenetre, (20, 20, 30), bg_rect_local, border_radius=s(4))
+            pygame.draw.rect(fenetre, (100, 255, 100), bg_rect_local, 1, border_radius=s(4))
+            fenetre.blit(lbl_local, lbl_rect_local)
     
     
     # --- DESSIN EXPLOSIONS ---
