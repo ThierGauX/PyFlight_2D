@@ -1291,10 +1291,19 @@ def update_particles():
         particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 2.0), random.randint(1, 3)])
 
 def switch_aircraft(name):
-    global current_ac, PUISSANCE_MOTEUR, FRICTION_AIR, ACCEL_ROTATION, COEFF_PORTANCE, V_DECOLLAGE, V_DECROCHAGE, V_VNE, args
+    global current_ac, PUISSANCE_MOTEUR, FRICTION_AIR, ACCEL_ROTATION, COEFF_PORTANCE, V_DECOLLAGE, V_DECROCHAGE, V_VNE, args, img_avion_normal_base, img_avion_feu_base
     if name in AIRCRAFT_CONFIGS:
         args.aircraft = name
         current_ac = AIRCRAFT_CONFIGS[name]
+        
+        # Mise a jour des images
+        if images_ok:
+            img_avion_normal_base = loaded_aircraft_images.get(args.aircraft, list(loaded_aircraft_images.values())[0] if loaded_aircraft_images else None)
+            if args.aircraft == "fighter":
+                img_avion_feu_base = loaded_aircraft_images.get("fighter_feu", img_avion_normal_base)
+            else:
+                img_avion_feu_base = img_avion_normal_base
+                
         # Re-calcul dynamique des constantes physiques
         PUISSANCE_MOTEUR = current_ac["thrust_max"] / 8500.0
         FRICTION_AIR = 1.0 - current_ac["drag_factor"]
@@ -3553,11 +3562,10 @@ while True:
         # Selection image
         img_base = img_avion_feu_base if (postcombustion and moteur_allume) else img_avion_normal_base
         
-        # Redimensionnement (Zoom)
-        w_new = int(img_base.get_width() * zoom)
-        h_new = int(img_base.get_height() * zoom)
-        if w_new < 2: w_new = 2
-        if h_new < 2: h_new = 2
+        # Redimensionnement (Zoom basé sur une largeur fixe standard)
+        pw = max(10, int(100 * zoom))
+        h_new = max(2, int(img_base.get_height() * (pw / max(1, img_base.get_width()))))
+        w_new = pw
         
         img_scaled = pygame.transform.scale(img_base, (w_new, h_new))
         
