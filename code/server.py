@@ -9,7 +9,15 @@ PORT = 5555
 
 def start_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_socket.bind((HOST, PORT))
+    try:
+        server_socket.bind((HOST, PORT))
+    except OSError as e:
+        if e.errno == 98:
+            print(f"\\n[SERVEUR] ERREUR : Le port {PORT} est déjà utilisé.")
+            print("[SERVEUR] Cela signifie que le serveur tourne probablement déjà en arrière-plan !")
+            return
+        raise
+        
     print(f"[SERVEUR] PyFlight 2D Multiplayer Server demarre sur le port {PORT} (UDP)")
 
     players = {}

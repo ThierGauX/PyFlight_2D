@@ -176,21 +176,41 @@ images_ok = False
 son_moteur = None
 son_alarme = None
 
+loaded_aircraft_images = {}
 # 1. IMAGES
 try:
-    path_arret = os.path.join(dossier_img, "avion_arret.png")
-    path_marche = os.path.join(dossier_img, "avion_marche.png")
+    aircraft_image_files = {
+        "cessna": "Avion_Cessna_172-removebg-preview.png",
+        "acro": "Avion_acrobatique-removebg-preview.png",
+        "cargo": "Avion_cargo-removebg-preview.png",
+        "fighter": "Avion_de_chasse_sans_r-removebg-preview.png"
+    }
     
-    img_avion_normal_base = pygame.image.load(path_arret).convert_alpha()
-    img_avion_feu_base = pygame.image.load(path_marche).convert_alpha()
-    
+    for ac_type, file_name in aircraft_image_files.items():
+        p = os.path.join(dossier_img, file_name)
+        if os.path.exists(p):
+            loaded_aircraft_images[ac_type] = pygame.image.load(p).convert_alpha()
+            
+    # Fighter with fire
+    path_fighter_feu = os.path.join(dossier_img, "Avion_de_chasse-removebg-preview.png")
+    if os.path.exists(path_fighter_feu):
+        loaded_aircraft_images["fighter_feu"] = pygame.image.load(path_fighter_feu).convert_alpha()
+    else:
+        loaded_aircraft_images["fighter_feu"] = loaded_aircraft_images.get("fighter")
+
+    img_avion_normal_base = loaded_aircraft_images.get(args.aircraft, list(loaded_aircraft_images.values())[0] if loaded_aircraft_images else None)
+    if args.aircraft == "fighter":
+        img_avion_feu_base = loaded_aircraft_images.get("fighter_feu", img_avion_normal_base)
+    else:
+        img_avion_feu_base = img_avion_normal_base
+
     path_aeroport = os.path.join(dossier_img, "aeroport.png")
     if os.path.exists(path_aeroport):
         img_aeroport_base = pygame.image.load(path_aeroport).convert_alpha()
     else:
         img_aeroport_base = None
         
-    images_ok = True
+    images_ok = len(loaded_aircraft_images) > 0
 except Exception as e:
     img_aeroport_base = None
     print(f"Erreur Images: {e}")
@@ -561,6 +581,7 @@ class AIPlane:
     def __init__(self, wx, airports_list):
         self.active = True
         self.mode = "cruise"
+        self.aircraft = random.choice(["cessna", "cargo", "fighter", "acro"])
         
         closest_apt = min(airports_list, key=lambda a: abs(a.x_start - wx))
         
@@ -644,8 +665,9 @@ class AIPlane:
         pw = max(5, int(80 * zoom))
         
         if images_ok:
-            target_h = max(2, int(img_avion_normal_base.get_height() * (pw / img_avion_normal_base.get_width())))
-            img_scaled = pygame.transform.scale(img_avion_normal_base, (pw, target_h))
+            img_base = loaded_aircraft_images.get(self.aircraft, img_avion_normal_base)
+            target_h = max(2, int(img_base.get_height() * (pw / img_base.get_width())))
+            img_scaled = pygame.transform.scale(img_base, (pw, target_h))
             
             if self.dir_x == -1:
                 img_scaled = pygame.transform.flip(img_scaled, True, False)
@@ -693,8 +715,9 @@ class NetworkPlayer:
         pw = max(5, int(80 * zoom))
         
         if images_ok:
-            target_h = max(2, int(img_avion_normal_base.get_height() * (pw / img_avion_normal_base.get_width())))
-            img_scaled = pygame.transform.scale(img_avion_normal_base, (pw, target_h))
+            img_base = loaded_aircraft_images.get(self.aircraft, img_avion_normal_base)
+            target_h = max(2, int(img_base.get_height() * (pw / img_base.get_width())))
+            img_scaled = pygame.transform.scale(img_base, (pw, target_h))
             s_plane_rot = pygame.transform.rotate(img_scaled, self.angle)
         else:
             ph = 12 * zoom
