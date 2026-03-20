@@ -96,6 +96,11 @@ class MenuPrincipal(ctk.CTk):
         self.var_num_birds = ctk.IntVar(value=20)
         self.var_num_planes = ctk.IntVar(value=5)
 
+        # Variables Réseau
+        self.var_multiplayer = ctk.BooleanVar(value=False)
+        self.var_pseudo = ctk.StringVar(value="Pilote_1")
+        self.var_ip = ctk.StringVar(value="127.0.0.1")
+
         # Layout Principal (2 Colonnes: Sidebar / Contenu)
         self.grid_columnconfigure(0, weight=0) # Sidebar width fixed
         self.grid_columnconfigure(1, weight=1) # Main View
@@ -104,7 +109,7 @@ class MenuPrincipal(ctk.CTk):
         # --- SIDEBAR (GAUCHE) ---
         self.sidebar_frame = ctk.CTkFrame(self, width=280, corner_radius=0, fg_color=COL_SIDEBAR)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsw")
-        self.sidebar_frame.grid_rowconfigure(8, weight=1) # Espaceur entre les menus et le bouton jouer (Ligne 8)
+        self.sidebar_frame.grid_rowconfigure(9, weight=1) # Espaceur entre les menus et le bouton jouer (Ligne 9)
         
         # En-Tête Sidebar
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="PYFLIGHT 2D", font=("Impact", 36), text_color=COL_TEXT)
@@ -121,19 +126,20 @@ class MenuPrincipal(ctk.CTk):
         self.btn_tab_realism = self.create_sidebar_btn("⚙️  Réalisme & Aides", 5)
         self.btn_tab_gfx = self.create_sidebar_btn("📺  Affichage & Rendu", 6)
         self.btn_tab_stats = self.create_sidebar_btn("📊  Scores & Stats", 7)
+        self.btn_tab_multi = self.create_sidebar_btn("🌐  Réseau & Multi", 8)
         
         # Spacer pour repousser les boutons vers le bas grace au weight=1
-        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=8, column=0, sticky="nsew")
+        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=9, column=0, sticky="nsew")
 
         # Boutons Action (Bas de Sidebar)
         self.btn_jouer = ctk.CTkButton(self.sidebar_frame, text="LANCER LE VOL", command=self.lancer_jeu,
                                        font=("Arial", 18, "bold"), height=55, fg_color=COL_ACCENT, hover_color=COL_ACCENT_HOVER)
-        self.btn_jouer.grid(row=9, column=0, padx=20, pady=(10, 10), sticky="ew")
+        self.btn_jouer.grid(row=10, column=0, padx=20, pady=(10, 10), sticky="ew")
 
         self.btn_quitter = ctk.CTkButton(self.sidebar_frame, text="QUITTER", command=self.quit,
                                          font=("Arial", 14, "bold"), height=40, fg_color="transparent", 
                                          border_width=2, border_color=COL_DANGER, text_color=COL_DANGER, hover_color="#451a1a")
-        self.btn_quitter.grid(row=10, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.btn_quitter.grid(row=11, column=0, padx=20, pady=(0, 20), sticky="ew")
 
         # --- CONTENU (DROITE) ---
         self.main_frame = ctk.CTkFrame(self, fg_color=COL_BG, corner_radius=0)
@@ -150,6 +156,7 @@ class MenuPrincipal(ctk.CTk):
         self.build_page_realism()
         self.build_page_gfx()
         self.build_page_scores()
+        self.build_page_multi()
 
         # Binding du clic pour le son d'interface
         self.bind("<Button-1>", self.on_global_click)
@@ -506,6 +513,38 @@ puis cliquez sur LANCER LE VOL.
                 ctk.CTkLabel(card, text=f"Parties jouées : {len(s_list)}", text_color=COL_TEXT_MUTED, font=("Arial", 12, "italic")).pack(pady=(5,0))
 
 
+    def build_page_multi(self):
+        page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
+        self.pages["🌐  Réseau & Multi"] = page
+        self.title_label(page, "Multijoueur en Ligne")
+        
+        c_conn = self.card_frame(page, "CONNEXION AU SERVEUR")
+        ctk.CTkCheckBox(c_conn, text="Activer le mode Multijoueur", variable=self.var_multiplayer).pack(anchor="w", padx=15, pady=10)
+        
+        f_pseudo = ctk.CTkFrame(c_conn, fg_color="transparent")
+        f_pseudo.pack(fill="x", padx=15, pady=5)
+        ctk.CTkLabel(f_pseudo, text="Votre Pseudo :", width=120, anchor="w").pack(side="left")
+        ctk.CTkEntry(f_pseudo, textvariable=self.var_pseudo, width=200).pack(side="left", padx=10)
+        
+        f_ip = ctk.CTkFrame(c_conn, fg_color="transparent")
+        f_ip.pack(fill="x", padx=15, pady=5)
+        ctk.CTkLabel(f_ip, text="IP du Serveur :", width=120, anchor="w").pack(side="left")
+        ctk.CTkEntry(f_ip, textvariable=self.var_ip, width=200).pack(side="left", padx=10)
+        
+        ctk.CTkLabel(c_conn, text="(Laissez 127.0.0.1 pour jouer sur votre propre PC)", text_color=COL_TEXT_MUTED, font=("Arial", 11, "italic")).pack(anchor="w", padx=15, pady=(0, 10))
+
+        c_host = self.card_frame(page, "HÉBERGER UNE PARTIE")
+        lbl_host = ctk.CTkLabel(c_host, text="Vous pouvez héberger le serveur sur cette machine.\nAssurez-vous d'avoir ouvert le port UDP 5555 sur votre routeur.", justify="left", text_color=COL_TEXT_MUTED)
+        lbl_host.pack(anchor="w", padx=15, pady=5)
+        
+        def start_server_bg():
+            import subprocess, os
+            subprocess.Popen([sys.executable, os.path.join(os.path.dirname(__file__), "server.py")])
+            btn_host.configure(text="Serveur Lancé !", state="disabled", fg_color=COL_PRIMARY)
+            
+        btn_host = ctk.CTkButton(c_host, text="Démarrer le Serveur Local", command=start_server_bg, fg_color=COL_ACCENT)
+        btn_host.pack(anchor="w", padx=15, pady=10)
+
     def lancer_jeu(self):
         # On cache le menu au lieu de le détruire
         self.withdraw()
@@ -564,6 +603,12 @@ puis cliquez sur LANCER LE VOL.
         # Trafic
         cmd.extend(["--num-birds", str(int(self.var_num_birds.get()))])
         cmd.extend(["--num-planes", str(int(self.var_num_planes.get()))])
+        
+        # Multiplayer
+        if self.var_multiplayer.get():
+            cmd.append("--multiplayer")
+            cmd.extend(["--ip", self.var_ip.get()])
+            cmd.extend(["--pseudo", self.var_pseudo.get()])
         
         print(f"Lancement de : {cmd}")
         subprocess.run(cmd)

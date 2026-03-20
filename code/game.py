@@ -70,6 +70,10 @@ parser.add_argument("--num-birds", type=int, default=20, help="Nombre maximal d'
 parser.add_argument("--num-planes", type=int, default=5, help="Nombre maximal d'avions IA")
 parser.add_argument("--ui-sounds", action="store_true", help="Activer les sons d'interface (Clics)")
 
+parser.add_argument("--multiplayer", action="store_true", help="Activer le multijoueur UDP")
+parser.add_argument("--ip", type=str, default="127.0.0.1", help="IP du serveur")
+parser.add_argument("--pseudo", type=str, default="Pilote_1", help="Pseudo du joueur")
+
 # On parse systématiquement pour que ça marche aussi quand importé par menu.py
 args, unknown = parser.parse_known_args()
 
@@ -654,6 +658,53 @@ class AIPlane:
 
         r = s_plane_rot.get_rect(center=(px, py))
         surface.blit(s_plane_rot, r)
+
+import socket
+import json
+import threading
+
+network_players = {}
+udp_socket = None
+
+if args.multiplayer:
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.setblocking(False)
+
+class NetworkPlayer:
+    def __init__(self, pseudo, aircraft):
+        self.pseudo = pseudo
+        self.x = 0
+        self.y = 0
+        self.angle = 0
+        self.active = True
+        self.aircraft = aircraft
+        self.last_update = time.time()
+        
+    def draw(self, surface, cam_x, cam_y, zoom):
+        px = (self.x - cam_x) * zoom + (L/2)
+        py = (self.y - cam_y) * zoom + (H/2)
+        
+        if px < -200 or px > L+200 or py < -200 or py > H+200: return
+        
+        pw = max(5, int(80 * zoom))
+        
+        if images_ok:
+            target_h = max(2, int(img_avion_normal_base.get_height() * (pw / img_avion_normal_base.get_width())))
+            img_scaled = pygame.transform.scale(img_avion_normal_base, (pw, target_h))
+            s_plane_rot = pygame.transform.rotate(img_scaled, self.angle)
+        else:
+            ph = 12 * zoom
+            s_plane = pygame.Surface((pw, ph), pygame.SRCALPHA)
+            pygame.draw.rect(s_plane, (40, 40, 40), (0, 0, pw, ph))
+            s_plane_rot = pygame.transform.rotate(s_plane, self.angle)
+
+        r = s_plane_rot.get_rect(center=(px, py))
+        surface.blit(s_plane_rot, r)
+        
+        # Draw Pseudo
+        lbl = police_label.render(self.pseudo, True, (255, 255, 255))
+        lbl_rect = lbl.get_rect(center=(px, py - s(20) - pw/2))
+        surface.blit(lbl, lbl_rect)
 
 class Bomb:
     def __init__(self, x, y, vx, vy):
@@ -2452,6 +2503,46 @@ update_season_visuals()
 while True:
     dt = horloge.tick(60) / 1000.0 
     
+    if args.multiplayer and udp_socket:
+        # Reception des données serveur
+        try:
+            while True:
+                data, _ = udp_socket.recvfrom(4096)
+                others_data = json.loads(data.decode('utf-8'))
+                
+                # Mise a jour de la liste
+                current_time = time.time()
+                for pid, pdata in others_data.items():
+                    if pid not in network_players:
+                        network_players[pid] = NetworkPlayer(pdata.get("pseudo", "Inconnu"), pdata.get("aircraft", "cessna"))
+                    
+                    np = network_players[pid]
+                    np.x = pdata.get("x", 0)
+                    np.y = pdata.get("y", 0)
+                    np.angle = pdata.get("angle", 0)
+                    np.last_update = current_time
+                    
+                # Nettoyage
+                to_remove = [k for k, p in network_players.items() if current_time - p.last_update > 5.0]
+                for k in to_remove: del network_players[k]
+        except BlockingIOError:
+            pass # Rien a lire
+            
+        # Envoi de nos donnees (1 frame sur 3 pour eviter de surcharger le reseau)
+        if getattr(udp_socket, 'frame_count', 0) % 3 == 0:
+            my_data = {
+                "pseudo": args.pseudo,
+                "x": world_x,
+                "y": altitude,
+                "angle": angle,
+                "aircraft": args.aircraft
+            }
+            try:
+                udp_socket.sendto(json.dumps(my_data).encode('utf-8'), (args.ip, 5555))
+            except:
+                pass
+        udp_socket.frame_count = getattr(udp_socket, 'frame_count', 0) + 1
+    
     # --- GESTION DU TEMPS ---
     if mode_temps_reel:
         now = datetime.datetime.now()
@@ -3625,6 +3716,15 @@ while True:
         if len(pts_wp) > 0:
             pygame.draw.line(fenetre, (200, 50, 200), (px_map, py_map), pts_wp[0], s(2))
 
+    # ---> Dessin des joueurs Multijoueur <---
+    for np in network_players.values():
+        if not show_large_map:
+            np.draw(fenetre, world_x, altitude, zoom)
+        else:
+            # Simple point sur la minimap
+            npm_x = map_x(np.x)
+            npm_y = map_y(np.y)
+            pygame.draw.circle(fenetre, (0, 255, 255), (int(npm_x), int(npm_y)), s(4))
 
     # 2. HUD Overlay (Haut)
     if not args.no_hud and not show_large_map:
