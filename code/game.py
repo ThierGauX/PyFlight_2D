@@ -191,18 +191,15 @@ try:
         if os.path.exists(p):
             loaded_aircraft_images[ac_type] = pygame.image.load(p).convert_alpha()
             
-    # Fighter with fire
-    path_fighter_feu = os.path.join(dossier_img, "Avion_de_chasse-removebg-preview.png")
-    if os.path.exists(path_fighter_feu):
-        loaded_aircraft_images["fighter_feu"] = pygame.image.load(path_fighter_feu).convert_alpha()
+    # Fighter Gear Down
+    path_fighter_gear = os.path.join(dossier_img, "Avion_de_chasse-removebg-preview.png")
+    if os.path.exists(path_fighter_gear):
+        loaded_aircraft_images["fighter_gear_down"] = pygame.image.load(path_fighter_gear).convert_alpha()
     else:
-        loaded_aircraft_images["fighter_feu"] = loaded_aircraft_images.get("fighter")
+        loaded_aircraft_images["fighter_gear_down"] = loaded_aircraft_images.get("fighter")
 
     img_avion_normal_base = loaded_aircraft_images.get(args.aircraft, list(loaded_aircraft_images.values())[0] if loaded_aircraft_images else None)
-    if args.aircraft == "fighter":
-        img_avion_feu_base = loaded_aircraft_images.get("fighter_feu", img_avion_normal_base)
-    else:
-        img_avion_feu_base = img_avion_normal_base
+    img_avion_feu_base = img_avion_normal_base
 
     path_aeroport = os.path.join(dossier_img, "aeroport.png")
     if os.path.exists(path_aeroport):
@@ -1301,10 +1298,7 @@ def switch_aircraft(name):
         # Mise a jour des images
         if images_ok:
             img_avion_normal_base = loaded_aircraft_images.get(args.aircraft, list(loaded_aircraft_images.values())[0] if loaded_aircraft_images else None)
-            if args.aircraft == "fighter":
-                img_avion_feu_base = loaded_aircraft_images.get("fighter_feu", img_avion_normal_base)
-            else:
-                img_avion_feu_base = img_avion_normal_base
+            img_avion_feu_base = img_avion_normal_base
                 
         # Re-calcul dynamique des constantes physiques
         PUISSANCE_MOTEUR = current_ac["thrust_max"] / 8500.0
@@ -3562,7 +3556,10 @@ while True:
     # --- DESSIN AVION ---
     if not crashed:
         # Selection image
-        img_base = img_avion_feu_base if (postcombustion and moteur_allume) else img_avion_normal_base
+        if args.aircraft == "fighter":
+            img_base = loaded_aircraft_images.get("fighter_gear_down" if gear_sorti else "fighter", img_avion_normal_base)
+        else:
+            img_base = img_avion_feu_base if (postcombustion and moteur_allume) else img_avion_normal_base
         
         # Redimensionnement (Zoom basé sur une largeur fixe standard)
         scale_f = {"cessna": 1.0, "acro": 0.8, "fighter": 1.5, "cargo": 2.5}.get(args.aircraft, 1.0)
