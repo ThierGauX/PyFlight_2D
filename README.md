@@ -26,6 +26,13 @@ Activez ce mode pour accéder aux défis spécifiques et au système de scoring 
 *   **Atterrissage de Précision** : Posez-vous le plus près possible de la cible sur la piste pour maximiser vos points.
 *   **Largage Cargo** : (Exclusif au Gros Porteur) Larguez des caisses de ravitaillement sur des zones cibles au sol. Utilisez le viseur prédictif vert (CCIP) pour viser.
 
+### 3. Multijoueur en Ligne (Nouveau)
+Volez avec vos amis dans le même espace aérien grâce au moteur réseau UDP ultra-rapide intégré :
+*   **Hébergement en 1 Clic** : Pas de logiciel tiers, démarrez un Serveur Local (Port UDP 5555) depuis l'onglet Réseau du menu.
+*   **Rejoindre facilement** : Saisissez l'Adresse IP de votre ami, votre Pseudo (Indicatif d'appel), et lancez le vol.
+*   **Pseudos Dynamiques** : Chaque pilote humain possède une plaque d'identification visuelle (Nameplate) au-dessus de son appareil, visible de loin !
+*   *Note: Pour garantir que chaque avion que vous croisez est bien réel, le Trafic IA est automatiquement désactivé lorsque le Multijoueur est coché.*
+
 ---
 
 ## Environnement & Météo Dynamique
