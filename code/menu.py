@@ -112,7 +112,7 @@ class MenuPrincipal(ctk.CTk):
         self.sidebar_frame.grid_rowconfigure(9, weight=1) # Espaceur entre les menus et le bouton jouer (Ligne 9)
         
         # En-Tête Sidebar
-        self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="PYFLIGHT 2D", font=("Impact", 36), text_color=COL_TEXT)
+        self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="PYFLIGHT 2D", font=("Arial", 36, "bold"), text_color=COL_TEXT)
         self.logo_label.grid(row=0, column=0, padx=20, pady=(40, 5))
         self.edition_label = ctk.CTkLabel(self.sidebar_frame, text="ULTIMATE EDITION", font=("Arial", 12, "bold"), text_color=COL_PRIMARY)
         self.edition_label.grid(row=1, column=0, padx=20, pady=(0, 40))
@@ -496,19 +496,19 @@ puis cliquez sur LANCER LE VOL.
                 b1 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=8)
                 b1.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
                 ctk.CTkLabel(b1, text="MEILLEUR SCORE", font=("Arial", 12, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(15,5))
-                ctk.CTkLabel(b1, text=f"{best}", font=("Impact", 36), text_color=COL_ACCENT).pack(pady=(5,15))
+                ctk.CTkLabel(b1, text=f"{best}", font=("Arial", 36, "bold"), text_color=COL_ACCENT).pack(pady=(5,15))
                 
                 # Bloc Moyenne
                 b2 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=8)
                 b2.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
                 ctk.CTkLabel(b2, text="MOYENNE", font=("Arial", 12, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(15,5))
-                ctk.CTkLabel(b2, text=f"{mean}", font=("Impact", 36), text_color=COL_PRIMARY).pack(pady=(5,15))
+                ctk.CTkLabel(b2, text=f"{mean}", font=("Arial", 36, "bold"), text_color=COL_PRIMARY).pack(pady=(5,15))
                 
                 # Bloc Médiane
                 b3 = ctk.CTkFrame(f_stats, fg_color=COL_BG, corner_radius=8)
                 b3.grid(row=0, column=2, padx=10, pady=5, sticky="nsew")
                 ctk.CTkLabel(b3, text="MÉDIANE", font=("Arial", 12, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(15,5))
-                ctk.CTkLabel(b3, text=f"{median}", font=("Impact", 36), text_color="#A3B8CC").pack(pady=(5,15))
+                ctk.CTkLabel(b3, text=f"{median}", font=("Arial", 36, "bold"), text_color="#A3B8CC").pack(pady=(5,15))
                 
                 ctk.CTkLabel(card, text=f"Parties jouées : {len(s_list)}", text_color=COL_TEXT_MUTED, font=("Arial", 12, "italic")).pack(pady=(5,0))
 
