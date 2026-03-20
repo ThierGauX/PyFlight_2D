@@ -120,13 +120,13 @@ class MenuPrincipal(ctk.CTk):
         # Onglets (Boutons Sidebar)
         self.tab_buttons = []
         
-        self.btn_tab_accueil = self.create_sidebar_btn("🏠  Vue d'ensemble", 2)
-        self.btn_tab_base = self.create_sidebar_btn("✈️  Appareil & Vol", 3)
-        self.btn_tab_env = self.create_sidebar_btn("⛅  Environnement", 4)
-        self.btn_tab_realism = self.create_sidebar_btn("⚙️  Réalisme & Aides", 5)
-        self.btn_tab_gfx = self.create_sidebar_btn("📺  Affichage & Rendu", 6)
-        self.btn_tab_stats = self.create_sidebar_btn("📊  Scores & Stats", 7)
-        self.btn_tab_multi = self.create_sidebar_btn("🌐  Réseau & Multi", 8)
+        self.btn_tab_accueil = self.create_sidebar_btn("Vue d'ensemble", 2)
+        self.btn_tab_base = self.create_sidebar_btn("Appareil & Vol", 3)
+        self.btn_tab_env = self.create_sidebar_btn("Environnement", 4)
+        self.btn_tab_realism = self.create_sidebar_btn("Réalisme & Aides", 5)
+        self.btn_tab_gfx = self.create_sidebar_btn("Affichage & Rendu", 6)
+        self.btn_tab_stats = self.create_sidebar_btn("Scores & Stats", 7)
+        self.btn_tab_multi = self.create_sidebar_btn("Réseau & Multi", 8)
         
         # Spacer pour repousser les boutons vers le bas grace au weight=1
         ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=9, column=0, sticky="nsew")
@@ -162,7 +162,7 @@ class MenuPrincipal(ctk.CTk):
         self.bind("<Button-1>", self.on_global_click)
 
         # Init par défaut
-        self.select_tab("🏠  Vue d'ensemble")
+        self.select_tab("Vue d'ensemble")
 
     def create_sidebar_btn(self, texte, row_idx):
         btn = ctk.CTkButton(self.sidebar_frame, text=texte, corner_radius=8, height=45, border_spacing=10,
@@ -187,7 +187,7 @@ class MenuPrincipal(ctk.CTk):
                 btn.configure(fg_color="transparent", text_color=COL_TEXT_MUTED)
                 
         # Si c'est l'onglet des scores, on le reconstruit pour le mettre à jour
-        if nom_tab == "📊  Scores & Stats":
+        if nom_tab == "Scores & Stats":
             self.build_page_scores()
                 
         # Afficher la bonne page
@@ -212,7 +212,7 @@ class MenuPrincipal(ctk.CTk):
 
     def build_page_accueil(self):
         page = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.pages["🏠  Vue d'ensemble"] = page
+        self.pages["Vue d'ensemble"] = page
         
         self.title_label(page, "Bienvenue Commandant.")
         
@@ -245,7 +245,7 @@ puis cliquez sur LANCER LE VOL.
 
     def build_page_base(self):
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["✈️  Appareil & Vol"] = page
+        self.pages["Appareil & Vol"] = page
         self.title_label(page, "Configuration de l'Appareil")
 
         # Avion
@@ -330,7 +330,7 @@ puis cliquez sur LANCER LE VOL.
 
     def build_page_env(self):
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["⛅  Environnement"] = page
+        self.pages["Environnement"] = page
         self.title_label(page, "Environnement & Monde")
 
         c_meteo = self.card_frame(page, "CONDITIONS MÉTÉOROLOGIQUES")
@@ -373,7 +373,7 @@ puis cliquez sur LANCER LE VOL.
 
     def build_page_realism(self):
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["⚙️  Réalisme & Aides"] = page
+        self.pages["Réalisme & Aides"] = page
         self.title_label(page, "Ajustement du Réalisme")
         
         c_poids = self.card_frame(page, "GESTION CARBURANT & POIDS (Idée 5)")
@@ -408,7 +408,7 @@ puis cliquez sur LANCER LE VOL.
 
     def build_page_gfx(self):
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["📺  Affichage & Rendu"] = page
+        self.pages["Affichage & Rendu"] = page
         self.title_label(page, "Options Graphiques")
 
         c_ui = self.card_frame(page, "INTERFACE COCKPIT")
@@ -444,7 +444,7 @@ puis cliquez sur LANCER LE VOL.
         ctk.CTkCheckBox(f_sys, text="Afficher Compteur FPS", variable=self.var_show_fps).pack(side="left", padx=20)
 
     def build_page_scores(self):
-        page_name = "📊  Scores & Stats"
+        page_name = "Scores & Stats"
         # On recrée l'onglet si besoin (actualisation)
         if page_name in self.pages:
             self.pages[page_name].destroy()
@@ -515,7 +515,7 @@ puis cliquez sur LANCER LE VOL.
 
     def build_page_multi(self):
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["🌐  Réseau & Multi"] = page
+        self.pages["Réseau & Multi"] = page
         self.title_label(page, "Multijoueur en Ligne")
         
         c_conn = self.card_frame(page, "CONNEXION AU SERVEUR")

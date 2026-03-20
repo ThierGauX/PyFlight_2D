@@ -665,6 +665,7 @@ import threading
 
 network_players = {}
 udp_socket = None
+network_frame_count = 0
 
 if args.multiplayer:
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -2529,7 +2530,7 @@ while True:
             pass # Rien a lire
             
         # Envoi de nos donnees (1 frame sur 3 pour eviter de surcharger le reseau)
-        if getattr(udp_socket, 'frame_count', 0) % 3 == 0:
+        if network_frame_count % 3 == 0:
             my_data = {
                 "pseudo": args.pseudo,
                 "x": world_x,
@@ -2541,7 +2542,7 @@ while True:
                 udp_socket.sendto(json.dumps(my_data).encode('utf-8'), (args.ip, 5555))
             except:
                 pass
-        udp_socket.frame_count = getattr(udp_socket, 'frame_count', 0) + 1
+        network_frame_count += 1
     
     # --- GESTION DU TEMPS ---
     if mode_temps_reel:
