@@ -702,9 +702,14 @@ class NetworkPlayer:
         r = s_plane_rot.get_rect(center=(px, py))
         surface.blit(s_plane_rot, r)
         
-        # Draw Pseudo
+        # Draw Pseudo with Dark Background
         lbl = police_label.render(self.pseudo, True, (255, 255, 255))
-        lbl_rect = lbl.get_rect(center=(px, py - s(20) - pw/2))
+        lbl_rect = lbl.get_rect(center=(px, py - s(30) - pw/2))
+        
+        # Background rect
+        bg_rect = lbl_rect.inflate(s(10), s(6))
+        pygame.draw.rect(surface, (20, 20, 30), bg_rect, border_radius=s(4))
+        pygame.draw.rect(surface, (100, 150, 255), bg_rect, 1, border_radius=s(4))
         surface.blit(lbl, lbl_rect)
 
 class Bomb:
