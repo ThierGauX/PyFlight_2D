@@ -662,7 +662,8 @@ class AIPlane:
         angle = math.degrees(math.atan2(-self.vy, vx_safe))
         
         # Define baseline width for contrails and rendering
-        pw = max(5, int(80 * zoom))
+        scale_f = {"cessna": 1.0, "acro": 0.8, "fighter": 1.5, "cargo": 2.5}.get(self.aircraft, 1.0)
+        pw = max(5, int(80 * scale_f * zoom))
         
         if images_ok:
             img_base = loaded_aircraft_images.get(self.aircraft, img_avion_normal_base)
@@ -712,7 +713,8 @@ class NetworkPlayer:
         
         if px < -200 or px > L+200 or py < -200 or py > H+200: return
         
-        pw = max(5, int(80 * zoom))
+        scale_f = {"cessna": 1.0, "acro": 0.8, "fighter": 1.5, "cargo": 2.5}.get(self.aircraft, 1.0)
+        pw = max(5, int(80 * scale_f * zoom))
         
         if images_ok:
             img_base = loaded_aircraft_images.get(self.aircraft, img_avion_normal_base)
@@ -3563,7 +3565,8 @@ while True:
         img_base = img_avion_feu_base if (postcombustion and moteur_allume) else img_avion_normal_base
         
         # Redimensionnement (Zoom basé sur une largeur fixe standard)
-        pw = max(10, int(100 * zoom))
+        scale_f = {"cessna": 1.0, "acro": 0.8, "fighter": 1.5, "cargo": 2.5}.get(args.aircraft, 1.0)
+        pw = max(10, int(100 * scale_f * zoom))
         h_new = max(2, int(img_base.get_height() * (pw / max(1, img_base.get_width()))))
         w_new = pw
         
