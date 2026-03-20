@@ -2526,8 +2526,10 @@ while True:
                 # Nettoyage
                 to_remove = [k for k, p in network_players.items() if current_time - p.last_update > 5.0]
                 for k in to_remove: del network_players[k]
-        except BlockingIOError:
+        except (BlockingIOError, ConnectionRefusedError):
             pass # Rien a lire
+        except Exception as e:
+            print(f"Erreur reseau reception: {e}")
             
         # Envoi de nos donnees (1 frame sur 3 pour eviter de surcharger le reseau)
         if network_frame_count % 3 == 0:
