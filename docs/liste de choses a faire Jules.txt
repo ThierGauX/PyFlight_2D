@@ -1,0 +1,72 @@
+Salut Jules !
+
+Pour notre jeu Pyflight 2D, nous avons besoin d'images pour différents états de vol afin de représenter la physique et les interactions correctement. Voici la liste complète des images (sprites) qu'il faudra créer pour *chaque* avion.
+
+Les 3 avions concernés sont :
+1. Cessna (Standard)
+2. Fighter / Chasseur (Rapide)
+3. Cargo / Gros Porteur (Lourd)
+
+Pour CHACUN de ces avions, voici les 8 états nécessaires (Vue de Profil, face vers la droite) :
+
+=== ETATS SANS MOTEUR (À l'arrêt / Plané) ===
+1. Moteur éteint, Roues sorties, Flaps (volets) rentrés
+   -> (L'avion au sol, basique)
+
+2. Moteur éteint, Roues sorties, Flaps (volets) sortis
+   -> (L'avion au sol, freins/volets sortis)
+
+3. Moteur éteint, Roues rentrées, Flaps rentrés
+   -> (En vol plané, configuration lisse)
+
+4. Moteur éteint, Roues rentrées, Flaps sortis
+   -> (En vol plané, prêt à atterrir sur le ventre ou pour ralentir fort)
+
+=== ETATS AVEC MOTEUR (En vol / Décollage) ===
+5. Moteur allumé (Flamme/Hélice active), Roues sorties, Flaps rentrés
+   -> (Roulage au sol ou début de décollage)
+
+6. Moteur allumé (Flamme/Hélice active), Roues sorties, Flaps sortis
+   -> (Phase d'approche finale)
+
+7. Moteur allumé (Flamme/Hélice active), Roues rentrées, Flaps rentrés
+   -> (En vol de croisière normal)
+
+8. Moteur allumé (Flamme/Hélice active), Roues rentrées, Flaps sortis
+   -> (Vol à basse vitesse, manoeuvres serrées)
+
+
+RAPPEL AU TOTAL POUR LES IMAGES :
+- Il y a 8 images par avion.
+- Comme on a 3 avions, ça fait un total de 24 images.
+- Essaie de garder le fond des images transparent (PNG) !
+
+=== SONS REQUIS PAR AVION ===
+En plus des images, chaque type d'avion a besoin de ses propres effets sonores pour plus de réalisme. Il nous faudrait ces fichiers (idéalement en .wav ou .ogg) pour CHAQUE avion :
+
+1. Moteur :
+   - Démarrage du moteur (séquence d'allumage)
+   - Moteur au ralenti (idle)
+   - Moteur en vol (boucle continue, pitch variable selon les gaz)
+   - Coupure du moteur (extinction)
+
+2. Mécanique :
+   - Sortie des volets (Flaps down) - un bruit mécanique ou hydraulique
+   - Rentrée des volets (Flaps up)
+   - Sortie du train d'atterrissage (Gear down - bruit de verrouillage)
+   - Rentrée du train d'atterrissage (Gear up)
+
+3. Déplacements et Interactions :
+   - Freinage au sol (crissement de pneus modéré ou bruit de plaquettes)
+   - Touchdown (impact des roues sur la piste à l'atterrissage)
+   - Bruit de roulement sur la piste
+   - Crash (explosion ou bruit de taule froissée selon l'appareil)
+
+4. Cockpit / Alarmes :
+   - Alarme de décrochage (Stall warning)
+   - Alarme "Terrain Pull Up" (facultatif mais stylé)
+   - Bips de surchauffe ou Low Fuel (carburant bas)
+
+N'hésite pas à faire varier les sons selon la taille de l'avion (les freins du cargo doivent sonner lourd, ceux du chasseur très aigus).
+
+Merci d'avance pour le super boulot !
