@@ -27,11 +27,25 @@ Activez ce mode pour accéder aux défis spécifiques et au système de scoring 
 *   **Largage Cargo** : (Exclusif au Gros Porteur) Larguez des caisses de ravitaillement sur des zones cibles au sol. Utilisez le viseur prédictif vert (CCIP) pour viser.
 
 ### 3. Multijoueur en Ligne (Nouveau)
-Volez avec vos amis dans le même espace aérien grâce au moteur réseau UDP ultra-rapide intégré :
-*   **Hébergement en 1 Clic** : Pas de logiciel tiers, démarrez un Serveur Local (Port UDP 5555) depuis l'onglet Réseau du menu.
-*   **Rejoindre facilement** : Saisissez l'Adresse IP de votre ami, votre Pseudo (Indicatif d'appel), et lancez le vol.
-*   **Pseudos Dynamiques** : Chaque pilote humain possède une plaque d'identification visuelle (Nameplate) au-dessus de son appareil, visible de loin !
-*   *Note: Pour garantir que chaque avion que vous croisez est bien réel, le Trafic IA est automatiquement désactivé lorsque le Multijoueur est coché.*
+Volez avec vos amis dans le même espace aérien de manière très simple ! 
+
+**Comment jouer avec un ami (Tutoriel étape par étape) :**
+
+**👤 Pour l'Hôte (Le créateur de la partie) :**
+1. Allez dans l'onglet **"🌐 Réseau & Multi"** du menu principal.
+2. Cliquez sur **"Héberger serveur"**. Une fenêtre console s'ouvre : le serveur est actif ! (Port UDP 5555).
+3. Cochez la case **"Jouer en Multijoueur"** et entrez votre Pseudo.
+4. Laissez l'IP sur `127.0.0.1` (car c'est votre machine qui héberge) et cliquez sur "Lancer le Vol".
+5. Partagez votre **Adresse IP Publique** (ou IP Hamachi/ZeroTier/Radmin) à votre ami. *(Veillez à ouvrir le port UDP 5555 sur votre box si vous n'utilisez pas de VPN).*
+
+**👥 Pour l'Invité (Celui qui rejoint) :**
+1. Allez dans l'onglet **"🌐 Réseau & Multi"**.
+2. Cochez la case **"Jouer en Multijoueur"**.
+3. Dans la case **Adresse IP**, effacez `127.0.0.1` et **entrez l'adresse IP** que l'Hôte vous a donnée.
+4. Entrez votre propre Pseudo et cliquez sur "Lancer le Vol" ! 
+5. C'est fait ! Vous verrez le nom de votre ami flotter au-dessus de son avion 🛩️.
+
+*Note : Pour s'assurer que vous ne confondez pas un joueur humain avec un robot, le trafic aérien artificiel (IA) est désactivé lorsque ce mode est coché. *
 
 ---
 
