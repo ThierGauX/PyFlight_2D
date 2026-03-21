@@ -3036,6 +3036,10 @@ while True:
         vy = 0.0
         target_poussee = 0.0
 
+    # Blocage au sol pour éviter le glissement (vent/pente) à l'arrêt
+    if not crashed and altitude < 1.0 and abs(vx) < 0.2 and niveau_poussee_reelle < 2.0:
+        vx = 0.0
+
     world_x += vx
     world_y += vy
     
