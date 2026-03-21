@@ -239,6 +239,14 @@ try:
             son_clic.set_volume(args.volume)
 except: pass
 
+son_tonnerre = None
+try:
+    p_ton = os.path.join(dossier_son, "tonnerre.mp3")
+    if os.path.exists(p_ton):
+        son_tonnerre = pygame.mixer.Sound(p_ton)
+        son_tonnerre.set_volume(args.volume)
+except: pass
+
 # 3. GENERATION SON VENT
 son_vent = None
 try:
@@ -309,6 +317,9 @@ position_history = []
 history_timer = 0
 crash_sites = [] # Stocke la liste de tous les (world_x, altitude) de crash
 explosions = [] # Stocke les particules d'explosion
+ground_spray = []
+eclair_timer = 0
+tonnerre_timer = 0
 
 pilote_auto_actif = (args.difficulty == "easy")
 zoom = 1.0          
@@ -3116,11 +3127,34 @@ while True:
                 size_mult = random.uniform(0.7, 1.3)
                 contrails.append([spawn_x + offset_x + rx, spawn_y + offset_y + ry, 1.0, size_mult])
             
+    # --- GROUND SPRAY (Idee 15) ---
+    if not crashed and altitude < 5 and vitesse_kph > 80:
+        if args.season in ["rain", "snow", "wind"]: # Also works in storm
+            type_spray = 1 if args.season == "snow" else 0
+            for _ in range(3):
+                ground_spray.append([world_x + random.uniform(-10, 10), world_y + random.uniform(-2, 2), 1.0, random.uniform(0.5, 1.5), type_spray])
+
     # Mise à jour et nettoyage des particules
     for c in contrails:
         # On réduit encore plus la vitesse de disparition (dure beaucoup plus longtemps)
         c[2] -= 0.003
     contrails = [c for c in contrails if c[2] > 0]
+    
+    for g in ground_spray:
+        g[2] -= 0.02 # Vie plus courte que contrails
+        g[1] -= 0.5  # Monte un peu (soulevé)
+    ground_spray = [g for g in ground_spray if g[2] > 0]
+
+    # --- ORAGES (Idée 14) ---
+    if args.season == "wind":
+        if random.random() < 0.002: # ~2% par sec à 60fps
+            eclair_timer = 2
+            tonnerre_timer = random.randint(30, 150)
+            
+    if tonnerre_timer > 0:
+        tonnerre_timer -= 1
+        if tonnerre_timer == 0 and son_tonnerre:
+            son_tonnerre.play()
 
     # --- REBOND & CRASH ---
     if -world_y <= terrain_y:
@@ -3261,6 +3295,24 @@ while True:
                     pygame.draw.circle(surface_fumee, (*col, p_alpha), (radius, radius), int(radius*0.6))
                     
                     fenetre.blit(surface_fumee, (px - radius, py - radius))
+                    
+    # DESSIN GROUND SPRAY
+    if ground_spray:
+        for g in ground_spray:
+            px = (g[0] - world_x) * zoom + (L/2) + offset_shake_x
+            py = (g[1] - world_y) * zoom + (H/2) + offset_shake_y
+            if -50 < px < L+50 and -50 < py < H+50:
+                life = g[2]
+                s_mult = g[3]
+                radius = int((3 + (1.0 - life) * 10) * s_mult * zoom)
+                alpha = int(255 * (life ** 2))
+                if radius > 0 and alpha > 0:
+                    sg = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+                    if g[4] == 1: # Snow
+                        pygame.draw.circle(sg, (255, 255, 255, alpha), (radius, radius), radius)
+                    else: # Rain/Water
+                        pygame.draw.circle(sg, (150, 200, 220, alpha), (radius, radius), radius)
+                    fenetre.blit(sg, (px - radius, py - radius))
 
     if not args.no_particles:
         for p in particules:
@@ -3645,6 +3697,13 @@ while True:
     # Nettoyage
     explosions = [p for p in explosions if p[4] > 0]
     
+    # --- ECLAIR (FLASH SCREEN) ---
+    if 'eclair_timer' in globals() and eclair_timer > 0:
+        s_eclair = pygame.Surface((L, H), pygame.SRCALPHA)
+        s_eclair.fill((255, 255, 255, 200))
+        fenetre.blit(s_eclair, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+        eclair_timer -= 1
+        
     # --- DASHBOARD ---
     # 1. Analogique (Bas)
     if not args.no_dash:

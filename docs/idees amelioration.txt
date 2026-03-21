@@ -22,8 +22,8 @@ Ce document liste 50 idées pour faire évoluer le projet, classées par catégo
 11. **Génération Prodécudale de Villes** : Au lieu de ne voir que de l'herbe et des arbres, générer de temps en temps des silhouettes grises de bâtiments 2D (avec quelques fenêtres allumées la nuit) près des aéroports.
 12. **Météo Dynamique Évolutive** : Ne plus choisir un temps fixe depuis le menu, mais faire en sorte que le soleil puisse se cacher derrière un énorme nuage gris qui amène la pluie en plein vol, puis passe.
 13. **Ombres Portées au Sol** : Dessiner une version assombrie et déformée (transparente) de l'avion sur le sol lorsque l'altitude est faible.
-14. **Éclairs et Orages** : En cas de tempête, faire flasher le ciel en blanc pendant 1 frame et ajouter un son de tonnerre décalé dans le temps.
-15. **Particules d'Eau et Neige au Sol** : En cas de pluie/neige, soulever des particules d'eau ou de neige blanche derrière l'avion lorsqu'il roule très vite sur la piste.
+14. **[x] Éclairs et Orages** : En cas de tempête, faire flasher le ciel en blanc pendant 1 frame et ajouter un son de tonnerre décalé dans le temps.
+15. **[x] Particules d'Eau et Neige au Sol** : En cas de pluie/neige, soulever des particules d'eau ou de neige blanche derrière l'avion lorsqu'il roule très vite sur la piste.
 
 ## Interface (UI/UX)
 
