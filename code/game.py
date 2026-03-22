@@ -321,6 +321,14 @@ alarme_playing = False
 altitude = 0 
 vitesse_kph = 0
 
+# --- NOUVEAUX SYSTEMES : PAUSE, CAM ET REPLAY ---
+game_paused = False
+free_cam_active = False
+cam_off_x, cam_off_y = 0, 0
+flight_history = [] # Liste de dictionnaires stockant l'état complet
+max_history_len = 1800 # 30 secondes à 60 FPS
+rewind_index = -1
+
 # HISTORIQUE POSITION (Map)
 position_history = []
 history_timer = 0
@@ -449,9 +457,10 @@ class Cloud:
         if self.x < -16000: self.reset()
 
     def draw(self, surface, cam_x, cam_y, zoom):
+        global cam_off_x, cam_off_y
         eff_cam_x = cam_x * self.depth
-        px = (self.x - eff_cam_x) * zoom + (L/2)
-        py = (self.y - cam_y) * zoom + (H/2)
+        px = (self.x - eff_cam_x) * zoom + (L/2 + cam_off_x)
+        py = (self.y - cam_y) * zoom + (H/2 + cam_off_y)
         
         # Optimisation Sortie écran (Horizontale ET Verticale)
         if px < -1000 or px > L + 1000 or py < -500 or py > H + 500: return
@@ -512,8 +521,9 @@ class Bird:
             self.reset()
             
     def draw(self, surface, cam_x, cam_y, zoom):
-        px = (self.x - cam_x) * zoom + (L/2)
-        py = (self.y - cam_y) * zoom + (H/2)
+        global cam_off_x, cam_off_y
+        px = (self.x - cam_x) * zoom + (L/2 + cam_off_x)
+        py = (self.y - cam_y) * zoom + (H/2 + cam_off_y)
         
         # V shape animation
         oscill = math.sin(self.flap_timer) * 5 * zoom
@@ -552,8 +562,9 @@ class Ring:
         self.passed = False
         
     def draw(self, surface, cam_x, cam_y, zoom):
-        px = (self.x - cam_x) * zoom + (L/2)
-        py = (self.y - cam_y) * zoom + (H/2)
+        global cam_off_x, cam_off_y
+        px = (self.x - cam_x) * zoom + (L/2 + cam_off_x)
+        py = (self.y - cam_y) * zoom + (H/2 + cam_off_y)
         pr = self.radius * zoom
         
         if px < -pr or px > L+pr: return
@@ -587,9 +598,10 @@ class CargoBox:
         self.vy *= 0.99
         
     def draw(self, surface, cam_x, cam_y, zoom):
+        global cam_off_x, cam_off_y
         if not self.active: return
-        px = (self.x - cam_x) * zoom + (L/2)
-        py = (self.y - cam_y) * zoom + (H/2)
+        px = (self.x - cam_x) * zoom + (L/2 + cam_off_x)
+        py = (self.y - cam_y) * zoom + (H/2 + cam_off_y)
         pr = max(2, 5 * zoom)
         pygame.draw.rect(surface, (150, 100, 50), (px-pr, py-pr, pr*2, pr*2))
 
@@ -666,9 +678,10 @@ class AIPlane:
                 self.active = False
             
     def draw(self, surface, cam_x, cam_y, zoom):
+        global cam_off_x, cam_off_y
         if not self.active: return
-        px = (self.x - cam_x) * zoom + (L/2)
-        py = (self.y - cam_y) * zoom + (H/2)
+        px = (self.x - cam_x) * zoom + (L/2 + cam_off_x)
+        py = (self.y - cam_y) * zoom + (H/2 + cam_off_y)
         
         # Don't draw if outside screen
         if px < -200 or px > L+200 or py < -200 or py > H+200: return
@@ -724,8 +737,9 @@ class NetworkPlayer:
         self.last_update = time.time()
         
     def draw(self, surface, cam_x, cam_y, zoom):
-        px = (self.x - cam_x) * zoom + (L/2)
-        py = (self.y - cam_y) * zoom + (H/2)
+        global cam_off_x, cam_off_y
+        px = (self.x - cam_x) * zoom + (L/2 + cam_off_x)
+        py = (self.y - cam_y) * zoom + (H/2 + cam_off_y)
         
         if px < -200 or px > L+200 or py < -200 or py > H+200: return
         
@@ -775,9 +789,10 @@ class Bomb:
         self.vy *= 0.995
         
     def draw(self, surface, cam_x, cam_y, zoom):
+        global cam_off_x, cam_off_y
         if not self.active: return
-        px = (self.x - cam_x) * zoom + (L/2)
-        py = (self.y - cam_y) * zoom + (H/2)
+        px = (self.x - cam_x) * zoom + (L/2 + cam_off_x)
+        py = (self.y - cam_y) * zoom + (H/2 + cam_off_y)
         
         # Angle de la bombe basé sur sa trajectoire
         angle_rad = math.atan2(-self.vy, self.vx)
@@ -864,9 +879,10 @@ class Missile:
         self.vy *= 0.995
 
     def draw(self, surface, cam_x, cam_y, zoom):
+        global cam_off_x, cam_off_y
         if not self.active: return
-        px = (self.x - cam_x) * zoom + (L/2)
-        py = (self.y - cam_y) * zoom + (H/2)
+        px = (self.x - cam_x) * zoom + (L/2 + cam_off_x)
+        py = (self.y - cam_y) * zoom + (H/2 + cam_off_y)
         
         if -100 < px < L+100 and -100 < py < H+100:
             bw = 16 * zoom
@@ -1653,6 +1669,7 @@ class MissionManager:
         self.timer_message = 120
             
     def draw(self, surface, cam_x, cam_y, zoom):
+        global cam_off_x, cam_off_y
         if self.active_mission == "rings":
             for r in self.rings:
                 r.draw(surface, cam_x, cam_y, zoom)
@@ -1662,7 +1679,7 @@ class MissionManager:
                  x1, x2 = self.target_landing_zone
                  px1 = (x1 - cam_x) * zoom + (L/2)
                  px2 = (x2 - cam_x) * zoom + (L/2)
-                 py = (0 - cam_y) * zoom + (H/2)
+                 py = (0 - cam_y) * zoom + (H/2 + cam_off_y)
                  
                  if px2 > 0 and px1 < L:
                      s_mission = pygame.Surface(((x2-x1)*zoom, 20*zoom), pygame.SRCALPHA)
@@ -1681,8 +1698,8 @@ class MissionManager:
         if self.active_mission == "cargo":
             for t in self.cargo_targets:
                 if not t['active']: continue
-                px = (t['x'] - cam_x) * zoom + (L/2)
-                py = (-get_terrain_height(t['x']) - cam_y) * zoom + (H/2)
+                px = (t['x'] - cam_x) * zoom + (L/2 + cam_off_x)
+                py = (-get_terrain_height(t['x']) - cam_y) * zoom + (H/2 + cam_off_y)
                 pw = t['w'] * zoom
                 if -pw < px < L+pw:
                     pygame.draw.rect(surface, (255, 50, 50), (px - pw/2, py - 5*zoom, pw, 10*zoom))
@@ -1709,12 +1726,12 @@ class MissionManager:
                     break
             
             # Dessiner la croix de visée au sol
-            px = (sim_x - cam_x) * zoom + (L/2)
-            py = (sim_y - cam_y) * zoom + (H/2)
+            px = (sim_x - cam_x) * zoom + (L/2 + cam_off_x)
+            py = (sim_y - cam_y) * zoom + (H/2 + cam_off_y)
             
             # Ligne pointillée depuis l'avion jusqu'à la cible
-            start_px = (world_x - cam_x) * zoom + (L/2)
-            start_py = (world_y - cam_y) * zoom + (H/2)
+            start_px = (world_x - cam_x) * zoom + (L/2 + cam_off_x)
+            start_py = (world_y - cam_y) * zoom + (H/2 + cam_off_y)
             pygame.draw.aaline(surface, (0, 255, 0, 100), (start_px, start_py), (px, py))
             
             # Croix de ciblage
@@ -1769,9 +1786,10 @@ class Airport:
         self.altitude = 0 
         
     def draw(self, surface, cam_x, cam_y, zoom):
+        global cam_off_x, cam_off_y
         # Position du sol
-        px = (self.x_start - cam_x) * zoom + (L/2)
-        py = (0 - cam_y) * zoom + (H/2) # Sol est à y=0
+        px = (self.x_start - cam_x) * zoom + (L/2 + cam_off_x)
+        py = (0 - cam_y) * zoom + (H/2 + cam_off_y) # Sol est à y=0
         pw = self.width * zoom
         ph = 150 * zoom # Profondeur visuelle augmentée
         
@@ -2548,707 +2566,753 @@ while True:
                 pass
         network_frame_count += 1
     
-    # --- GESTION DU TEMPS ---
-    if mode_temps_reel:
-        now = datetime.datetime.now()
-        heure_actuelle = now.hour + (now.minute / 60.0) + (now.second / 3600.0)
-    elif mode_temps_dynamique:
-        # Avance du temps : 0.001 par frame = ~1h toutes les 1000 frames (~16s à 60fps)
-        # Un cycle complet de 24h prend environ 6.5 minutes.
-        heure_actuelle += 0.001
-        if heure_actuelle >= 24: heure_actuelle -= 24
-    else:
-        heure_actuelle = offset_temps
-
+    if not game_paused:
+        # --- GESTION DU TEMPS ---
+        if mode_temps_reel:
+            now = datetime.datetime.now()
+            heure_actuelle = now.hour + (now.minute / 60.0) + (now.second / 3600.0)
+        elif mode_temps_dynamique:
+            # Avance du temps : 0.001 par frame = ~1h toutes les 1000 frames (~16s à 60fps)
+            # Un cycle complet de 24h prend environ 6.5 minutes.
+            heure_actuelle += 0.001
+            if heure_actuelle >= 24: heure_actuelle -= 24
+        else:
+            heure_actuelle = offset_temps
     
-    mettre_a_jour_couleurs(heure_actuelle) 
-
-    for event in pygame.event.get():
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if args.ui_sounds and son_clic:
-                son_clic.play()
-        if menu_bar.handle_event(event):
-            continue
-            
-        if event.type == pygame.QUIT:
-            save_session_coins()
-            save_career_stats()
-            pygame.quit()
-            exit()
-        elif event.type == pygame.MOUSEWHEEL:
-            zoom_cible += event.y * 0.2 # Zoom plus rapide 
-            # Clamp zoom to prevent negative sizes (crash) and excessive zoom
-            if zoom_cible < 0.05: zoom_cible = 0.05
-            if zoom_cible > 3.0: zoom_cible = 3.0
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if show_large_map:
-                # Calcul de la position géographique du clic
-                # La carte fait L-100 x H-100, ancrée en 50,50
-                w_map = L - 100
-                h_map = H - 100
-                x_map = 50
-                y_map = 50
-                if x_map <= event.pos[0] <= x_map + w_map and y_map <= event.pos[1] <= y_map + h_map:
-                    if event.button == 1: # Clic Gauche -> Ajouter Waypoint
-                        # Echelle X : -150km à +150km
-                        px_w = (event.pos[0] - x_map) / w_map * 300000 - 150000
-                        # Echelle Y : 15000m à 0m (inversé)
-                        py_alt = (1.0 - (event.pos[1] - y_map) / h_map) * 15000
-                        flight_plan_waypoints.append((px_w, py_alt))
-                    elif event.button == 3: # Clic Droit -> Retirer dernier Waypoint
-                        if len(flight_plan_waypoints) > 0:
-                            flight_plan_waypoints.pop()
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_a:
-                moteur_allume = not moteur_allume
-            if event.key == pygame.K_f:
-                flaps_sortis = not flaps_sortis
-            if event.key == pygame.K_g:
-                gear_sorti = not gear_sorti
-            if event.key == pygame.K_l: # LANDING LIGHT
-                lumiere_allume = not lumiere_allume
-            if event.key == pygame.K_m: # TOGGLE LARGE MAP (Idée 46)
-                show_large_map = not show_large_map
-            if event.key == pygame.K_k: # TOGGLE RADIO
-                music_player.toggle()
-            if event.key == pygame.K_n: # NEXT SONG
-                music_player.next()
-            if event.key == pygame.K_ESCAPE:
+        
+        mettre_a_jour_couleurs(heure_actuelle) 
+    
+        for event in pygame.event.get():
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if args.ui_sounds and son_clic:
+                    son_clic.play()
+            if menu_bar.handle_event(event):
+                continue
+                
+            if event.type == pygame.QUIT:
                 save_session_coins()
                 save_career_stats()
                 pygame.quit()
                 exit()
-            
-            # MISSIONS
-            if event.key == pygame.K_F1:
-                mission_manager.start_rings_challenge(world_x)
-            if event.key == pygame.K_F2:
-                mission_manager.start_landing_challenge(world_x)
-            if event.key == pygame.K_c and mission_manager.active_mission == "cargo":
-                mission_manager.drop_cargo(world_x, world_y, vx, vy)
+            elif event.type == pygame.MOUSEWHEEL:
+                zoom_cible += event.y * 0.2 # Zoom plus rapide 
+                # Clamp zoom to prevent negative sizes (crash) and excessive zoom
+                if zoom_cible < 0.05: zoom_cible = 0.05
+                if zoom_cible > 3.0: zoom_cible = 3.0
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if show_large_map:
+                    # Calcul de la position géographique du clic
+                    # La carte fait L-100 x H-100, ancrée en 50,50
+                    w_map = L - 100
+                    h_map = H - 100
+                    x_map = 50
+                    y_map = 50
+                    if x_map <= event.pos[0] <= x_map + w_map and y_map <= event.pos[1] <= y_map + h_map:
+                        if event.button == 1: # Clic Gauche -> Ajouter Waypoint
+                            # Echelle X : -150km à +150km
+                            px_w = (event.pos[0] - x_map) / w_map * 300000 - 150000
+                            # Echelle Y : 15000m à 0m (inversé)
+                            py_alt = (1.0 - (event.pos[1] - y_map) / h_map) * 15000
+                            flight_plan_waypoints.append((px_w, py_alt))
+                        elif event.button == 3: # Clic Droit -> Retirer dernier Waypoint
+                            if len(flight_plan_waypoints) > 0:
+                                flight_plan_waypoints.pop()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p: # TOGGLE PAUSE
+                    game_paused = not game_paused
+                    # On coupe l'alarme si en pause
+                    if game_paused and alarme_playing:
+                        son_alarme.stop()
+                        
+                if event.key == pygame.K_c: # TOGGLE FREE CAM
+                    free_cam_active = not free_cam_active
+                    if not free_cam_active:
+                        cam_off_x, cam_off_y = 0, 0 # Reset cam position
+    
+                if event.key == pygame.K_a:
+                    moteur_allume = not moteur_allume
+                if event.key == pygame.K_f:
+                    flaps_sortis = not flaps_sortis
+                if event.key == pygame.K_g:
+                    gear_sorti = not gear_sorti
+                if event.key == pygame.K_l: # LANDING LIGHT
+                    lumiere_allume = not lumiere_allume
+                if event.key == pygame.K_m: # TOGGLE LARGE MAP (Idée 46)
+                    show_large_map = not show_large_map
+                if event.key == pygame.K_k: # TOGGLE RADIO
+                    music_player.toggle()
+                if event.key == pygame.K_n: # NEXT SONG
+                    music_player.next()
+                if event.key == pygame.K_ESCAPE:
+                    save_session_coins()
+                    save_career_stats()
+                    pygame.quit()
+                    exit()
                 
-            if args.aircraft == "fighter":
-                if event.key == pygame.K_b:
-                    bombs.append(Bomb(world_x, world_y, vx, vy))
-                if event.key == pygame.K_v:
-                    missiles.append(Missile(world_x, world_y, vx, vy, angle))
-
-            if moteur_allume:
-                if event.key == pygame.K_LSHIFT: # PLEIN GAZ
-                    target_poussee = 100.0
-                if event.key == pygame.K_LCTRL: # COUPER GAZ
-                    target_poussee = 0.0
-                if event.key == pygame.K_RIGHT:
-                    target_poussee += 10.0 # Plus rapide
-                if event.key == pygame.K_LEFT:
-                    target_poussee -= 10.0 
-                target_poussee = max(0.0, min(100.0, target_poussee))
-
-    touches = pygame.key.get_pressed()
-    zoom_cible = max(0.01, min(5.0, zoom_cible)) # Plage de zoom ÉNORME (0.01 permet de dézoomer de très loin)
-    zoom += (zoom_cible - zoom) * 0.05 # Plus fluide
-
-    # --- CONTROLE STABILISÉ (MODE FACILE) ---
-    target_rotation = 0
-    action_manche = False 
-    pilote_auto_actif = False
-    freins_actifs = False 
-
-    if touches[pygame.K_UP]:    
-        target_rotation = -MAX_ROTATION
-        action_manche = True
-    if touches[pygame.K_DOWN]:  
-        target_rotation = MAX_ROTATION
-        action_manche = True
-    
-    # FREINS (Espace ou B)
-    if touches[pygame.K_SPACE] or touches[pygame.K_b]:
-        freins_actifs = True
-
-    if action_manche:
-        # Rotation Active (Physique Améliorée)
-        # 1. Efficacité des gouvernes selon la vitesse (Plus on va vite, plus ça tourne)
-        efficacite_vitesse = min(1.0, max(0.1, vitesse_kph / V_DECOLLAGE))
-        
-        # 2. Poids du nez au sol (Difficile de lever le nez à basse vitesse)
-        facteur_sol = 1.0
-        # On adoucit la contrainte : progressif de 0 à 10m
-        if altitude < 10:
-            facteur_sol = 0.5 + (altitude / 10.0) * 0.5 # 50% min authority -> 100%
-            
-        # L'inertie de rotation est aussi impactée par le poids
-        facteur_poids_rot = 1.0
-        if not args.static_weight:
-            facteur_poids_rot = 1.0 + (fuel / 100.0) * 0.4
-            
-        accel = (ACCEL_ROTATION / facteur_poids_rot) * 0.5 * efficacite_vitesse * facteur_sol
-        
-        if target_rotation > vitesse_rotation_actuelle:
-            vitesse_rotation_actuelle += accel
-        elif target_rotation < vitesse_rotation_actuelle:
-            vitesse_rotation_actuelle -= accel
-    else:
-        # --- STABILISATEUR RENFORCÉ (MODE FACILE) ---
-        vitesse_rotation_actuelle *= 0.85 # Amortissement fort
-        
-        # Retour automatique à l'horizon plus agressif pour "faciliter" le vol
-        if vitesse_kph > V_DECOLLAGE and not en_decrochage:
-             # On ramène le nez à 0°
-            if abs(angle) > 0.1:
-                signe = -1 if angle > 0 else 1
-                vitesse_rotation_actuelle += signe * 0.02 # Aide au redressement
-            
-            if abs(angle) < 1.0 and abs(vitesse_rotation_actuelle) < 0.05:
-                angle = 0
-                vitesse_rotation_actuelle = 0
-                pilote_auto_actif = True
-        
-    angle += vitesse_rotation_actuelle
-
-
-    # --- LIMITATION ANGLE (Désactivée pour tous les appareils) ---
-    # Tous les avions peuvent désormais faire des loopings à 360°
-    # On garde l'angle entre -180 et 180 pour la logique de calcul
-    if angle > 180: angle -= 360
-    if angle < -180: angle += 360
-
-    if args.missions:
-        if atc_timer > 0:
-            atc_timer -= 1
-
-    # --- MOTEUR & THRUST & FUEL ---
-    if not moteur_allume or fuel <= 0:
-        target_poussee = 0.0
-        if fuel <= 0: moteur_allume = False
-        
-    if niveau_poussee_reelle < target_poussee:
-        niveau_poussee_reelle += 1.0  
-    elif niveau_poussee_reelle > target_poussee:
-        niveau_poussee_reelle -= 1.0   
-        
-    # Consommation Fuel
-    if moteur_allume:
-        # Conso basale + conso poussée exponentielle pour la postcombustion
-        # Plus on pousse la manette, plus la consommation augmente de façon non linéaire
-        facteur_poussee = (niveau_poussee_reelle / 100.0)
-        # Quadrique pour simuler une consommation disproportionnée à haut régime
-        # x2.5 burn rate if full throttle, only basal rate if idle
-        conso = 0.001 + (facteur_poussee**2 * 2.5) * fuel_burn_rate
-        
-        if not args.unlimited_fuel:
-            fuel -= conso
-            if fuel < 0: fuel = 0
-        else:
-            fuel = 100.0 # Force le fuel à 100% si illimité
-        
-    # --- SURCHAUFFE MOTEUR ---
-    if moteur_allume and not moteur_endommage and not args.no_overheat:
-        # Chauffe augmente de façon exponentielle avec la poussée (Idée 4)
-        facteur_poussee = (niveau_poussee_reelle / 100.0)
-        chauffe_base = (facteur_poussee**2 * 0.08) * (1.0 - UPG_COOLING_REDUCTION)
-        
-        # Refroidissement lié à l'altitude (air plus froid) et la vitesse (flux d'air)
-        # altitude est typiquement 0 à 15000+. Vitesse_kph de 0 à 300+
-        refroidissement_alt = (max(0, altitude) / 10000.0) * 0.03 # De 0 à 0.045
-        refroidissement_vit = (max(0, vitesse_kph) / V_VNE) * 0.05 # De 0 à 0.05
-        refroidissement = 0.01 + refroidissement_alt + refroidissement_vit
-        
-        variation_temp = chauffe_base - refroidissement
-        
-        # Le cargo chauffe naturellement plus vite
-        if current_ac["mass"] == 20000.0 and niveau_poussee_reelle > 85:
-            variation_temp += 0.01
-            
-        moteur_temp += variation_temp
-        
-        if moteur_temp >= 100:
-            moteur_temp = 100
-            moteur_endommage = True
-            moteur_allume = False
-            son_moteur.stop()
-            mission_manager.message = "MOTEUR EN FEU ! ATTERRISSEZ D'URGENCE !"
-            mission_manager.timer_message = 300
-            
-    else:
-        moteur_temp -= 0.1 # Refroidit si éteint ou si no_overheat
-        
-    # --- STATISTIQUES DE SESSION ---
-    max_vitesse_session = max(max_vitesse_session, vitesse_kph)
-    max_alt_session = max(max_alt_session, altitude)
-    distance_totale_session += (vitesse_kph / 3.6) * dt
-    temps_vol_session += dt
-        
-    if moteur_temp < 0: moteur_temp = 0
-
-    # REFUELING MANUEL (Touche R sur n'importe quel aéroport)
-    # L'avion doit être au sol (altitude < 5), presque arrêté, dans la zone d'un aéroport (0 à 2000m)
-    can_refuel = False
-    if altitude < 5 and abs(vitesse_kph) < 30: # Un peu plus tolérant sur la vitesse
-        for piste_data in RUNWAYS:
-            if isinstance(piste_data, tuple):
-                piste_x = piste_data[0]
-                piste_w = piste_data[1]
-            else: 
-                piste_x = piste_data
-                piste_w = 6000
-            # On peut recharger sur toute la longueur de la piste
-            if piste_x - 300 <= world_x <= piste_x + piste_w + 300:
-                can_refuel = True
-                break
-                
-    if can_refuel:
-        if args.auto_refuel or touches[pygame.K_r]:
-            fuel += 1.0 # Remplissage rapide
-            if fuel > max_fuel: fuel = max_fuel
-
-    # SON CONTINU
-    if son_moteur:
-        if moteur_allume:
-            if son_moteur.get_num_channels() == 0: 
-                son_moteur.play(loops=-1)
-            vol = 0.3 + (niveau_poussee_reelle / 100.0) * 0.7
-            if not engine_sound_active:
-                vol = 0.0
-            else:
-                vol *= args.volume
-            son_moteur.set_volume(vol)
-        else:
-            son_moteur.stop()
-
-    # SON VENT DYNAMIQUE
-    if son_vent:
-        if son_vent.get_num_channels() == 0: son_vent.play(loops=-1)
-        # Volume prop à la vitesse (max 0.8)
-        ratio_v = min(1.0, (vitesse_kph / 400.0)) # 400kph = max vent
-        vol_wind = ratio_v * 0.5 # Max 50% volume
-        if args.season == "wind": vol_wind *= 2.0 # Plus fort en tempête
-        son_vent.set_volume(vol_wind * args.volume)
-
-    postcombustion = (niveau_poussee_reelle > 90)
-    
-    # --- POIDS DYNAMIQUE (Idée 5) ---
-    # Le fuel représente une part importante du poids (ex: 40% du poids max)
-    # 0% fuel = facteur 1.0 (leger) | 100% fuel = facteur 1.4 (lourd)
-    facteur_poids = 1.0
-    if not args.static_weight:
-        facteur_poids = 1.0 + (fuel / 100.0) * 0.4
-    
-    # APPLICATION UPGRADE POIDS (Allègement)
-    facteur_poids *= (1.0 - UPG_WEIGHT_REDUCTION)
-        
-    # La puissance instantanée est divisée par le facteur de poids
-    puissance_instantanee = ((niveau_poussee_reelle / 100.0) * PUISSANCE_MOTEUR) / facteur_poids
-    rad = math.radians(angle)
-    
-    # --- VENT & TURBULENCE ---
-    if not args.no_wind:
-        turbulence_timer += 1
-        # Variation du vent (rafales)
-        rafale_x = math.sin(turbulence_timer * 0.05) * 2.0
-        rafale_y = math.cos(turbulence_timer * 0.13) * 1.5
-        
-        vent_actuel_x = vent_x + rafale_x
-        vent_actuel_y = vent_y + rafale_y
-        
-        vx += vent_actuel_x * 0.005 
-        vy += vent_actuel_y * 0.005
-    
-    # Secousses Caméra
-    # Secousses Caméra (REDUIT)
-    shake_amount = 0
-    if moteur_allume:
-        shake_amount = (vitesse_kph / V_VNE) * 0.5 + (niveau_poussee_reelle/100.0) * 0.2
-        if altitude < 20: shake_amount += 0.5 # Petite turbulence sol
-    
-    vx += math.cos(rad) * puissance_instantanee
-    vy -= math.sin(rad) * puissance_instantanee
-
-    # Alarme (Moins sensible en mode facile)
-    if en_decrochage and altitude > 50: # On ne sonne pas au ras du sol
-        if not alarme_playing and son_alarme:
-            son_alarme.play(loops=-1)
-            alarme_playing = True
-    else:
-        if alarme_playing and son_alarme:
-            son_alarme.stop()
-            alarme_playing = False
-
-    # Mur du son
-    if vitesse_kph > V_MACH1:
-        mur_du_son_franchi = True
-    elif vitesse_kph < V_MACH1 - 50:
-        mur_du_son_franchi = False
-
-    terrain_y = get_terrain_height(world_x)
-    altitude = -(world_y - terrain_y)
-    
-    # CLAMPING ET SECURITE
-    vx = max(-150.0, min(150.0, vx))
-    vy = max(-150.0, min(150.0, vy))
-    if math.isnan(vx): vx = 0
-    if math.isnan(vy): vy = 0
-    
-    vitesse_totale = math.sqrt(vx**2 + vy**2)
-    vitesse_kph = int(vitesse_totale * 15)
-    
-    # --- TRACKING RECORDS SESSION ---
-    max_vitesse_session = max(max_vitesse_session, vitesse_kph)
-    max_alt_session = max(max_alt_session, altitude)
-    distance_totale_session += abs(vx) # Approximation simple de la distance
-    
-    # Détection Atterrissage Réussi
-    if not crashed and altitude < 5 and vitesse_kph < 10:
-        if not has_already_landed:
-            session_landings += 1
-            has_already_landed = True
-            # ATC message félicitations
-            afficher_atc("BRAVO ! ATTERRISSAGE RÉUSSI.", 120)
-    elif altitude > 20:
-        has_already_landed = False # On redécolle
-    
-    # --- CALCUL AOA PHYSIQUE (UNIFIÉ & SPÉCIAL ACRO) ---
-    rad_pitch = math.radians(angle)
-    v_long = vx * math.cos(rad_pitch) + (-vy) * math.sin(rad_pitch)
-    v_perp = -vx * math.sin(rad_pitch) + (-vy) * math.cos(rad_pitch)
-    real_aoa_phys = math.degrees(math.atan2(v_perp, max(0.1, v_long)))
-    
-    # Seuil de décrochage dynamique
-    # L'Acro est BEAUCOUP plus tolérant (30° au lieu de 16°)
-    base_thr = 30.0 if args.aircraft == "acro" else 16.0
-    stall_threshold_phys = base_thr + (args.upg_finesse * 0.1)
-    if flaps_sortis: stall_threshold_phys += 4.0
-    
-    # Détection Décrochage
-    # L'Acro ne décroche pas par manque de vitesse si le moteur compense (Prop-hanging)
-    v_min_limit = 65 if flaps_sortis else 85
-    is_slow = vitesse_kph < v_min_limit
-    
-    # Si Acro et moteur > 80%, on ignore le décrochage de vitesse (on tient sur l'hélice)
-    if args.aircraft == "acro" and niveau_poussee_reelle > 80:
-        is_slow = False
-
-    if args.no_stall:
-        en_decrochage = False
-    elif altitude < 100 and vitesse_kph > 50:
-        en_decrochage = False # Sécurité sol
-    elif abs(real_aoa_phys) > stall_threshold_phys or is_slow:
-        en_decrochage = True
-    else:
-        en_decrochage = False
-
-    # --- PHYSIQUE DE VOL ---
-    portance = 0
-    if pilote_auto_actif:
-        vy = 0 
-        vx *= FRICTION_AIR 
-    else:
-        vy += GRAVITE
-        
-        friction_actuelle = FRICTION_AIR
-        
-        if flaps_sortis:
-            friction_actuelle = 0.985  
-            coeff_p = 0.0075           
-        else:
-            friction_actuelle = 0.992
-            coeff_p = COEFF_PORTANCE
-            
-        if not gear_sorti:
-            # Moins de traînée si le train est rentré (plus de vitesse)
-            friction_actuelle += 0.002
-
-        if not en_decrochage:
-            # On plafonne l'angle effectif pour la portance (évite des valeurs immenses en looping)
-            # L'angle d'attaque aérodynamique décroche au delà de ~20 degrés dans la réalité
-            effective_angle = max(-15, min(25, angle))
-            angle_incidence = effective_angle + 2.0 
-            
-            lift_factor = angle_incidence * 0.1 
-            if lift_factor < 0: lift_factor *= 0.1 
-            
-            densite_air = max(0.0, 1.0 - (altitude / 25000.0))
-
-            portance_dynamique = (vitesse_totale**2) * coeff_p * lift_factor * 0.05 * densite_air
-            
-            # EFFET DE SOL (Ground Effect) - ADOUCI
-            # Bonus de portance plus progressif (30m au lieu de 20m, max +15% au lieu de +25%)
-            if altitude < 30:
-                bonus_sol = 1.0 + (1.0 - (altitude / 30.0)) * 0.15 
-                portance_dynamique *= bonus_sol
-                
-            portance = portance_dynamique
-
-            trainee_induite = abs(portance) * 0.1
-            friction_actuelle -= trainee_induite * 0.01
-
-            vx *= friction_actuelle
-            vy *= FRICTION_VERTICALE
-            
-            if abs(angle) < 5:
-                vx *= 0.9995 
-                vy *= 0.9995
-        else:
-            vx *= 0.99
-            vy *= 0.99
-            if angle > 10: angle -= 0.5 
-        
-        if angle < 0: vy += 0.02 
-
-        # La portance s'applique perpendiculairement aux ailes
-        # (avant : vy -= portance, poussait toujours vers le ciel absolu)
-        rad_portance = math.radians(angle)
-        vx += -math.sin(rad_portance) * portance
-        vy -= math.cos(rad_portance) * portance
-
-    # --- COLLISION HORIZONTALE AVEC LA MONTAGNE ---
-    # On regarde si l'avion va rentrer "dans" un mur devant lui
-    if not args.god_mode:
-        # Predict next height where the plane is going
-        next_x = world_x + vx
-        future_terrain_y = get_terrain_height(next_x)
-        current_terrain_y = get_terrain_height(world_x)
-        
-        # Si on vole droit vers une pente raide qui est plus haute que notre altitude (en tenant compte de la chute prévue vy)
-        altitude_future = -(world_y + vy - future_terrain_y)
-        
-        # Uniquement si on est près du sol
-        if altitude_future < -10 and (future_terrain_y > current_terrain_y + 10) and abs(vx) > 10:
-             # Le terrain monte brutalement devant nous et on va être EN DESSOUS (altitude_future négative importante)
-             crashed = True
-             crash_reason = f"CRASH: COLLISION RELIEF (Montagne)"
-
-    # Freeze game physics if mission is over
-    if args.missions and mission_manager.mission_over:
-        vx = 0.0
-        vy = 0.0
-        target_poussee = 0.0
-
-    # Blocage au sol pour éviter le glissement (vent/pente) à l'arrêt
-    if not crashed and altitude < 1.0 and abs(vx) < 0.2 and niveau_poussee_reelle < 2.0:
-        vx = 0.0
-
-    world_x += vx
-    world_y += vy
-    
-    # Update Weapons
-    for b in bombs:
-        if not b.active: continue
-        b.update()
-        terrain_h = get_terrain_height(b.x)
-        if b.y >= -terrain_h:
-            b.active = False
-            spawn_explosion(b.x, b.y, b.vx, b.vy)
-            
-    for m in missiles:
-        if not m.active: continue
-        m.update()
-        terrain_h = get_terrain_height(m.x)
-        if m.y >= -terrain_h:
-            m.active = False
-            spawn_explosion(m.x, m.y, m.vx, m.vy)
-            continue
-            
-        for aip in ai_planes:
-            if aip.active:
-                dist = math.hypot(m.x - aip.x, m.y - aip.y)
-                if dist < 80:
-                    aip.active = False
-                    m.active = False
-                    spawn_explosion(aip.x, aip.y, aip.vx, aip.vy)
-                    break
-
-    # Update Missions
-    mission_manager.update(world_x, world_y, vx, vy, dt)
-    
-    # Update ATC Radios
-    if args.missions:
-        if altitude > 20 and vitesse_kph > 120 and "takeoff" not in atc_airport_triggered:
-            afficher_atc("Tour : Décollage réussi. Bon vol PyFlight !")
-            atc_airport_triggered.add("takeoff")
-        
-        for i, piste in enumerate(airports):
-            dist = abs(world_x - (piste.x_start + piste.width/2))
-            if dist < 6000 and i not in atc_airport_triggered and altitude > 100:
-                afficher_atc(f"Tour : PyFlight, approche sur aéroport {i+1} claire.")
-                atc_airport_triggered.add(i)
-                
-        # Messages ATC aléatoires en vol croisière
-        if altitude > 1000 and random.random() < 0.0005: # Très rare
-            msgs = [
-                "Tour : PyFlight, maintenez votre altitude et cap actuel.",
-                "Tour : PyFlight, trafic signalé à vos 12 heures, même altitude.",
-                "Tour : PyFlight, signalez turbulences si rencontrées.",
-                "Tour : PyFlight, contact radar perdu... Ah non c'est bon."
-            ]
-            afficher_atc(random.choice(msgs))
-    
-    # --- CONTRAILS ---
-    if not crashed:
-        # Trail permanent si option cochée
-        if args.show_trail:
-            rad_a = math.radians(angle)
-            # On génère plusieurs particules par frame pour épaissir la fumée
-            # et on les espace légèrement pour couvrir la distance parcourue (vx, vy)
-            # Au lieu d'un nombre fixe (3), on calcule la distance parcourue.
-            # L'avion parcourt sqrt(vx^2 + vy^2) pixels par frame.
-            # Pour un jet, ça peut faire 30-50 pixels d'un coup, donc on laisse des trous.
-            # Un espacement de 5 pixels entre les cercles est largement suffisant pour faire une ligne solide.
-            dist_per_frame = math.sqrt(vx**2 + vy**2)
-            steps = max(3, int(dist_per_frame / 5.0))
-            
-            for step in range(steps):
-                # interp va de 0.0 (début de frame = position actuelle moins vx)
-                # à 1.0 (fin de frame = position actuelle)
-                interp = step / float(steps)
-                
-                # Le vecteur vitesse indique où on va. 
-                # (world_x, world_y) est la NOUVELLE position finale (car on vient de faire += vx)
-                # Donc la position de départ de cette frame était (world_x - vx, world_y - vy)
-                spawn_x = (world_x - vx) + (vx * interp)
-                spawn_y = (world_y - vy) + (vy * interp)
-                
-                # Offset pour placer la fumée à l'arrière de l'avion sur CETTE position précise
-                offset_x = math.cos(rad_a) * (-35)
-                offset_y = math.sin(rad_a) * (35) 
-                # Léger jitter pour l'effet "cotonneux" naturel
-                rx = random.uniform(-3, 3)
-                ry = random.uniform(-3, 3)
-                
-                # Ajout d'une particule [x, y, life, size_multiplier]
-                size_mult = random.uniform(0.7, 1.3)
-                contrails.append([spawn_x + offset_x + rx, spawn_y + offset_y + ry, 1.0, size_mult])
-            
-    # --- GROUND SPRAY (Idee 15 - Améliorée) ---
-    if not crashed and altitude < 5 and vitesse_kph > 60:
-        if args.season in ["rain", "snow", "wind"]: # Also works in storm
-            type_spray = 1 if args.season == "snow" else 0
-            # Plus de particules pour un effet plus dense
-            for _ in range(8):
-                # On place les particules derrière l'avion
-                rad_a = math.radians(angle)
-                offset_back = -40
-                gx = world_x + math.cos(rad_a) * offset_back + random.uniform(-15, 15)
-                gy = world_y + random.uniform(-2, 2)
-                ground_spray.append([gx, gy, 1.0, random.uniform(0.5, 2.0), type_spray])
-
-    # Mise à jour et nettoyage des particules
-    for c in contrails:
-        # On réduit encore plus la vitesse de disparition (dure beaucoup plus longtemps)
-        c[2] -= 0.003
-    contrails = [c for c in contrails if c[2] > 0]
-    
-    for g in ground_spray:
-        g[2] -= 0.03 # Disparait assez vite
-        g[1] -= random.uniform(0.3, 0.8)  # Monte (soulevé par le vent relatif)
-        # Dérive un peu vers l'arrière
-        g[0] -= (vitesse_kph / 50.0)
-    ground_spray = [g for g in ground_spray if g[2] > 0]
-
-    # --- ORAGES (Idée 14 - Améliorée) ---
-    if args.season == "wind":
-        # Fréquence augmentée pour plus de spectacle (0.5% par frame au lieu de 0.2%)
-        if random.random() < 0.005: 
-            eclair_timer = random.randint(2, 4) # Durée variable du flash
-            tonnerre_timer = random.randint(20, 100) # Délai tonnerre réduit
-            
-    if tonnerre_timer > 0:
-        tonnerre_timer -= 1
-        if tonnerre_timer == 0 and son_tonnerre:
-            son_tonnerre.play()
-
-    # --- REBOND & CRASH ---
-    if -world_y <= terrain_y:
-        impact_vitesse_vert = vy # Positive = Descente vers le sol
-        world_y = -terrain_y
-        altitude = 0
-        
-        # CRASH CHECK
-        crash_limit = 8.0 * (1.0 + UPG_GEAR_CRASH_BONUS)
-        if impact_vitesse_vert > crash_limit and not args.god_mode:
-            crashed = True
-            crash_reason = f"ATTERRISSAGE VIOLENT ({int(impact_vitesse_vert*200)} ft/min)"
-        elif not gear_sorti and not args.god_mode and not args.no_gear_crash:
-             crashed = True
-             crash_reason = "CRASH: TRAIN D'ATTERRISSAGE RENTRÉ"
-             
-        # Collision Terrain en dehors de la piste
-        elif terrain_y > 10 and not args.god_mode: 
-             crashed = True
-             crash_reason = f"CRASH: COLLISION TERRAIN ({int(terrain_y)}m)"
-             
-        # PITCH CHECK AU SOL
-        if abs(angle) > 20:
-            crashed = True
-            crash_reason = "CRASH NEZ/QUEUE (Angle trop fort)"
-            
-        if crashed and game_over_timer == 0:
-            session_crashes += 1
-            # Enregistre le lieu du crash pour la map
-            crash_sites.append((world_x, altitude))
-            spawn_explosion(world_x, world_y, vx, vy)
-            
-            moteur_allume = False
-            vx = 0
-            vy = 0
-            game_over_timer = 180 # 3 secondes à 60fps
-            son_alarme.stop()
-        
-        if not crashed:
-            # Friction Sol
-            friction_sol = 0.99 
-            if freins_actifs:
-                # Les freins sont plus puissants avec l'upgrade
-                friction_sol = max(0.5, 0.92 - UPG_BRAKES_POWER_BONUS)
-                if vitesse_kph > 10: angle = 1.0 
+                # MISSIONS
+                if event.key == pygame.K_F1:
+                    mission_manager.start_rings_challenge(world_x)
+                if event.key == pygame.K_F2:
+                    mission_manager.start_landing_challenge(world_x)
+                if event.key == pygame.K_c and mission_manager.active_mission == "cargo":
+                    mission_manager.drop_cargo(world_x, world_y, vx, vy)
                     
-            vx *= friction_sol
+                if args.aircraft == "fighter":
+                    if event.key == pygame.K_b:
+                        bombs.append(Bomb(world_x, world_y, vx, vy))
+                    if event.key == pygame.K_v:
+                        missiles.append(Missile(world_x, world_y, vx, vy, angle))
+    
+                if moteur_allume:
+                    if event.key == pygame.K_LSHIFT: # PLEIN GAZ
+                        target_poussee = 100.0
+                    if event.key == pygame.K_LCTRL: # COUPER GAZ
+                        target_poussee = 0.0
+                    if event.key == pygame.K_RIGHT:
+                        target_poussee += 10.0 # Plus rapide
+                    if event.key == pygame.K_LEFT:
+                        target_poussee -= 10.0 
+                    target_poussee = max(0.0, min(100.0, target_poussee))
+    
+        touches = pygame.key.get_pressed()
+        zoom_cible = max(0.01, min(5.0, zoom_cible)) # Plage de zoom ÉNORME (0.01 permet de dézoomer de très loin)
+        zoom += (zoom_cible - zoom) * 0.05 # Plus fluide
+    
+        # --- CONTROLE STABILISÉ (MODE FACILE) ---
+        target_rotation = 0
+        action_manche = False 
+        pilote_auto_actif = False
+        freins_actifs = False 
+    
+        if touches[pygame.K_UP]:    
+            target_rotation = -MAX_ROTATION
+            action_manche = True
+        if touches[pygame.K_DOWN]:  
+            target_rotation = MAX_ROTATION
+            action_manche = True
+        
+        # FREINS (Espace ou B)
+        if touches[pygame.K_SPACE] or touches[pygame.K_b]:
+            freins_actifs = True
+    
+        if action_manche:
+            # Rotation Active (Physique Améliorée)
+            # 1. Efficacité des gouvernes selon la vitesse (Plus on va vite, plus ça tourne)
+            efficacite_vitesse = min(1.0, max(0.1, vitesse_kph / V_DECOLLAGE))
             
-            if abs(vx) < 0.1: 
-                vx = 0
-                vitesse_rotation_actuelle = 0
+            # 2. Poids du nez au sol (Difficile de lever le nez à basse vitesse)
+            facteur_sol = 1.0
+            # On adoucit la contrainte : progressif de 0 à 10m
+            if altitude < 10:
+                facteur_sol = 0.5 + (altitude / 10.0) * 0.5 # 50% min authority -> 100%
                 
-            # Rebond
-            if impact_vitesse_vert > 2.0: 
-                 vy = -impact_vitesse_vert * 0.20 
-                 world_y = 0.5 
-            else:
-                vy = 0
-                en_decrochage = False
+            # L'inertie de rotation est aussi impactée par le poids
+            facteur_poids_rot = 1.0
+            if not args.static_weight:
+                facteur_poids_rot = 1.0 + (fuel / 100.0) * 0.4
+                
+            accel = (ACCEL_ROTATION / facteur_poids_rot) * 0.5 * efficacite_vitesse * facteur_sol
             
-    altitude = -world_y
-
-    # --- RESET SI CRASH ---
-    if crashed:
-        game_over_timer -= 1
-        if game_over_timer <= 0:
-            # RESET COMPLET
-            crashed = False
-            position_history = [] # Efface la trajectoire après le crash
-            bombs.clear()
-            missiles.clear()
-            world_x = 0
-            world_y = 0
-            vx, vy = 0, 0
-            angle = 0
-            fuel = args.fuel
-            moteur_allume = False
-            moteur_temp = 0
-            moteur_endommage = False
-            gear_sorti = True
-            flaps_sortis = False
-            # Consommation carburant
+            if target_rotation > vitesse_rotation_actuelle:
+                vitesse_rotation_actuelle += accel
+            elif target_rotation < vitesse_rotation_actuelle:
+                vitesse_rotation_actuelle -= accel
+        else:
+            # --- STABILISATEUR RENFORCÉ (MODE FACILE) ---
+            vitesse_rotation_actuelle *= 0.85 # Amortissement fort
+            
+            # Retour automatique à l'horizon plus agressif pour "faciliter" le vol
+            if vitesse_kph > V_DECOLLAGE and not en_decrochage:
+                 # On ramène le nez à 0°
+                if abs(angle) > 0.1:
+                    signe = -1 if angle > 0 else 1
+                    vitesse_rotation_actuelle += signe * 0.02 # Aide au redressement
+                
+                if abs(angle) < 1.0 and abs(vitesse_rotation_actuelle) < 0.05:
+                    angle = 0
+                    vitesse_rotation_actuelle = 0
+                    pilote_auto_actif = True
+            
+        angle += vitesse_rotation_actuelle
+    
+    
+        # --- LIMITATION ANGLE (Désactivée pour tous les appareils) ---
+        # Tous les avions peuvent désormais faire des loopings à 360°
+        # On garde l'angle entre -180 et 180 pour la logique de calcul
+        if angle > 180: angle -= 360
+        if angle < -180: angle += 360
+    
+        if args.missions:
+            if atc_timer > 0:
+                atc_timer -= 1
+    
+        # --- MOTEUR & THRUST & FUEL ---
+        if not moteur_allume or fuel <= 0:
+            target_poussee = 0.0
+            if fuel <= 0: moteur_allume = False
+            
+        if niveau_poussee_reelle < target_poussee:
+            niveau_poussee_reelle += 1.0  
+        elif niveau_poussee_reelle > target_poussee:
+            niveau_poussee_reelle -= 1.0   
+            
+        # Consommation Fuel
+        if moteur_allume:
+            # Conso basale + conso poussée exponentielle pour la postcombustion
+            # Plus on pousse la manette, plus la consommation augmente de façon non linéaire
+            facteur_poussee = (niveau_poussee_reelle / 100.0)
+            # Quadrique pour simuler une consommation disproportionnée à haut régime
+            # x2.5 burn rate if full throttle, only basal rate if idle
+            conso = 0.001 + (facteur_poussee**2 * 2.5) * fuel_burn_rate
+            
             if not args.unlimited_fuel:
-                fuel_flow = (niveau_poussee_reelle / 100.0) * 0.05
-                fuel -= fuel_flow
-                if fuel < 0: 
-                    fuel = 0
-                    moteur_allume = False
-            niveau_poussee_reelle = 0
+                fuel -= conso
+                if fuel < 0: fuel = 0
+            else:
+                fuel = 100.0 # Force le fuel à 100% si illimité
             
-            # Respawn un peu avant la piste si on veut être gentil, ou à 0
-            world_x = 100
+        # --- SURCHAUFFE MOTEUR ---
+        if moteur_allume and not moteur_endommage and not args.no_overheat:
+            # Chauffe augmente de façon exponentielle avec la poussée (Idée 4)
+            facteur_poussee = (niveau_poussee_reelle / 100.0)
+            chauffe_base = (facteur_poussee**2 * 0.08) * (1.0 - UPG_COOLING_REDUCTION)
             
+            # Refroidissement lié à l'altitude (air plus froid) et la vitesse (flux d'air)
+            # altitude est typiquement 0 à 15000+. Vitesse_kph de 0 à 300+
+            refroidissement_alt = (max(0, altitude) / 10000.0) * 0.03 # De 0 à 0.045
+            refroidissement_vit = (max(0, vitesse_kph) / V_VNE) * 0.05 # De 0 à 0.05
+            refroidissement = 0.01 + refroidissement_alt + refroidissement_vit
             
+            variation_temp = chauffe_base - refroidissement
+            
+            # Le cargo chauffe naturellement plus vite
+            if current_ac["mass"] == 20000.0 and niveau_poussee_reelle > 85:
+                variation_temp += 0.01
+                
+            moteur_temp += variation_temp
+            
+            if moteur_temp >= 100:
+                moteur_temp = 100
+                moteur_endommage = True
+                moteur_allume = False
+                son_moteur.stop()
+                mission_manager.message = "MOTEUR EN FEU ! ATTERRISSEZ D'URGENCE !"
+                mission_manager.timer_message = 300
+                
+        else:
+            moteur_temp -= 0.1 # Refroidit si éteint ou si no_overheat
+            
+        # --- STATISTIQUES DE SESSION ---
+        max_vitesse_session = max(max_vitesse_session, vitesse_kph)
+        max_alt_session = max(max_alt_session, altitude)
+        distance_totale_session += (vitesse_kph / 3.6) * dt
+        temps_vol_session += dt
+            
+        if moteur_temp < 0: moteur_temp = 0
+    
+        # REFUELING MANUEL (Touche R sur n'importe quel aéroport)
+        # L'avion doit être au sol (altitude < 5), presque arrêté, dans la zone d'un aéroport (0 à 2000m)
+        can_refuel = False
+        if altitude < 5 and abs(vitesse_kph) < 30: # Un peu plus tolérant sur la vitesse
+            for piste_data in RUNWAYS:
+                if isinstance(piste_data, tuple):
+                    piste_x = piste_data[0]
+                    piste_w = piste_data[1]
+                else: 
+                    piste_x = piste_data
+                    piste_w = 6000
+                # On peut recharger sur toute la longueur de la piste
+                if piste_x - 300 <= world_x <= piste_x + piste_w + 300:
+                    can_refuel = True
+                    break
+                    
+        if can_refuel:
+            if args.auto_refuel or touches[pygame.K_r]:
+                fuel += 1.0 # Remplissage rapide
+                if fuel > max_fuel: fuel = max_fuel
+    
+        # SON CONTINU
+        if son_moteur:
+            if moteur_allume:
+                if son_moteur.get_num_channels() == 0: 
+                    son_moteur.play(loops=-1)
+                vol = 0.3 + (niveau_poussee_reelle / 100.0) * 0.7
+                if not engine_sound_active:
+                    vol = 0.0
+                else:
+                    vol *= args.volume
+                son_moteur.set_volume(vol)
+            else:
+                son_moteur.stop()
+    
+        # SON VENT DYNAMIQUE
+        if son_vent:
+            if son_vent.get_num_channels() == 0: son_vent.play(loops=-1)
+            # Volume prop à la vitesse (max 0.8)
+            ratio_v = min(1.0, (vitesse_kph / 400.0)) # 400kph = max vent
+            vol_wind = ratio_v * 0.5 # Max 50% volume
+            if args.season == "wind": vol_wind *= 2.0 # Plus fort en tempête
+            son_vent.set_volume(vol_wind * args.volume)
+    
+        postcombustion = (niveau_poussee_reelle > 90)
+        
+        # --- POIDS DYNAMIQUE (Idée 5) ---
+        # Le fuel représente une part importante du poids (ex: 40% du poids max)
+        # 0% fuel = facteur 1.0 (leger) | 100% fuel = facteur 1.4 (lourd)
+        facteur_poids = 1.0
+        if not args.static_weight:
+            facteur_poids = 1.0 + (fuel / 100.0) * 0.4
+        
+        # APPLICATION UPGRADE POIDS (Allègement)
+        facteur_poids *= (1.0 - UPG_WEIGHT_REDUCTION)
+            
+        # La puissance instantanée est divisée par le facteur de poids
+        puissance_instantanee = ((niveau_poussee_reelle / 100.0) * PUISSANCE_MOTEUR) / facteur_poids
+        rad = math.radians(angle)
+        
+        # --- VENT & TURBULENCE ---
+        if not args.no_wind:
+            turbulence_timer += 1
+            # Variation du vent (rafales)
+            rafale_x = math.sin(turbulence_timer * 0.05) * 2.0
+            rafale_y = math.cos(turbulence_timer * 0.13) * 1.5
+            
+            vent_actuel_x = vent_x + rafale_x
+            vent_actuel_y = vent_y + rafale_y
+            
+            vx += vent_actuel_x * 0.005 
+            vy += vent_actuel_y * 0.005
+        
+        # Secousses Caméra
+        # Secousses Caméra (REDUIT)
+        shake_amount = 0
+        if moteur_allume:
+            shake_amount = (vitesse_kph / V_VNE) * 0.5 + (niveau_poussee_reelle/100.0) * 0.2
+            if altitude < 20: shake_amount += 0.5 # Petite turbulence sol
+        
+        vx += math.cos(rad) * puissance_instantanee
+        vy -= math.sin(rad) * puissance_instantanee
+    
+        # Alarme (Moins sensible en mode facile)
+        if en_decrochage and altitude > 50: # On ne sonne pas au ras du sol
+            if not alarme_playing and son_alarme:
+                son_alarme.play(loops=-1)
+                alarme_playing = True
+        else:
+            if alarme_playing and son_alarme:
+                son_alarme.stop()
+                alarme_playing = False
+    
+        # Mur du son
+        if vitesse_kph > V_MACH1:
+            mur_du_son_franchi = True
+        elif vitesse_kph < V_MACH1 - 50:
+            mur_du_son_franchi = False
+    
+        terrain_y = get_terrain_height(world_x)
+        altitude = -(world_y - terrain_y)
+        
+        # CLAMPING ET SECURITE
+        vx = max(-150.0, min(150.0, vx))
+        vy = max(-150.0, min(150.0, vy))
+        if math.isnan(vx): vx = 0
+        if math.isnan(vy): vy = 0
+        
+        vitesse_totale = math.sqrt(vx**2 + vy**2)
+        vitesse_kph = int(vitesse_totale * 15)
+        
+        # --- TRACKING RECORDS SESSION ---
+        max_vitesse_session = max(max_vitesse_session, vitesse_kph)
+        max_alt_session = max(max_alt_session, altitude)
+        distance_totale_session += abs(vx) # Approximation simple de la distance
+        
+        # Détection Atterrissage Réussi
+        if not crashed and altitude < 5 and vitesse_kph < 10:
+            if not has_already_landed:
+                session_landings += 1
+                has_already_landed = True
+                # ATC message félicitations
+                afficher_atc("BRAVO ! ATTERRISSAGE RÉUSSI.", 120)
+        elif altitude > 20:
+            has_already_landed = False # On redécolle
+        
+        # --- CALCUL AOA PHYSIQUE (UNIFIÉ & SPÉCIAL ACRO) ---
+        rad_pitch = math.radians(angle)
+        v_long = vx * math.cos(rad_pitch) + (-vy) * math.sin(rad_pitch)
+        v_perp = -vx * math.sin(rad_pitch) + (-vy) * math.cos(rad_pitch)
+        real_aoa_phys = math.degrees(math.atan2(v_perp, max(0.1, v_long)))
+        
+        # Seuil de décrochage dynamique
+        # L'Acro est BEAUCOUP plus tolérant (30° au lieu de 16°)
+        base_thr = 30.0 if args.aircraft == "acro" else 16.0
+        stall_threshold_phys = base_thr + (args.upg_finesse * 0.1)
+        if flaps_sortis: stall_threshold_phys += 4.0
+        
+        # Détection Décrochage
+        # L'Acro ne décroche pas par manque de vitesse si le moteur compense (Prop-hanging)
+        v_min_limit = 65 if flaps_sortis else 85
+        is_slow = vitesse_kph < v_min_limit
+        
+        # Si Acro et moteur > 80%, on ignore le décrochage de vitesse (on tient sur l'hélice)
+        if args.aircraft == "acro" and niveau_poussee_reelle > 80:
+            is_slow = False
+    
+        if args.no_stall:
+            en_decrochage = False
+        elif altitude < 100 and vitesse_kph > 50:
+            en_decrochage = False # Sécurité sol
+        elif abs(real_aoa_phys) > stall_threshold_phys or is_slow:
+            en_decrochage = True
+        else:
+            en_decrochage = False
+    
+        # --- PHYSIQUE DE VOL ---
+        portance = 0
+        if pilote_auto_actif:
+            vy = 0 
+            vx *= FRICTION_AIR 
+        else:
+            vy += GRAVITE
+            
+            friction_actuelle = FRICTION_AIR
+            
+            if flaps_sortis:
+                friction_actuelle = 0.985  
+                coeff_p = 0.0075           
+            else:
+                friction_actuelle = 0.992
+                coeff_p = COEFF_PORTANCE
+                
+            if not gear_sorti:
+                # Moins de traînée si le train est rentré (plus de vitesse)
+                friction_actuelle += 0.002
+    
+            if not en_decrochage:
+                # On plafonne l'angle effectif pour la portance (évite des valeurs immenses en looping)
+                # L'angle d'attaque aérodynamique décroche au delà de ~20 degrés dans la réalité
+                effective_angle = max(-15, min(25, angle))
+                angle_incidence = effective_angle + 2.0 
+                
+                lift_factor = angle_incidence * 0.1 
+                if lift_factor < 0: lift_factor *= 0.1 
+                
+                densite_air = max(0.0, 1.0 - (altitude / 25000.0))
+    
+                portance_dynamique = (vitesse_totale**2) * coeff_p * lift_factor * 0.05 * densite_air
+                
+                # EFFET DE SOL (Ground Effect) - ADOUCI
+                # Bonus de portance plus progressif (30m au lieu de 20m, max +15% au lieu de +25%)
+                if altitude < 30:
+                    bonus_sol = 1.0 + (1.0 - (altitude / 30.0)) * 0.15 
+                    portance_dynamique *= bonus_sol
+                    
+                portance = portance_dynamique
+    
+                trainee_induite = abs(portance) * 0.1
+                friction_actuelle -= trainee_induite * 0.01
+    
+                vx *= friction_actuelle
+                vy *= FRICTION_VERTICALE
+                
+                if abs(angle) < 5:
+                    vx *= 0.9995 
+                    vy *= 0.9995
+            else:
+                vx *= 0.99
+                vy *= 0.99
+                if angle > 10: angle -= 0.5 
+            
+            if angle < 0: vy += 0.02 
+    
+            # La portance s'applique perpendiculairement aux ailes
+            # (avant : vy -= portance, poussait toujours vers le ciel absolu)
+            rad_portance = math.radians(angle)
+            vx += -math.sin(rad_portance) * portance
+            vy -= math.cos(rad_portance) * portance
+    
+        # --- COLLISION HORIZONTALE AVEC LA MONTAGNE ---
+        # On regarde si l'avion va rentrer "dans" un mur devant lui
+        if not args.god_mode:
+            # Predict next height where the plane is going
+            next_x = world_x + vx
+            future_terrain_y = get_terrain_height(next_x)
+            current_terrain_y = get_terrain_height(world_x)
+            
+            # Si on vole droit vers une pente raide qui est plus haute que notre altitude (en tenant compte de la chute prévue vy)
+            altitude_future = -(world_y + vy - future_terrain_y)
+            
+            # Uniquement si on est près du sol
+            if altitude_future < -10 and (future_terrain_y > current_terrain_y + 10) and abs(vx) > 10:
+                 # Le terrain monte brutalement devant nous et on va être EN DESSOUS (altitude_future négative importante)
+                 crashed = True
+                 crash_reason = f"CRASH: COLLISION RELIEF (Montagne)"
+    
+        # Freeze game physics if mission is over
+        if args.missions and mission_manager.mission_over:
+            vx = 0.0
+            vy = 0.0
+            target_poussee = 0.0
+    
+        # Blocage au sol pour éviter le glissement (vent/pente) à l'arrêt
+        if not crashed and altitude < 1.0 and abs(vx) < 0.2 and niveau_poussee_reelle < 2.0:
+            vx = 0.0
+    
+        world_x += vx
+        world_y += vy
+        
+        # Update Weapons
+        for b in bombs:
+            if not b.active: continue
+            b.update()
+            terrain_h = get_terrain_height(b.x)
+            if b.y >= -terrain_h:
+                b.active = False
+                spawn_explosion(b.x, b.y, b.vx, b.vy)
+                
+        for m in missiles:
+            if not m.active: continue
+            m.update()
+            terrain_h = get_terrain_height(m.x)
+            if m.y >= -terrain_h:
+                m.active = False
+                spawn_explosion(m.x, m.y, m.vx, m.vy)
+                continue
+                
+            for aip in ai_planes:
+                if aip.active:
+                    dist = math.hypot(m.x - aip.x, m.y - aip.y)
+                    if dist < 80:
+                        aip.active = False
+                        m.active = False
+                        spawn_explosion(aip.x, aip.y, aip.vx, aip.vy)
+                        break
+    
+        # Update Missions
+        mission_manager.update(world_x, world_y, vx, vy, dt)
+        
+        # Update ATC Radios
+        if args.missions:
+            if altitude > 20 and vitesse_kph > 120 and "takeoff" not in atc_airport_triggered:
+                afficher_atc("Tour : Décollage réussi. Bon vol PyFlight !")
+                atc_airport_triggered.add("takeoff")
+            
+            for i, piste in enumerate(airports):
+                dist = abs(world_x - (piste.x_start + piste.width/2))
+                if dist < 6000 and i not in atc_airport_triggered and altitude > 100:
+                    afficher_atc(f"Tour : PyFlight, approche sur aéroport {i+1} claire.")
+                    atc_airport_triggered.add(i)
+                    
+            # Messages ATC aléatoires en vol croisière
+            if altitude > 1000 and random.random() < 0.0005: # Très rare
+                msgs = [
+                    "Tour : PyFlight, maintenez votre altitude et cap actuel.",
+                    "Tour : PyFlight, trafic signalé à vos 12 heures, même altitude.",
+                    "Tour : PyFlight, signalez turbulences si rencontrées.",
+                    "Tour : PyFlight, contact radar perdu... Ah non c'est bon."
+                ]
+                afficher_atc(random.choice(msgs))
+        
+        # --- CONTRAILS ---
+        if not crashed:
+            # Trail permanent si option cochée
+            if args.show_trail:
+                rad_a = math.radians(angle)
+                # On génère plusieurs particules par frame pour épaissir la fumée
+                # et on les espace légèrement pour couvrir la distance parcourue (vx, vy)
+                # Au lieu d'un nombre fixe (3), on calcule la distance parcourue.
+                # L'avion parcourt sqrt(vx^2 + vy^2) pixels par frame.
+                # Pour un jet, ça peut faire 30-50 pixels d'un coup, donc on laisse des trous.
+                # Un espacement de 5 pixels entre les cercles est largement suffisant pour faire une ligne solide.
+                dist_per_frame = math.sqrt(vx**2 + vy**2)
+                steps = max(3, int(dist_per_frame / 5.0))
+                
+                for step in range(steps):
+                    # interp va de 0.0 (début de frame = position actuelle moins vx)
+                    # à 1.0 (fin de frame = position actuelle)
+                    interp = step / float(steps)
+                    
+                    # Le vecteur vitesse indique où on va. 
+                    # (world_x, world_y) est la NOUVELLE position finale (car on vient de faire += vx)
+                    # Donc la position de départ de cette frame était (world_x - vx, world_y - vy)
+                    spawn_x = (world_x - vx) + (vx * interp)
+                    spawn_y = (world_y - vy) + (vy * interp)
+                    
+                    # Offset pour placer la fumée à l'arrière de l'avion sur CETTE position précise
+                    offset_x = math.cos(rad_a) * (-35)
+                    offset_y = math.sin(rad_a) * (35) 
+                    # Léger jitter pour l'effet "cotonneux" naturel
+                    rx = random.uniform(-3, 3)
+                    ry = random.uniform(-3, 3)
+                    
+                    # Ajout d'une particule [x, y, life, size_multiplier]
+                    size_mult = random.uniform(0.7, 1.3)
+                    contrails.append([spawn_x + offset_x + rx, spawn_y + offset_y + ry, 1.0, size_mult])
+                
+        # --- GROUND SPRAY (Idee 15 - Améliorée) ---
+        if not crashed and altitude < 5 and vitesse_kph > 60:
+            if args.season in ["rain", "snow", "wind"]: # Also works in storm
+                type_spray = 1 if args.season == "snow" else 0
+                # Plus de particules pour un effet plus dense
+                for _ in range(8):
+                    # On place les particules derrière l'avion
+                    rad_a = math.radians(angle)
+                    offset_back = -40
+                    gx = world_x + math.cos(rad_a) * offset_back + random.uniform(-15, 15)
+                    gy = world_y + random.uniform(-2, 2)
+                    ground_spray.append([gx, gy, 1.0, random.uniform(0.5, 2.0), type_spray])
+    
+        # Mise à jour et nettoyage des particules
+        for c in contrails:
+            # On réduit encore plus la vitesse de disparition (dure beaucoup plus longtemps)
+            c[2] -= 0.003
+        contrails = [c for c in contrails if c[2] > 0]
+        
+        for g in ground_spray:
+            g[2] -= 0.03 # Disparait assez vite
+            g[1] -= random.uniform(0.3, 0.8)  # Monte (soulevé par le vent relatif)
+            # Dérive un peu vers l'arrière
+            g[0] -= (vitesse_kph / 50.0)
+        ground_spray = [g for g in ground_spray if g[2] > 0]
+    
+        # --- ORAGES (Idée 14 - Améliorée) ---
+        if args.season == "wind":
+            # Fréquence augmentée pour plus de spectacle (0.5% par frame au lieu de 0.2%)
+            if random.random() < 0.005: 
+                eclair_timer = random.randint(2, 4) # Durée variable du flash
+                tonnerre_timer = random.randint(20, 100) # Délai tonnerre réduit
+                
+        if tonnerre_timer > 0:
+            tonnerre_timer -= 1
+            if tonnerre_timer == 0 and son_tonnerre:
+                son_tonnerre.play()
+    
+        # --- REBOND & CRASH ---
+        if -world_y <= terrain_y:
+            impact_vitesse_vert = vy # Positive = Descente vers le sol
+            world_y = -terrain_y
+            altitude = 0
+            
+            # CRASH CHECK
+            crash_limit = 8.0 * (1.0 + UPG_GEAR_CRASH_BONUS)
+            if impact_vitesse_vert > crash_limit and not args.god_mode:
+                crashed = True
+                crash_reason = f"ATTERRISSAGE VIOLENT ({int(impact_vitesse_vert*200)} ft/min)"
+            elif not gear_sorti and not args.god_mode and not args.no_gear_crash:
+                 crashed = True
+                 crash_reason = "CRASH: TRAIN D'ATTERRISSAGE RENTRÉ"
+                 
+            # Collision Terrain en dehors de la piste
+            elif terrain_y > 10 and not args.god_mode: 
+                 crashed = True
+                 crash_reason = f"CRASH: COLLISION TERRAIN ({int(terrain_y)}m)"
+                 
+            # PITCH CHECK AU SOL
+            if abs(angle) > 20:
+                crashed = True
+                crash_reason = "CRASH NEZ/QUEUE (Angle trop fort)"
+                
+            if crashed and game_over_timer == 0:
+                session_crashes += 1
+                # Enregistre le lieu du crash pour la map
+                crash_sites.append((world_x, altitude))
+                spawn_explosion(world_x, world_y, vx, vy)
+                
+                moteur_allume = False
+                vx = 0
+                vy = 0
+                game_over_timer = 180 # 3 secondes à 60fps
+                son_alarme.stop()
+            
+            if not crashed:
+                # Friction Sol
+                friction_sol = 0.99 
+                if freins_actifs:
+                    # Les freins sont plus puissants avec l'upgrade
+                    friction_sol = max(0.5, 0.92 - UPG_BRAKES_POWER_BONUS)
+                    if vitesse_kph > 10: angle = 1.0 
+                        
+                vx *= friction_sol
+                
+                if abs(vx) < 0.1: 
+                    vx = 0
+                    vitesse_rotation_actuelle = 0
+                    
+                # Rebond
+                if impact_vitesse_vert > 2.0: 
+                     vy = -impact_vitesse_vert * 0.20 
+                     world_y = 0.5 
+                else:
+                    vy = 0
+                    en_decrochage = False
+                
+        altitude = -world_y
+    
+        # --- RESET SI CRASH ---
+        if crashed:
+            game_over_timer -= 1
+            if game_over_timer <= 0:
+                # RESET COMPLET
+                crashed = False
+                position_history = [] # Efface la trajectoire après le crash
+                bombs.clear()
+                missiles.clear()
+                world_x = 0
+                world_y = 0
+                vx, vy = 0, 0
+                angle = 0
+                fuel = args.fuel
+                moteur_allume = False
+                moteur_temp = 0
+                moteur_endommage = False
+                gear_sorti = True
+                flaps_sortis = False
+                # Consommation carburant
+                if not args.unlimited_fuel:
+                    fuel_flow = (niveau_poussee_reelle / 100.0) * 0.05
+                    fuel -= fuel_flow
+                    if fuel < 0: 
+                        fuel = 0
+                        moteur_allume = False
+                niveau_poussee_reelle = 0
+                
+                # Respawn un peu avant la piste si on veut être gentil, ou à 0
+                world_x = 100
+                
+                
+        # Enregistrement de l'état
+        state = {
+            "world_x": world_x, "world_y": world_y, "vx": vx, "vy": vy, "angle": angle, 
+            "fuel": fuel, "moteur_temp": moteur_temp, "moteur_allume": moteur_allume, 
+            "flaps_sortis": flaps_sortis, "gear_sorti": gear_sorti
+        }
+        flight_history.append(state)
+        if len(flight_history) > 1800: flight_history.pop(0)
+        rewind_index = len(flight_history) - 1
+    else:
+        # --- MODE PAUSE / REWIND / FREE CAM ---
+        if touches[pygame.K_r] and len(flight_history) > 0:
+            rewind_index -= 1
+            if rewind_index < 0: rewind_index = 0
+            s_state = flight_history[rewind_index]
+            world_x = s_state["world_x"]
+            world_y = s_state["world_y"]
+            vx = s_state["vx"]
+            vy = s_state["vy"]
+            angle = s_state["angle"]
+            fuel = s_state["fuel"]
+            moteur_temp = s_state["moteur_temp"]
+            moteur_allume = s_state["moteur_allume"]
+            flaps_sortis = s_state["flaps_sortis"]
+            gear_sorti = s_state["gear_sorti"]
+            altitude = -world_y
+
+        if free_cam_active:
+            cam_speed = 10.0 / max(0.1, zoom)
+            if touches[pygame.K_UP]:    cam_off_y -= cam_speed
+            if touches[pygame.K_DOWN]:  cam_off_y += cam_speed
+            if touches[pygame.K_LEFT]:  cam_off_x -= cam_speed
+            if touches[pygame.K_RIGHT]: cam_off_x += cam_speed
+
     # --- DESSIN ---
     # Camera Shake
     offset_shake_x = random.uniform(-shake_amount, shake_amount)
@@ -3273,8 +3337,8 @@ while True:
         # Pour des bulles lisses on peut tricher avec un surface globale par dessus si besoin
         # Mais pour les perfs, un draw circle sur des alphas pre-rendus est correct
         for c in contrails:
-            px = (c[0] - world_x) * zoom + (L/2)
-            py = (c[1] - world_y) * zoom + (H/2)
+            px = (c[0] - world_x) * zoom + (L/2 + cam_off_x)
+            py = (c[1] - world_y) * zoom + (H/2 + cam_off_y)
             
             if -100 < px < L+100 and -100 < py < H+100:
                 life = c[2]
@@ -3301,8 +3365,8 @@ while True:
     # DESSIN GROUND SPRAY
     if ground_spray:
         for g in ground_spray:
-            px = (g[0] - world_x) * zoom + (L/2) + offset_shake_x
-            py = (g[1] - world_y) * zoom + (H/2) + offset_shake_y
+            px = (g[0] - world_x) * zoom + (L/2 + cam_off_x) + offset_shake_x
+            py = (g[1] - world_y) * zoom + (H/2 + cam_off_y) + offset_shake_y
             if -50 < px < L+50 and -50 < py < H+50:
                 life = g[2]
                 s_mult = g[3]
@@ -3419,7 +3483,7 @@ while True:
                 wx = (cx - L/2 - offset_shake_x) / zoom + world_x
                 ty = get_terrain_height(wx)
                 cy = (-ty - world_y) * zoom + (H // 2) + offset_shake_y
-                points_relief.append((cx, cy))
+                points_relief.append((cx + cam_off_x, cy + cam_off_y))
                 
             # Pour fermer proprement la droite, on prend la dernière hauteur calculée
             last_cy = points_relief[-1][1]
@@ -3443,7 +3507,7 @@ while True:
                         wx = (cx - L/2 - offset_shake_x) / zoom + world_x
                         ty = get_terrain_height(wx)
                         cy = (-ty - world_y) * zoom + (H // 2) + offset_shake_y
-                        pts_sable.append((cx, cy))
+                        pts_sable.append((cx + cam_off_x, cy + cam_off_y))
                     pts_sable.append((min(L+200, v1_e), pts_sable[-1][1] if len(pts_sable)>1 else H))
                     pts_sable.append((min(L+200, v1_e), H))
                     if len(pts_sable) > 3:
@@ -3461,7 +3525,7 @@ while True:
                         wx = (cx - L/2 - offset_shake_x) / zoom + world_x
                         ty = get_terrain_height(wx)
                         cy = (-ty - world_y) * zoom + (H // 2) + offset_shake_y
-                        pts_sable2.append((cx, cy))
+                        pts_sable2.append((cx + cam_off_x, cy + cam_off_y))
                     pts_sable2.append((min(L+200, v2_e), pts_sable2[-1][1] if len(pts_sable2)>1 else H))
                     pts_sable2.append((min(L+200, v2_e), H))
                     if len(pts_sable2) > 3:
@@ -3489,12 +3553,12 @@ while True:
                         # Vague arrière (plus foncée, décalée)
                         wave_bg = math.sin((wx_vo * 0.04) + time.time() * 2.5) * 6 * zoom + math.cos((wx_vo * 0.015) + time.time() * 1.0) * 4 * zoom
                         cy_bg = (wave_bg - world_y) * zoom + (H // 2) + offset_shake_y - (2 * zoom)
-                        pts_ocean_back.append((cx, cy_bg))
+                        pts_ocean_back.append((cx + cam_off_x, cy_bg + cam_off_y))
                         
                         # Vague avant (plus claire, plus grande)
                         wave_fg = math.sin((wx_vo * 0.05) + time.time() * 2.0) * 5 * zoom + math.cos((wx_vo * 0.02) + time.time() * 1.5) * 8 * zoom
                         cy_fg = (wave_fg - world_y) * zoom + (H // 2) + offset_shake_y
-                        pts_ocean_front.append((cx, cy_fg))
+                        pts_ocean_front.append((cx + cam_off_x, cy_fg + cam_off_y))
                         
                     # Finir les polygones proprement
                     last_bg_cy = pts_ocean_back[-1][1]
@@ -3628,7 +3692,7 @@ while True:
         
         # Rotation
         img_rot = pygame.transform.rotate(img_scaled, angle)
-        rect_img = img_rot.get_rect(center=(L//2, H//2))
+        rect_img = img_rot.get_rect(center=(L//2 + cam_off_x, H//2 + cam_off_y))
         
         # --- OMBRE PORTÉE (Idée 13 - Version Finale Réaliste) ---
         if altitude < 2000 and not args.no_terrain:
@@ -3647,7 +3711,7 @@ while True:
                 # Position Y : Centre de l'écran + Moitié de la hauteur de l'avion + altitude zoomée
                 # Cela place l'ombre exactement SOUS l'avion au sol
                 y_sol = H//2 + (h_new // 2) + (altitude * zoom)
-                shadow_rect = shadow_surf.get_rect(center=(L//2, y_sol))
+                shadow_rect = shadow_surf.get_rect(center=(L//2 + cam_off_x, y_sol + cam_off_y))
                 
                 # CLIPPING : On interdit de dessiner sur le dashboard
                 limite_basse = H - s(140)
@@ -3679,7 +3743,7 @@ while True:
             offset_x = math.cos(rad_a) * 50 * zoom # Scale offset
             offset_y = -math.sin(rad_a) * 50 * zoom
             
-            rect_light = faisceau_rot.get_rect(center=(L//2 + offset_x + math.cos(rad_a)*200*zoom, H//2 + offset_y - math.sin(rad_a)*200*zoom))
+            rect_light = faisceau_rot.get_rect(center=(L//2 + offset_x + math.cos(rad_a)*200*zoom + cam_off_x, H//2 + offset_y - math.sin(rad_a)*200*zoom + cam_off_y))
             fenetre.blit(faisceau_rot, rect_light)
     
         fenetre.blit(img_rot, rect_img)
@@ -3687,7 +3751,7 @@ while True:
         # --- Local Player Nametag (Multiplayer) ---
         if args.multiplayer:
             lbl_local = police_label.render(args.pseudo, True, (255, 255, 255))
-            lbl_rect_local = lbl_local.get_rect(center=(L//2, H//2 - s(50)))
+            lbl_rect_local = lbl_local.get_rect(center=(L//2 + cam_off_x, H//2 - s(50) + cam_off_y))
             bg_rect_local = lbl_rect_local.inflate(s(10), s(6))
             pygame.draw.rect(fenetre, (20, 20, 30), bg_rect_local, border_radius=s(4))
             pygame.draw.rect(fenetre, (100, 255, 100), bg_rect_local, 1, border_radius=s(4))
@@ -3921,6 +3985,25 @@ while True:
             fenetre.blit(s_drop, (dx-15, dy))
 
     # Fin de boucle
+
+
+    # --- OVERLAY PAUSE ---
+    if game_paused:
+        overlay = pygame.Surface((L, H), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 120))
+        fenetre.blit(overlay, (0, 0))
+        
+        # Determine if we are rewinding
+        is_rewinding = touches[pygame.K_r] and not free_cam_active
+        txt = "REPLAY" if is_rewinding else "PAUSE"
+        
+        surf_txt = police_alarme.render(txt, True, (255, 255, 255))
+        rect_txt = surf_txt.get_rect(center=(L//2, H//2))
+        fenetre.blit(surf_txt, rect_txt)
+        
+        if free_cam_active:
+            txt_cam = police_label.render("FREE CAM ACTIVE (ARROWS TO MOVE)", True, (200, 255, 200))
+            fenetre.blit(txt_cam, (L//2 - txt_cam.get_width()//2, H//2 + 50))
 
     # --- BARRE DE MENU (FlightGear Style) ---
     menu_bar.draw(fenetre)
