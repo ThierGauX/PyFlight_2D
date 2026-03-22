@@ -390,8 +390,7 @@ current_trail_color = TRAIL_COLORS.get(args.trail_color, (240, 240, 240))
 # Liste des traînées de condensation [x, y, life, size_multiplier]
 contrails = [] 
 particules = []
-particules = []
-nb_particules = 300 # Beaucoup plus de particules (Pluie/Neige)
+nb_particules = 1000 # Beaucoup plus de particules (Pluie/Neige)
 if args.season in ["summer", "spring"] and not args.season == "wind":
     nb_particules = 50 # Peu de particules en été/printemps (juste un peu de pollen/vent ?)
 if args.no_particles: nb_particules = 0
@@ -973,7 +972,7 @@ class MenuBar:
             "FICHIER": ["RECOMMENCER", "QUITTER"],
             "AUDIO": ["RADIO ON/OFF", "MOTEUR ON/OFF", "---", "VOLUME MUSIQUE", "MUSIQUE +", "MUSIQUE -", "---", "VOLUME MOTEUR", "BRUITAGES +", "BRUITAGES -"],
             "ENVIR": ["METEO: CLAIR", "METEO: NUAGES", "METEO: BROUILLARD", "TEMPS: MIDI", "TEMPS: NUIT", "TEMPS: DYNAMIQUE", "TEMPS: REEL", "SAISON: ETE", "SAISON: AUTOMNE", "SAISON: HIVER", "SAISON: PRINTEMPS", "SAISON: TEMPÊTE"],
-            "AIDES": ["INVINCIBILITÉ", "FUEL ILLIMITÉ", "PAS DE DÉCROCHAGE", "SURCHAUFFE OFF", "POIDS STATIQUE"],
+            "AIDES": ["INVINCIBILITÉ", "FUEL ILLIMITÉ", "PAS DE DÉCROCHAGE", "SURCHAUFFE OFF", "POIDS STATIQUE", "PAS DE VENT", "PAS DE CRASH TRAIN"],
             "AFFICHAGE": ["HUD", "TABLEAU DE BORD", "NUAGES", "PARTICULES", "ATMOSPHÈRE", "TERRAIN", "FPS"],
             "APPAREIL": ["CESSNA", "CARGO", "FIGHTER", "ACRO", "RAVITAILLEMENT"],
             "SCORES": ["AFFICHER STATS"]
@@ -1084,10 +1083,14 @@ class MenuBar:
 
         elif cat == "AIDES":
             if item == "INVINCIBILITÉ": args.god_mode = not args.god_mode
-            if item == "FUEL ILLIMITÉ": args.unlimited_fuel = not args.unlimited_fuel
+            if item == "FUEL ILLIMITÉ": 
+                args.unlimited_fuel = not args.unlimited_fuel
+                if args.unlimited_fuel: fuel = 100.0
             if item == "PAS DE DÉCROCHAGE": args.no_stall = not args.no_stall
             if item == "SURCHAUFFE OFF": args.no_overheat = not args.no_overheat
             if item == "POIDS STATIQUE": args.static_weight = not args.static_weight
+            if item == "PAS DE VENT": args.no_wind = not args.no_wind
+            if item == "PAS DE CRASH TRAIN": args.no_gear_crash = not args.no_gear_crash
 
         elif cat == "AFFICHAGE":
             if item == "HUD": args.no_hud = not args.no_hud
@@ -1185,6 +1188,8 @@ class MenuBar:
         if item == "PAS DE DÉCROCHAGE": return args.no_stall
         if item == "SURCHAUFFE OFF": return args.no_overheat
         if item == "POIDS STATIQUE": return args.static_weight
+        if item == "PAS DE VENT": return args.no_wind
+        if item == "PAS DE CRASH TRAIN": return args.no_gear_crash
         if item == "HUD": return not args.no_hud
         if item == "TABLEAU DE BORD": return not args.no_dash
         if item == "NUAGES": return not args.no_clouds
@@ -1308,7 +1313,8 @@ def update_season_visuals():
 
 def update_particles():
     global nb_particules, particules
-    nb_particules = 300 if args.season in ["rain", "snow"] else 50
+    # Beaucoup plus de particules pour la pluie et la neige (Intensité augmentée)
+    nb_particules = 1000 if args.season in ["rain", "snow"] else 50
     if args.no_particles: nb_particules = 0
     particules = []
     for _ in range(nb_particules): 
@@ -2102,304 +2108,191 @@ def afficher_atc(msg, duree=300):
 # --- DASHBOARD ANALOGIQUE (CLASSIC) ---
 def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumiere, poussee_pct, heure_dec, px_world, runways, portance, angle_pitch, gear, mtemp, show_large_map, flight_plan_waypoints):
     if show_large_map: return
-    global fuel
+    global fuel, atc_message, en_decrochage
     h_dash = s(140)
     y_base = H - h_dash
+    gap = s(30)
+    rayon = s(58)
     
-    # Fond Carbone / Tableau de bord
-    pygame.draw.rect(surface, (40, 40, 45), (0, y_base, L, h_dash))
-    pygame.draw.line(surface, (80, 80, 90), (0, y_base), (L, y_base), s(3))
+    # 1. FOND DU TABLEAU DE BORD (Look Moderne)
+    pygame.draw.rect(surface, (25, 28, 35), (0, y_base, L, h_dash))
+    pygame.draw.line(surface, (60, 65, 75), (0, y_base), (L, y_base), s(2))
 
-    # 1. ANEMOMETRE (GAUCHE)
-    x_spd = s(120)
+    # Utils pour effets
+    def draw_glass_effect(x, y, r):
+        s_glass = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+        pygame.draw.ellipse(s_glass, (255, 255, 255, 20), (s(5), s(5), r*1.5, r*0.8), 0)
+        surface.blit(s_glass, (x - r, y - r))
+
+    def draw_led(x, y, active, color_on, label):
+        color = color_on if active else (40, 45, 50)
+        if active:
+            for radius in range(s(8), s(2), -1):
+                alpha = int(100 * (1.0 - radius/s(8)))
+                pygame.draw.circle(surface, (*color_on, alpha), (x, y), radius)
+        pygame.draw.circle(surface, color, (x, y), s(4))
+        pygame.draw.circle(surface, (100, 105, 115), (x, y), s(4), 1)
+        lbl = police_label.render(label, True, (200, 200, 210) if active else (70, 75, 80))
+        surface.blit(lbl, (x - lbl.get_width()//2, y + s(8)))
+
+    def draw_v_bar(bx, val_pct, label, color):
+        bw, bh = s(12), s(80)
+        pygame.draw.rect(surface, (15, 15, 20), (bx, y_base + s(30), bw, bh))
+        h_fill = int(bh * (max(0, min(100, val_pct)) / 100.0))
+        pygame.draw.rect(surface, color, (bx, y_base + s(30) + bh - h_fill, bw, h_fill))
+        surface.blit(police_label.render(label, True, TXT_GRIS), (bx - s(5), y_base + s(15)))
+        # Valeur digitale sous la barre
+        val_txt = police_label.render(f"{int(val_pct)}", True, (200, 200, 200))
+        surface.blit(val_txt, (bx + bw//2 - val_txt.get_width()//2, y_base + s(115)))
+
+    # 1. ANEMOMETRE (Vitesse)
+    x_spd = gap + rayon
     y_inst = y_base + s(70)
-    rayon = s(60)
     
-    # Cadran
-    pygame.draw.circle(surface, (10, 10, 15), (x_spd, y_inst), rayon)
-    pygame.draw.circle(surface, (200, 200, 200), (x_spd, y_inst), rayon, 2)
+    pygame.draw.circle(surface, (10, 12, 18), (x_spd, y_inst), rayon)
+    pygame.draw.circle(surface, (80, 85, 95), (x_spd, y_inst), rayon, 2)
     
-    # Graduations
     max_speed = 400
-    for v in range(0, max_speed + 1, 50):
+    for v in range(0, max_speed + 1, 20):
         ang = 135 + (v / max_speed) * 270
         rad = math.radians(ang)
-        p1 = (x_spd + math.cos(rad) * (rayon - s(8)), y_inst + math.sin(rad) * (rayon - s(8)))
+        l_size = s(10) if v % 100 == 0 else s(5)
+        p1 = (x_spd + math.cos(rad) * (rayon - l_size), y_inst + math.sin(rad) * (rayon - l_size))
         p2 = (x_spd + math.cos(rad) * rayon, y_inst + math.sin(rad) * rayon)
-        lc = (255, 255, 255) if v % 100 == 0 else (150, 150, 150)
-        w = 2 if v % 100 == 0 else 1
-        pygame.draw.line(surface, lc, p1, p2, w)
+        pygame.draw.line(surface, (200, 200, 210) if v % 100 == 0 else (100, 105, 115), p1, p2, 2 if v % 100 == 0 else 1)
         
     val_aff = min(vitesse, max_speed)
     ang_aig = 135 + (val_aff / max_speed) * 270
     rad_aig = math.radians(ang_aig)
     pygame.draw.line(surface, HUD_ORANGE, (x_spd, y_inst), (x_spd + math.cos(rad_aig) * (rayon-s(5)), y_inst + math.sin(rad_aig) * (rayon-s(5))), s(3))
+    pygame.draw.circle(surface, (50, 55, 65), (x_spd, y_inst), s(6))
+    draw_glass_effect(x_spd, y_inst, rayon)
     
     sf_spd = police_valeur.render(f"{int(vitesse)}", True, (255, 255, 255))
     surface.blit(sf_spd, sf_spd.get_rect(center=(x_spd, y_inst + s(25))))
-    surface.blit(police_label.render("KTS", True, TXT_GRIS), (x_spd - s(15), y_inst - s(20)))
+    surface.blit(police_label.render("KNOTS", True, TXT_GRIS), (x_spd - s(20), y_inst - s(20)))
 
-    # 2. HORIZON ARTIFICIEL (CENTRE GAUCHE)
-    x_hor = s(280)
-    rayon_hor = s(60)
-    
-    pitch_pixel = angle_pitch * (3 * UI_SCALE) # Sensibilité
-    
-    # Masque (Clip)
+    # 2. HORIZON ARTIFICIEL
+    x_hor = x_spd + rayon + gap + rayon
+    rayon_hor = s(58)
     s_hor = pygame.Surface((rayon_hor*2, rayon_hor*2))
-    s_hor_rect = s_hor.get_rect()
+    pygame.draw.rect(s_hor, (45, 120, 220), (0, 0, rayon_hor*2, rayon_hor*2)) # Ciel
+    y_h_local = rayon_hor + angle_pitch * s(2.5)
+    pygame.draw.rect(s_hor, (120, 80, 40), (0, y_h_local, rayon_hor*2, rayon_hor*2)) # Terre
+    pygame.draw.line(s_hor, (255, 255, 255), (0, y_h_local), (rayon_hor*2, y_h_local), s(2))
     
-    # Ciel / Sol sur surface temp
-    pygame.draw.rect(s_hor, (40, 100, 200), s_hor_rect) # Ciel
-    
-    y_h_local = rayon_hor + pitch_pixel
-    rect_sol_local = pygame.Rect(0, y_h_local, rayon_hor*2, rayon_hor*2)
-    pygame.draw.rect(s_hor, (100, 60, 30), rect_sol_local) # Sol
-    pygame.draw.line(s_hor, (255, 255, 255), (0, y_h_local), (rayon_hor*2, y_h_local), s(2)) # Ligne
-    
-    # Pour faire simple et propre sans assets : On affiche le rect complet mais on dessine le contour par dessus
+    # Clip circulaire
+    mask = pygame.Surface((rayon_hor*2, rayon_hor*2), pygame.SRCALPHA)
+    pygame.draw.circle(mask, (255, 255, 255), (rayon_hor, rayon_hor), rayon_hor)
+    s_hor.blit(mask, (0,0), special_flags=pygame.BLEND_RGBA_MIN)
     surface.blit(s_hor, (x_hor - rayon_hor, y_inst - rayon_hor))
     
-    # Repère Avion
-    pygame.draw.line(surface, HUD_ORANGE, (x_hor - s(40), y_inst), (x_hor - s(10), y_inst), s(3))
-    pygame.draw.line(surface, HUD_ORANGE, (x_hor + s(10), y_inst), (x_hor + s(40), y_inst), s(3))
-    pygame.draw.circle(surface, HUD_ORANGE, (x_hor, y_inst), s(3))
+    # Repère fixe
+    pygame.draw.line(surface, (255, 255, 0), (x_hor - s(35), y_inst), (x_hor - s(10), y_inst), s(3))
+    pygame.draw.line(surface, (255, 255, 0), (x_hor + s(10), y_inst), (x_hor + s(35), y_inst), s(3))
+    pygame.draw.circle(surface, (255, 255, 0), (x_hor, y_inst), s(3))
+    pygame.draw.circle(surface, (80, 85, 95), (x_hor, y_inst), rayon_hor, s(3))
+    draw_glass_effect(x_hor, y_inst, rayon_hor)
+
+    # 3. ALTIMETRE
+    x_alt = x_hor + rayon_hor + gap + rayon
+    pygame.draw.circle(surface, (10, 12, 18), (x_alt, y_inst), rayon)
+    pygame.draw.circle(surface, (80, 85, 95), (x_alt, y_inst), rayon, 2)
+    # Aiguilles
+    for unit, length, color, thickness in [(10000, 35, (200, 200, 200), 4), (1000, 50, (255, 255, 255), 2)]:
+        ang = -90 + ((alt % unit) / unit) * 360
+        r = math.radians(ang)
+        pygame.draw.line(surface, color, (x_alt, y_inst), (x_alt + math.cos(r)*s(length), y_inst + math.sin(r)*s(length)), s(thickness))
     
-    # Contour cache misère (cercle épais autour)
-    pygame.draw.circle(surface, (40, 40, 45), (x_hor, y_inst), rayon_hor + s(10), s(10)) 
-    pygame.draw.circle(surface, (50, 50, 60), (x_hor, y_inst), rayon_hor, s(3))
-
-
-    # 3. ALTIMETRE (CENTRE DROIT)
-    x_alt = s(440)
-    pygame.draw.circle(surface, (10, 10, 15), (x_alt, y_inst), rayon)
-    pygame.draw.circle(surface, (200, 200, 200), (x_alt, y_inst), rayon, s(2))
-    
-    # Aiguille 1000 ft
-    val_1000 = (alt % 10000) / 10000.0
-    ang_1000 = -90 + val_1000 * 360
-    r1 = math.radians(ang_1000)
-    pygame.draw.line(surface, (255, 255, 255), (x_alt, y_inst), (x_alt + math.cos(r1)*s(40), y_inst + math.sin(r1)*s(40)), s(4))
-
-    # Aiguille 100 ft
-    val_100 = (alt % 1000) / 1000.0
-    ang_100 = -90 + val_100 * 360
-    r2 = math.radians(ang_100)
-    pygame.draw.line(surface, (255, 255, 255), (x_alt, y_inst), (x_alt + math.cos(r2)*s(55), y_inst + math.sin(r2)*s(55)), s(2))
-
-    # ATC RADIOMESSAGE
-    if args.missions and atc_message != "":
-        atc_bg = pygame.Surface((L, s(60)), pygame.SRCALPHA)
-        atc_bg.fill((20, 25, 30, 200)) # Fond radio sombre
-        surface.blit(atc_bg, (0, y_base - s(70)))
-        lbl_atc = police_valeur.render(atc_message, True, (200, 255, 200))
-        surface.blit(lbl_atc, lbl_atc.get_rect(center=(L//2, y_base - s(40))))
-    
-    sf_alt = police_valeur.render(f"{int(alt)}", True, (200, 255, 200))
+    draw_glass_effect(x_alt, y_inst, rayon)
+    sf_alt = police_valeur.render(f"{int(alt)}", True, (100, 255, 150))
     surface.blit(sf_alt, sf_alt.get_rect(center=(x_alt, y_inst + s(30))))
-    surface.blit(police_label.render("ALT", True, TXT_GRIS), (x_alt - s(10), y_inst - s(20)))
 
-    # 4. INDICATEUR DE PORTANCE (LIFT)
-    x_vsi = s(600)
-    rayon_vsi = s(50)
-    pygame.draw.circle(surface, (10, 10, 15), (x_vsi, y_inst), rayon_vsi)
-    pygame.draw.circle(surface, (200, 200, 200), (x_vsi, y_inst), rayon_vsi, s(2))
+    # 4. JAUGE AOA (Angle of Attack)
+    x_aoa = x_alt + rayon + gap + s(10)
+    aoa_angle = (max(0, angle_pitch) / 25.0) * 100
+    aoa_speed = max(0, min(100, (1.0 - (vitesse - 85) / 30.0) * 100))
+    aoa_pct = max(aoa_angle, aoa_speed)
     
-    val_lift = portance / 0.12 # 1G
-    val_lift = max(0.0, min(2.0, val_lift))
-    ang_vsi = 135 + (val_lift / 2.0) * 270
-    rv = math.radians(ang_vsi)
-    pygame.draw.line(surface, (255, 255, 100), (x_vsi, y_inst), (x_vsi + math.cos(rv)*(rayon_vsi-s(5)), y_inst + math.sin(rv)*(rayon_vsi-s(5))), s(3))
-    surface.blit(police_label.render("LIFT", True, TXT_GRIS), (x_vsi - s(15), y_inst + s(10)))
+    is_stalling = en_decrochage and (pygame.time.get_ticks() % 400 < 200)
+    aoa_color = (255, 0, 0) if (aoa_pct > 80 or is_stalling) else (255, 200, 0) if aoa_pct > 50 else (50, 255, 100)
     
-    # 5. FUEL (JAUGE) - INTEGRATION
-    x_fuel = s(720)
-    rayon_fuel = s(40)
+    if is_stalling:
+        pygame.draw.rect(surface, (100, 0, 0), (x_aoa - s(15), y_base + s(10), s(40), s(120)), 0, 4)
     
-    # Fond et bordure
-    pygame.draw.circle(surface, (10, 10, 15), (x_fuel, y_inst), rayon_fuel)
-    pygame.draw.circle(surface, (150, 150, 160), (x_fuel, y_inst), rayon_fuel, s(2))
-    
-    # 5. FUEL (JAUGE) - INTEGRATION (TOP ARC 180 GRAD)
-    x_fuel = s(720)
-    rayon_fuel = s(40)
-    
-    # Fond et bordure
-    pygame.draw.circle(surface, (10, 10, 15), (x_fuel, y_inst), rayon_fuel)
-    pygame.draw.circle(surface, (150, 150, 160), (x_fuel, y_inst), rayon_fuel, s(2))
-    
-    # Arcs (Trig CCW: 0=East, 90=North, 180=West)
-    arc_rect = pygame.Rect(x_fuel - rayon_fuel + s(2), y_inst - rayon_fuel + s(2), rayon_fuel * 2 - s(4), rayon_fuel * 2 - s(4))
-    
-    # Zone Verte (100% à 40%) -> 0 à 108 deg CCW
-    pygame.draw.arc(surface, (50, 200, 50), arc_rect, math.radians(0), math.radians(108), s(5))
-    # Zone Jaune (40% à 15%) -> 108 à 153 deg
-    pygame.draw.arc(surface, (200, 200, 50), arc_rect, math.radians(108), math.radians(153), s(5))
-    # Zone Rouge (15% à 0%) -> 153 à 180 deg
-    pygame.draw.arc(surface, (200, 50, 50), arc_rect, math.radians(153), math.radians(180), s(5))
-    
-    # Texte central FUEL
-    lbl_f = police_label.render("FUEL", True, TXT_GRIS)
-    surface.blit(lbl_f, (x_fuel - s(15), y_inst + s(5)))
-    
-    # Aiguille Fuel (Math Screen: 180=W, 270=N, 360=E)
-    pct_fuel = fuel / 100.0
-    ang_fuel = 180 + (pct_fuel * 180)
-    rf = math.radians(ang_fuel)
-    
-    c_f_aig = (255, 255, 255) if fuel >= 20 else (255, 50, 50)
-    # Longueur presque totale pour bien voir qu'elle va au bout
-    pygame.draw.line(surface, c_f_aig, (x_fuel, y_inst), 
-                     (x_fuel + math.cos(rf)*(rayon_fuel-s(5)), y_inst + math.sin(rf)*(rayon_fuel-s(5))), s(3))
-    
-    # Cache central
-    pygame.draw.circle(surface, (50, 50, 50), (x_fuel, y_inst), s(5))
+    draw_v_bar(x_aoa, aoa_pct, "AOA", aoa_color)
 
-    # Digital
-    sf_f = police_label.render(f"{int(fuel)}%", True, c_f_aig)
-    surface.blit(sf_f, sf_f.get_rect(center=(x_fuel, y_inst + s(25))))
+    # 5. BLOC MOTEUR (PWR, FUEL, TEMP)
+    x_stats = x_aoa + s(20) + gap + s(10)
+    draw_v_bar(x_stats, poussee_pct, "PWR", (50, 150, 255))
+    draw_v_bar(x_stats + s(40), fuel, "FUEL", (50, 255, 100) if fuel > 20 else (255, 50, 50))
+    draw_v_bar(x_stats + s(80), mtemp, "TEMP", (255, 0, 0) if mtemp > 80 else (100, 200, 255))
 
+    # 6. VOYANTS LED (STATUS)
+    x_leds = x_stats + s(80) + s(20) + gap + s(20)
+    draw_led(x_leds, y_base + s(40), gear, (50, 255, 50), "GEAR")
+    draw_led(x_leds + s(50), y_base + s(40), flaps, (50, 150, 255), "FLAPS")
+    draw_led(x_leds, y_base + s(90), freins, (255, 50, 50), "BRAKE")
+    draw_led(x_leds + s(50), y_base + s(90), auto, (255, 200, 50), "A/P")
 
-    # Dimensions minimap (always defined for other UI elements positioning)
-    x_map = L - s(380)
-    y_map = y_base + s(10)
-    w_map = s(300)
-    h_map = s(120)
+    # 7. HORLOGE UTC (Boitier stylisé)
+    x_clock = x_leds + s(100) + gap
+    y_clock = y_base + s(45)
+    h_int = int(heure_dec)
+    m_int = int((heure_dec % 1) * 60)
+    pygame.draw.rect(surface, (15, 18, 25), (x_clock, y_clock, s(110), s(50)), 0, 6)
+    pygame.draw.rect(surface, (70, 75, 85), (x_clock, y_clock, s(110), s(50)), 2, 6)
+    sf_h = police_valeur.render(f"{h_int:02d}:{m_int:02d}", True, (255, 200, 100))
+    surface.blit(sf_h, (x_clock + s(10), y_clock + s(5)))
+    surface.blit(police_label.render("UTC / ZULU", True, (150, 150, 160)), (x_clock + s(12), y_clock + s(30)))
+
+    # 8. MINIMAP
+    x_map = x_clock + s(110) + gap
+    y_map = y_base + s(20)
+    w_map = L - x_map - gap
+    h_map = s(105)
     
     if show_minimap:
-        
-        pygame.draw.rect(surface, (10, 20, 10), (x_map, y_map, w_map, h_map))
-        pygame.draw.rect(surface, (100, 100, 100), (x_map, y_map, w_map, h_map), s(2))
+        pygame.draw.rect(surface, (10, 15, 20), (x_map, y_map, w_map, h_map))
+        pygame.draw.rect(surface, (70, 75, 85), (x_map, y_map, w_map, h_map), 2)
         
         center_map_x = x_map + w_map // 2
-        pygame.draw.line(surface, (0, 100, 0), (x_map, y_map+h_map-s(10)), (x_map+w_map, y_map+h_map-s(10)))
-        
-        # Position locale
-        # px_world = world_x # Already passed as argument
-        # Echelle: La map fait w_map pixels, pour representer RANGE_MAP m
         RANGE_MAP = 20000 
         px_per_m = w_map / (RANGE_MAP * 2)
         
-        # Dessin Aeroports
-        # The original code used 'runways' argument, which is a list of tuples or ints.
-        # The provided edit uses 'airports' which is not defined in this context.
-        # I will adapt it to use 'runways' as per the function signature.
-        min_dist_airport = 999999
-        for piste_data in runways: 
-            if isinstance(piste_data, tuple):
-                rx = piste_data[0]
-                rw = piste_data[1]
-            else:
-                rx = piste_data
-                rw = 6000 # Default width if only x is provided
-            
-            dist = rx - px_world
-            # Seulement si dans le range
-            if abs(dist) < RANGE_MAP or abs(dist + rw) < RANGE_MAP:
-                 mx1 = center_map_x + (dist * px_per_m)
-                 mx2 = center_map_x + ((dist + rw) * px_per_m)
-                 # Limiter l'affichage aux bords de la map
-                 mx1 = max(x_map, min(x_map + w_map, mx1))
-                 mx2 = max(x_map, min(x_map + w_map, mx2))
-                 rect_w = max(2, mx2 - mx1) # Même si on est zoomé, toujours dessiner au moins 2 px
-                 
-                 pygame.draw.rect(surface, (180, 180, 180), (mx1, y_map+h_map-s(12), rect_w, s(4)))
-                 
-                 # Calcul Distance au plus près
-                 dist_closest = min(abs(dist), abs(dist + rw))
-                 if dist_closest < min_dist_airport:
-                     min_dist_airport = dist_closest
-                     
-        # Label Distance Piste la plus proche
-        # The provided edit uses 'get_closest_airport' which is not defined.
-        # I will adapt it to use the 'min_dist_airport' calculated above.
-        if min_dist_airport < RANGE_MAP:
-            dist_km = min_dist_airport / 1000.0
-            lbl_dist = police_label.render(f"DIST: {dist_km:.1f}KM", True, (150, 200, 150))
-            surface.blit(lbl_dist, (x_map + s(5), y_map + s(5)))
-        
-        # Relief sur la minimap
+        # Relief minimap
         points_map_relief = []
-        points_map_relief.append((x_map, y_map+h_map-s(10)))
+        points_map_relief.append((x_map, y_map+h_map-s(5)))
         for map_dx in range(0, w_map, s(5)):
             wx = (map_dx - w_map/2) / px_per_m + px_world
             ty = get_terrain_height(wx) 
-            # Echelle Y pour la map (arbitraire)
-            my = y_map+h_map-s(10) - (ty * (0.02 * UI_SCALE)) 
-            my = max(y_map, min(y_map+h_map-s(10), my))
+            my = y_map+h_map-s(5) - (ty * (0.02 * UI_SCALE)) 
+            my = max(y_map, min(y_map+h_map-s(5), my))
             points_map_relief.append((x_map + map_dx, my))
-        points_map_relief.append((x_map + w_map, y_map+h_map-s(10)))
-        pygame.draw.polygon(surface, (20, 50, 20), points_map_relief)
+        points_map_relief.append((x_map + w_map, y_map+h_map-s(5)))
+        pygame.draw.polygon(surface, (30, 60, 30), points_map_relief)
         
-        # Plages et Océans sur minimap
-        for (ox_start, ox_end) in OCEAN_ZONES:
-            # Plage Ouest
-            dist_b1_start = (ox_start - 4000) - px_world
-            mx_b1_start = center_map_x + (dist_b1_start * px_per_m)
-            mw_b1 = 4000 * px_per_m
-            if mx_b1_start + mw_b1 > x_map and mx_b1_start < x_map + w_map:
-                pygame.draw.rect(surface, (220, 200, 140), (mx_b1_start, y_map + h_map - s(10), mw_b1, s(10)))
-                
-            # Océan
-            dist_o_start = ox_start - px_world
-            mx_o_start = center_map_x + (dist_o_start * px_per_m)
-            mw_o = (ox_end - ox_start) * px_per_m
-            
-            # Seulement si dans la zone visible
-            if mx_o_start + mw_o > x_map and mx_o_start < x_map + w_map:
-                pygame.draw.rect(surface, (30, 130, 200), (mx_o_start, y_map + h_map - s(10), mw_o, s(10)))
-                
-            # Plage Est
-            dist_b2_start = ox_end - px_world
-            mx_b2_start = center_map_x + (dist_b2_start * px_per_m)
-            mw_b2 = 4000 * px_per_m
-            if mx_b2_start + mw_b2 > x_map and mx_b2_start < x_map + w_map:
-                pygame.draw.rect(surface, (220, 200, 140), (mx_b2_start, y_map + h_map - s(10), mw_b2, s(10)))
-    
-        # Dessin Historique Visuel (Ligne de vol)
-        px_per_m = w_map / (20000 * 2) 
+        # Aeroports
+        for piste_data in runways: 
+            rx = piste_data[0] if isinstance(piste_data, tuple) else piste_data
+            rw = piste_data[1] if isinstance(piste_data, tuple) else 6000
+            dist = rx - px_world
+            if abs(dist) < RANGE_MAP:
+                 mx = center_map_x + (dist * px_per_m)
+                 pygame.draw.rect(surface, (200, 200, 200), (mx, y_map+h_map-s(7), max(2, rw*px_per_m), s(4)))
+
+        # Trace de vol
         if len(position_history) > 1:
-            points_map = []
-            # The original code used position_history[-300:]
-            # The provided edit uses the full history. I will keep the original behavior.
-            for hx, halt in position_history[-300:]:
+            points_trace = []
+            for hx, halt in position_history[-200:]:
                  dist = hx - px_world
-                 if abs(dist) < 20000:
+                 if abs(dist) < RANGE_MAP:
                      mx = center_map_x + (dist * px_per_m)
-                     hy_rel = min(h_map - s(15), halt * (0.02 * UI_SCALE))
-                     my = y_map + h_map - s(10) - hy_rel
-                     points_map.append((mx, my))
-                     
-            if len(points_map) > 1:
-                pygame.draw.lines(surface, (50, 255, 255), False, points_map, s(2)) # Cyan plus épais pour la trainée
-                
-        # Dessin du lieu de crash
-        # The original code iterated through crash_sites.
-        # The provided edit uses 'crashed' and 'crash_pos' globals, which are not consistent with the original.
-        # I will adapt it to use 'crash_sites' as per the original code.
-        for cx_w, calt in crash_sites:
-            dist_crash = cx_w - px_world
-            if abs(dist_crash) < 20000: # Même portée que le relief radar
-                # Position sur la map
-                mx_c = center_map_x + (dist_crash * px_per_m)
-                hy_c = min(h_map - s(15), calt * (0.02 * UI_SCALE))
-                my_c = y_map + h_map - s(10) - hy_c
-                
-                # Dessin de la croix
-                sz = s(5) # Original was s(5), edit was s(6)
-                pygame.draw.line(surface, HUD_ROUGE, (mx_c - sz, my_c - sz), (mx_c + sz, my_c + sz), s(2))
-                pygame.draw.line(surface, HUD_ROUGE, (mx_c + sz, my_c - sz), (mx_c - sz, my_c + sz), s(2))
-    
-    
-        # OISEAUX
-        for b in birds:
-            dist_obj = b.x - px_world
-            if abs(dist_obj) < 20000:
-                mx_c = center_map_x + (dist_obj * px_per_m)
-                hy_c = min(h_map - s(15), -b.y * (0.02 * UI_SCALE))
-                my_c = y_map + h_map - s(10) - hy_c
-                pygame.draw.circle(surface, (200, 200, 200), (int(mx_c), int(my_c)), s(1)) # Original was circle, edit was rect
-                
+                     my = y_map + h_map - s(5) - (halt * 0.02 * UI_SCALE)
+                     points_trace.append((mx, my))
+            if len(points_trace) > 1:
+                pygame.draw.lines(surface, (0, 255, 255), False, points_trace, 2)
+
         # AVIONS IA
         if args.missions:
             for aip in ai_planes:
@@ -2410,7 +2303,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
                     my_c = y_map + h_map - s(10) - hy_c
                     sz = s(8) # Triangle plus grand sur la carte
                     pygame.draw.polygon(surface, (0, 0, 0), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)])
-                    pygame.draw.polygon(surface, (255, 255, 255), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)], s(1)) # Contour blanc
+                    pygame.draw.polygon(surface, (255, 255, 255), [(mx_c, my_c - sz), (mx_c - sz, my_c + sz), (mx_c + sz, my_c + sz)], s(1))
     
         # DROP ZONES (Cibles Cargo)
         if mission_manager.active_mission == "cargo":
@@ -2433,7 +2326,7 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
                         mx_c = center_map_x + (dist_obj * px_per_m)
                         hy_c = min(h_map - s(15), -r.y * (0.02 * UI_SCALE))
                         my_c = y_map + h_map - s(10) - hy_c
-                        pygame.draw.circle(surface, (255, 215, 0), (int(mx_c), int(my_c)), s(3), s(1)) # Original was (255, 215, 0), edit was (0, 200, 255)
+                        pygame.draw.circle(surface, (255, 215, 0), (int(mx_c), int(my_c)), s(3), s(1))
                         
         # ZONE D'ATTERRISSAGE
         if mission_manager.active_mission == "landing" and mission_manager.target_landing_zone:
@@ -2448,24 +2341,17 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
                 pygame.draw.line(surface, (0, 255, 0), (mx1, my_c), (mx2, my_c), s(4))
             
         # Position du joueur sur minimap
-        # On fait clignoter le curseur du joureur (10 frames on, 10 frames off)
         if (pygame.time.get_ticks() // 200) % 2 == 0:
             h_rel = min(h_map - s(20), alt * (0.02 * UI_SCALE))
             p_center = (center_map_x, y_map+h_map-s(10) - h_rel)
             
-            # Calcul des points du triangle orienté selon l'angle (angle_pitch en degrés)
             rad_a = math.radians(angle_pitch)
-            # Triangle de base pointant vers la droite (0 degrés)
             t_size = s(6)
             p1_base = (t_size, 0) # Nez
             p2_base = (-t_size, -t_size + s(2)) # Aile gauche
             p3_base = (-t_size, t_size - s(2)) # Aile droite
             
             def rotate_point(p, r):
-                # Rotation trigo : x*cos - y*sin, x*sin + y*cos
-                # Pygame Y est inversé, donc l'angle doit être adapté
-                # angle_pitch > 0 signifie on monte (Nez vers le HAUT de l'écran, donc Y diminue)
-                # Dans Pygame rotate usuel, un angle positif tourne dans le sens anti-horaire
                 rx = p[0] * math.cos(r) - p[1] * math.sin(r)
                 ry = -(p[0] * math.sin(r) + p[1] * math.cos(r)) # Inversion Y
                 return (p_center[0] + rx, p_center[1] + ry)
@@ -2473,113 +2359,45 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
             pt1 = rotate_point(p1_base, rad_a)
             pt2 = rotate_point(p2_base, rad_a)
             pt3 = rotate_point(p3_base, rad_a)
-            
             pygame.draw.polygon(surface, (255, 255, 0), [pt1, pt2, pt3])
 
         # DESSIN PLAN DE VOL MINIMAP
         if len(flight_plan_waypoints) > 0:
-            # Activer le clipping pour ne pas déborder de la minimap
             surface.set_clip(pygame.Rect(x_map, y_map, w_map, h_map))
-            
             pts_wp_minimap = []
             for wp_x, wp_alt in flight_plan_waypoints:
                 dist = wp_x - px_world
                 mx = center_map_x + (dist * px_per_m)
                 hy_rel = min(h_map - s(15), wp_alt * (0.02 * UI_SCALE))
                 my = y_map + h_map - s(10) - hy_rel
-                
-                # Draw small diamond for waypoint
                 pygame.draw.polygon(surface, (255, 100, 255), [(mx, my-s(3)), (mx+s(3), my), (mx, my+s(3)), (mx-s(3), my)])
                 pts_wp_minimap.append((mx, my))
                 
-            # Connect waypoints with lines
             if len(pts_wp_minimap) > 1:
                 pygame.draw.lines(surface, (255, 100, 255), False, pts_wp_minimap, s(1))
             
-            # Connect player to first waypoint
             first_wp_x, first_wp_alt = flight_plan_waypoints[0]
             dist_first = first_wp_x - px_world
             mx_first = center_map_x + (dist_first * px_per_m)
             hy_rel_first = min(h_map - s(15), first_wp_alt * (0.02 * UI_SCALE))
             my_first = y_map + h_map - s(10) - hy_rel_first
             
-            # Draw line from player
             h_rel_player = min(h_map - s(20), alt * (0.02 * UI_SCALE))
             pygame.draw.line(surface, (200, 50, 200), (center_map_x, y_map+h_map-s(10) - h_rel_player), (mx_first, my_first), s(1))
-            
-            # Désactiver le clipping
             surface.set_clip(None)
             
-            # Afficher distance et cap sur HUD pour le premier WP (en dehors du clipping)
             dist_to_wp = abs(dist_first)
             lbl_wp = police_valeur.render(f"WP1: {dist_to_wp/1000.0:.1f}KM", True, (255, 100, 255))
             surface.blit(lbl_wp, (x_map, y_map - s(25)))
 
-
-    # Infos Textes (THRUST & TEMP)
-    x_panel = L - s(80)
-    lbl_th = police_label.render("THR", True, HUD_ORANGE)
-    surface.blit(lbl_th, (x_panel, y_map - s(20)))
-    lbl_th_val = police_valeur.render(f"{int(poussee_pct)}%", True, (255, 255, 255))
-    surface.blit(lbl_th_val, (x_panel, y_map))
-    
-    # TEMP JAUGE
-    y_temp = y_map + s(40)
-    lbl_temp = police_label.render("ENG TEMP", True, (200, 200, 200))
-    surface.blit(lbl_temp, (x_panel, y_temp))
-    
-    c_temp = (50, 200, 50) # Vert
-    if mtemp > 70: c_temp = (200, 200, 50) # Jaune
-    if mtemp > 90: c_temp = (255, 50, 50)  # Rouge
-    
-    pygame.draw.rect(surface, (50, 50, 50), (x_panel, y_temp + s(20), s(60), s(10))) # Fond
-    pygame.draw.rect(surface, c_temp, (x_panel, y_temp + s(20), int(s(60) * (mtemp/100.0)), s(10))) # Valeur
-    pygame.draw.rect(surface, (200, 200, 200), (x_panel, y_temp + s(20), s(60), s(10)), 1) # Bord
-    
-    # Message Surchauffe (Clignotement)
-    if mtemp > 95 and (pygame.time.get_ticks() % 500) < 250:
-         lbl_warn = police_label.render("OVERHEAT", True, HUD_ROUGE)
-         surface.blit(lbl_warn, (x_panel, y_temp + s(35)))
-
-    # INDICATEURS REPOSITIONNES (AU-DESSUS DE RADAR/THR)
-    y_ind = y_map - s(40)
-    # GEAR
-    c_gear = (0, 200, 0) if gear else (200, 50, 50)
-    pygame.draw.circle(surface, c_gear, (L - s(260), y_ind), s(5))
-    surface.blit(police_label.render("GEAR", True, (200, 200, 200)), (L - s(250), y_ind - s(7)))
-    
-    # FLAPS
-    c_flaps = (0, 200, 0) if flaps else (50, 50, 50)
-    pygame.draw.circle(surface, c_flaps, (L - s(180), y_ind), s(5))
-    surface.blit(police_label.render("FLAPS", True, (200, 200, 200)), (L - s(170), y_ind - s(7)))
-
-    # BRAKE
-    c_brake = (200, 50, 50) if freins else (50, 50, 50)
-    pygame.draw.circle(surface, c_brake, (L - s(100), y_ind), s(5))
-    surface.blit(police_label.render("BRAKE", True, (200, 200, 200)), (L - s(90), y_ind - s(7)))
-    # MANETTE DES GAZ
-    x_thr = L - s(30)
-    y_thr = y_map
-    w_thr = s(15)
-    h_thr = s(100)
-    
-    # Fond slot
-    pygame.draw.rect(surface, (20, 20, 20), (x_thr, y_thr, w_thr, h_thr))
-    pygame.draw.rect(surface, (100, 100, 100), (x_thr, y_thr, w_thr, h_thr), 1)
-    
-    # Curseur (Manette)
-    pos_y_manette = y_thr + h_thr - (h_thr * (poussee_pct / 100.0))
-    pygame.draw.rect(surface, (200, 200, 200), (x_thr - s(5), pos_y_manette - s(5), w_thr + s(10), s(10)))
-    pygame.draw.line(surface, (50, 50, 50), (x_thr - s(5), pos_y_manette), (x_thr + w_thr + s(5), pos_y_manette), 1)
-
-    lbl_ti = police_valeur.render(f"{int(heure_dec):02d}:{int((heure_dec%1)*60):02d}", True, HUD_VERT)
-    surface.blit(lbl_ti, (L - s(80), y_map + s(20)))
+    # ATC RADIOMESSAGE (Overlay)
+    if args.missions and atc_message != "":
+        lbl_atc = police_valeur.render(f"RADIO: {atc_message}", True, (150, 255, 150))
+        surface.blit(lbl_atc, (s(20), y_base - s(40)))
 
     # RADIO DISPLAY
     lbl_radio = police_label.render(music_player.get_current_title(), True, (200, 200, 255))
     surface.blit(lbl_radio, (s(20), H - s(230)))
-
-# --- INITIALISATION MISSIONS SPECIFIQUES ---
 if args.mission_type == "rings":
     mission_manager.start_rings_challenge(world_x)
 elif args.mission_type == "landing":
@@ -2840,8 +2658,11 @@ while True:
         # x2.5 burn rate if full throttle, only basal rate if idle
         conso = 0.001 + (facteur_poussee**2 * 2.5) * fuel_burn_rate
         
-        fuel -= conso
-        if fuel < 0: fuel = 0
+        if not args.unlimited_fuel:
+            fuel -= conso
+            if fuel < 0: fuel = 0
+        else:
+            fuel = 100.0 # Force le fuel à 100% si illimité
         
     # --- SURCHAUFFE MOTEUR ---
     if moteur_allume and not moteur_endommage and not args.no_overheat:
@@ -3186,12 +3007,18 @@ while True:
                 size_mult = random.uniform(0.7, 1.3)
                 contrails.append([spawn_x + offset_x + rx, spawn_y + offset_y + ry, 1.0, size_mult])
             
-    # --- GROUND SPRAY (Idee 15) ---
-    if not crashed and altitude < 5 and vitesse_kph > 80:
+    # --- GROUND SPRAY (Idee 15 - Améliorée) ---
+    if not crashed and altitude < 5 and vitesse_kph > 60:
         if args.season in ["rain", "snow", "wind"]: # Also works in storm
             type_spray = 1 if args.season == "snow" else 0
-            for _ in range(3):
-                ground_spray.append([world_x + random.uniform(-10, 10), world_y + random.uniform(-2, 2), 1.0, random.uniform(0.5, 1.5), type_spray])
+            # Plus de particules pour un effet plus dense
+            for _ in range(8):
+                # On place les particules derrière l'avion
+                rad_a = math.radians(angle)
+                offset_back = -40
+                gx = world_x + math.cos(rad_a) * offset_back + random.uniform(-15, 15)
+                gy = world_y + random.uniform(-2, 2)
+                ground_spray.append([gx, gy, 1.0, random.uniform(0.5, 2.0), type_spray])
 
     # Mise à jour et nettoyage des particules
     for c in contrails:
@@ -3200,15 +3027,18 @@ while True:
     contrails = [c for c in contrails if c[2] > 0]
     
     for g in ground_spray:
-        g[2] -= 0.02 # Vie plus courte que contrails
-        g[1] -= 0.5  # Monte un peu (soulevé)
+        g[2] -= 0.03 # Disparait assez vite
+        g[1] -= random.uniform(0.3, 0.8)  # Monte (soulevé par le vent relatif)
+        # Dérive un peu vers l'arrière
+        g[0] -= (vitesse_kph / 50.0)
     ground_spray = [g for g in ground_spray if g[2] > 0]
 
-    # --- ORAGES (Idée 14) ---
+    # --- ORAGES (Idée 14 - Améliorée) ---
     if args.season == "wind":
-        if random.random() < 0.002: # ~2% par sec à 60fps
-            eclair_timer = 2
-            tonnerre_timer = random.randint(30, 150)
+        # Fréquence augmentée pour plus de spectacle (0.5% par frame au lieu de 0.2%)
+        if random.random() < 0.005: 
+            eclair_timer = random.randint(2, 4) # Durée variable du flash
+            tonnerre_timer = random.randint(20, 100) # Délai tonnerre réduit
             
     if tonnerre_timer > 0:
         tonnerre_timer -= 1
@@ -3390,13 +3220,16 @@ while True:
                 # sauf si on veut simuler des particules d'air
                 pass 
 
-            # Wrapping
-            if p[1] > H: p[1] = -10
+            # Wrapping Vertical
+            if p[1] > H + 50: p[1] = -50
+            elif p[1] < -50: p[1] = H + 50
             
             # Vitesse horizontale relative avion
             p[0] -= (vitesse_kph * 0.05 * p[2]) * zoom 
 
+            # Wrapping Horizontal (Amélioré pour gérer les deux sens)
             if p[0] < -100: p[0] = L + 100
+            elif p[0] > L + 100: p[0] = -100
             
             # Dessin
             px = p[0]
