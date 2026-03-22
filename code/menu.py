@@ -370,8 +370,12 @@ class MenuPrincipal(ctk.CTk):
         return card
 
     def build_page_accueil(self):
+        page_name = "Vue d'ensemble"
+        if page_name in self.pages:
+            self.pages[page_name].destroy()
+            
         page = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.pages["Vue d'ensemble"] = page
+        self.pages[page_name] = page
         
         self.title_label(page, "Bienvenue Commandant.")
         
@@ -495,8 +499,12 @@ puis cliquez sur LANCER LE VOL.
         self.slider_heure.configure(state="disabled")
 
     def build_page_env(self):
+        page_name = "Environnement"
+        if page_name in self.pages:
+            self.pages[page_name].destroy()
+            
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["Environnement"] = page
+        self.pages[page_name] = page
         self.title_label(page, "Environnement & Monde")
 
         c_meteo = self.card_frame(page, "CONDITIONS MÉTÉOROLOGIQUES")
@@ -538,8 +546,12 @@ puis cliquez sur LANCER LE VOL.
 
 
     def build_page_realism(self):
+        page_name = "Réalisme & Aides"
+        if page_name in self.pages:
+            self.pages[page_name].destroy()
+            
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["Réalisme & Aides"] = page
+        self.pages[page_name] = page
         self.title_label(page, "Ajustement du Réalisme")
         
         c_poids = self.card_frame(page, "GESTION CARBURANT & POIDS (Idée 5)")
@@ -573,8 +585,12 @@ puis cliquez sur LANCER LE VOL.
 
 
     def build_page_gfx(self):
+        page_name = "Affichage & Rendu"
+        if page_name in self.pages:
+            self.pages[page_name].destroy()
+            
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["Affichage & Rendu"] = page
+        self.pages[page_name] = page
         self.title_label(page, "Options Graphiques")
 
         c_ui = self.card_frame(page, "INTERFACE COCKPIT")
@@ -680,8 +696,12 @@ puis cliquez sur LANCER LE VOL.
 
 
     def build_page_multi(self):
+        page_name = "Réseau & Multi"
+        if page_name in self.pages:
+            self.pages[page_name].destroy()
+            
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["Réseau & Multi"] = page
+        self.pages[page_name] = page
         self.title_label(page, "Multijoueur en Ligne")
         
         c_conn = self.card_frame(page, "CONNEXION AU SERVEUR")
