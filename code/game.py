@@ -2266,19 +2266,37 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     sf_alt = police_valeur.render(f"{int(alt)}", True, (100, 255, 150))
     surface.blit(sf_alt, sf_alt.get_rect(center=(x_alt, y_inst + s(30))))
 
-    # 4. JAUGE AOA (Angle of Attack)
+    # 4. JAUGE AOA (Angle of Attack) - SYNCHRONISATION TOTALE PHYSIQUE
     x_aoa = x_alt + rayon + gap + s(10)
-    aoa_angle = (max(0, angle_pitch) / 25.0) * 100
-    aoa_speed = max(0, min(100, (1.0 - (vitesse - 85) / 30.0) * 100))
-    aoa_pct = max(aoa_angle, aoa_speed)
+    
+    # On réutilise les mêmes seuils que la physique (Spécifique Acro)
+    base_thr = 30.0 if args.aircraft == "acro" else 16.0
+    stall_thr = base_thr + (args.upg_finesse * 0.1)
+    if flaps: stall_thr += 4.0
+    
+    # Normalisation : 100% = Point de décrochage EXACT
+    aoa_pct = max(0, min(100, (abs(real_aoa_phys) / stall_thr) * 100))
+    
+    # Sécurité base vitesse (Ignorée si Acro et gaz à fond)
+    v_min = 65 if flaps else 85
+    is_slow_risk = vitesse < v_min
+    if args.aircraft == "acro" and poussee_pct > 80:
+        is_slow_risk = False
+        
+    speed_danger = 0
+    if is_slow_risk:
+        speed_danger = max(0, min(100, (1.0 - (vitesse - v_min) / 20.0) * 100))
+    
+    # La jauge affiche le risque maximum
+    final_aoa_display = max(aoa_pct, speed_danger)
     
     is_stalling = en_decrochage and (pygame.time.get_ticks() % 400 < 200)
-    aoa_color = (255, 0, 0) if (aoa_pct > 80 or is_stalling) else (255, 200, 0) if aoa_pct > 50 else (50, 255, 100)
+    aoa_color = (255, 0, 0) if (final_aoa_display >= 98 or is_stalling) else (255, 160, 0) if final_aoa_display > 60 else (50, 255, 100)
     
-    if is_stalling:
-        pygame.draw.rect(surface, (100, 0, 0), (x_aoa - s(15), y_base + s(10), s(40), s(120)), 0, 4)
+    if final_aoa_display >= 98 or is_stalling:
+        pygame.draw.rect(surface, (80, 0, 0), (x_aoa - s(15), y_base + s(10), s(40), s(120)), 0, 4)
     
-    draw_v_bar(x_aoa, aoa_pct, "AOA", aoa_color)
+    draw_v_bar(x_aoa, final_aoa_display, "AOA", aoa_color)
 
     # 5. BLOC MOTEUR (PWR, FUEL, TEMP)
     x_stats = x_aoa + s(20) + gap + s(10)
@@ -2889,16 +2907,32 @@ while True:
     elif altitude > 20:
         has_already_landed = False # On redécolle
     
-    # Planeur / Décrochage (Plus permissif en mode facile)
-    seuil_decrochage = V_DECROCHAGE - 10 
-    if flaps_sortis: seuil_decrochage = 65 
+    # --- CALCUL AOA PHYSIQUE (UNIFIÉ & SPÉCIAL ACRO) ---
+    rad_pitch = math.radians(angle)
+    v_long = vx * math.cos(rad_pitch) + (-vy) * math.sin(rad_pitch)
+    v_perp = -vx * math.sin(rad_pitch) + (-vy) * math.cos(rad_pitch)
+    real_aoa_phys = math.degrees(math.atan2(v_perp, max(0.1, v_long)))
     
-    # Anti-Crash Sol
+    # Seuil de décrochage dynamique
+    # L'Acro est BEAUCOUP plus tolérant (30° au lieu de 16°)
+    base_thr = 30.0 if args.aircraft == "acro" else 16.0
+    stall_threshold_phys = base_thr + (args.upg_finesse * 0.1)
+    if flaps_sortis: stall_threshold_phys += 4.0
+    
+    # Détection Décrochage
+    # L'Acro ne décroche pas par manque de vitesse si le moteur compense (Prop-hanging)
+    v_min_limit = 65 if flaps_sortis else 85
+    is_slow = vitesse_kph < v_min_limit
+    
+    # Si Acro et moteur > 80%, on ignore le décrochage de vitesse (on tient sur l'hélice)
+    if args.aircraft == "acro" and niveau_poussee_reelle > 80:
+        is_slow = False
+
     if args.no_stall:
         en_decrochage = False
     elif altitude < 100 and vitesse_kph > 50:
-        en_decrochage = False
-    elif vitesse_kph < seuil_decrochage:
+        en_decrochage = False # Sécurité sol
+    elif abs(real_aoa_phys) > stall_threshold_phys or is_slow:
         en_decrochage = True
     else:
         en_decrochage = False
