@@ -1,0 +1,25 @@
+{
+    "coins": 153,
+    "upgrades": {
+        "cessna": {
+            "engine": 0,
+            "finesse": 0,
+            "fuel": 0
+        },
+        "fighter": {
+            "engine": 0,
+            "finesse": 0,
+            "fuel": 0
+        },
+        "cargo": {
+            "engine": 0,
+            "finesse": 0,
+            "fuel": 0
+        },
+        "acro": {
+            "engine": 7,
+            "finesse": 3,
+            "fuel": 0
+        }
+    }
+}

@@ -18,7 +18,8 @@ def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        # Utiliser le dossier parent du dossier 'code/' pour trouver 'son/' et 'image/'
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
 
 # --- CONFIGURATION DU DESIGN ---
@@ -109,7 +110,7 @@ class MenuPrincipal(ctk.CTk):
         # --- SIDEBAR (GAUCHE) ---
         self.sidebar_frame = ctk.CTkFrame(self, width=280, corner_radius=0, fg_color=COL_SIDEBAR)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsw")
-        self.sidebar_frame.grid_rowconfigure(9, weight=1) # Espaceur entre les menus et le bouton jouer (Ligne 9)
+        self.sidebar_frame.grid_rowconfigure(10, weight=1) # Espaceur entre les menus et le bouton jouer (Ligne 10)
         
         # En-Tête Sidebar
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="PYFLIGHT 2D", font=("Arial", 36, "bold"), text_color=COL_TEXT)
@@ -122,24 +123,25 @@ class MenuPrincipal(ctk.CTk):
         
         self.btn_tab_accueil = self.create_sidebar_btn("Vue d'ensemble", 2)
         self.btn_tab_base = self.create_sidebar_btn("Appareil & Vol", 3)
-        self.btn_tab_env = self.create_sidebar_btn("Environnement", 4)
-        self.btn_tab_realism = self.create_sidebar_btn("Réalisme & Aides", 5)
-        self.btn_tab_gfx = self.create_sidebar_btn("Affichage & Rendu", 6)
-        self.btn_tab_stats = self.create_sidebar_btn("Scores & Stats", 7)
-        self.btn_tab_multi = self.create_sidebar_btn("Réseau & Multi", 8)
+        self.btn_tab_garage = self.create_sidebar_btn("Carrière & Garage", 4)
+        self.btn_tab_env = self.create_sidebar_btn("Environnement", 5)
+        self.btn_tab_realism = self.create_sidebar_btn("Réalisme & Aides", 6)
+        self.btn_tab_gfx = self.create_sidebar_btn("Affichage & Rendu", 7)
+        self.btn_tab_stats = self.create_sidebar_btn("Scores & Stats", 8)
+        self.btn_tab_multi = self.create_sidebar_btn("Réseau & Multi", 9)
         
         # Spacer pour repousser les boutons vers le bas grace au weight=1
-        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=9, column=0, sticky="nsew")
+        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=10, column=0, sticky="nsew")
 
         # Boutons Action (Bas de Sidebar)
         self.btn_jouer = ctk.CTkButton(self.sidebar_frame, text="LANCER LE VOL", command=self.lancer_jeu,
                                        font=("Arial", 18, "bold"), height=55, fg_color=COL_ACCENT, hover_color=COL_ACCENT_HOVER)
-        self.btn_jouer.grid(row=10, column=0, padx=20, pady=(10, 10), sticky="ew")
+        self.btn_jouer.grid(row=11, column=0, padx=20, pady=(10, 10), sticky="ew")
 
         self.btn_quitter = ctk.CTkButton(self.sidebar_frame, text="QUITTER", command=self.quit,
                                          font=("Arial", 14, "bold"), height=40, fg_color="transparent", 
                                          border_width=2, border_color=COL_DANGER, text_color=COL_DANGER, hover_color="#451a1a")
-        self.btn_quitter.grid(row=11, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.btn_quitter.grid(row=12, column=0, padx=20, pady=(0, 20), sticky="ew")
 
         # --- CONTENU (DROITE) ---
         self.main_frame = ctk.CTkFrame(self, fg_color=COL_BG, corner_radius=0)
@@ -147,11 +149,15 @@ class MenuPrincipal(ctk.CTk):
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_rowconfigure(0, weight=1)
 
+        # Career Data
+        self.career_data = self.load_career_data()
+
         # Dictionnaires des frames "pages"
         self.pages = {}
         
         self.build_page_accueil()
         self.build_page_base()
+        self.build_page_garage()
         self.build_page_env()
         self.build_page_realism()
         self.build_page_gfx()
@@ -184,11 +190,16 @@ class MenuPrincipal(ctk.CTk):
         for nom, btn in self.tab_buttons:
             if nom == nom_tab:
                 btn.configure(fg_color=COL_PRIMARY, text_color=COL_TEXT)
+            else:
                 btn.configure(fg_color="transparent", text_color=COL_TEXT_MUTED)
                 
         # Si c'est l'onglet des scores, on le reconstruit pour le mettre à jour
         if nom_tab == "Scores & Stats":
             self.build_page_scores()
+            
+        # Si c'est l'onglet Appareil & Vol, on s'assure qu'il est synchronisé avec le garage
+        if nom_tab == "Appareil & Vol":
+            self.build_page_base()
                 
         # Afficher la bonne page
         for t, page_frame in self.pages.items():
@@ -199,6 +210,154 @@ class MenuPrincipal(ctk.CTk):
 
     # --- PAGES BUILDERS ---
     
+    def load_career_data(self):
+        if getattr(sys, 'frozen', False):
+            dossier_exe = os.path.dirname(sys.executable)
+            path_career = os.path.join(dossier_exe, "career.json")
+        else:
+            dossier = os.path.dirname(os.path.abspath(__file__))
+            path_career = os.path.join(dossier, "career.json")
+            
+        data = {"coins": 0, "upgrades": {}}
+        if os.path.exists(path_career):
+            try:
+                with open(path_career, "r", encoding="utf-8") as f:
+                    data.update(json.load(f))
+            except:
+                pass
+                
+        # Initialize default upgrades structure for all planes
+        planes = ["cessna", "fighter", "cargo", "acro"]
+        for p in planes:
+            if p not in data["upgrades"]:
+                data["upgrades"][p] = {"engine": 0, "finesse": 0, "fuel": 0}
+        return data
+        
+    def save_career_data(self):
+        if getattr(sys, 'frozen', False):
+            dossier_exe = os.path.dirname(sys.executable)
+            path_career = os.path.join(dossier_exe, "career.json")
+        else:
+            dossier = os.path.dirname(os.path.abspath(__file__))
+            path_career = os.path.join(dossier, "career.json")
+            
+        try:
+            with open(path_career, "w", encoding="utf-8") as f:
+                json.dump(self.career_data, f, indent=4)
+        except:
+            pass
+
+    def build_page_garage(self):
+        page_name = "Carrière & Garage"
+        if page_name in self.pages:
+            self.pages[page_name].destroy()
+            
+        page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
+        self.pages[page_name] = page
+        self.title_label(page, "Garage & Améliorations")
+        
+        # Reload data to ensure it's up to date
+        self.career_data = self.load_career_data()
+        coins = self.career_data.get("coins", 0)
+        current_ac_name = self.var_aircraft.get()
+        
+        c_bank = self.card_frame(page, "VOTRE COMPTE")
+        lbl_coins = ctk.CTkLabel(c_bank, text=f"💰 Pièces disponibles : {int(coins)}", font=("Arial", 24, "bold"), text_color="#F59E0B")
+        lbl_coins.pack(pady=10)
+        
+        # --- VISUEL DE L'AVION ---
+        # Menu de sélection de l'avion à améliorer
+        f_select = ctk.CTkFrame(page, fg_color="transparent")
+        f_select.pack(fill="x", padx=15, pady=(0, 10))
+        
+        ctk.CTkLabel(f_select, text="Choisir l'avion à améliorer :", font=("Arial", 14)).pack(side="left", padx=10)
+        
+        def on_change_ac_garage(new_val):
+            # On change la variable globale de l'avion sélectionné pour que le garage se mette à jour
+            self.var_aircraft.set(new_val)
+            self.build_page_garage()
+            self.pages[page_name].grid(row=0, column=0, sticky="nsew")
+
+        opt_ac = ctk.CTkOptionMenu(f_select, values=["cessna", "fighter", "cargo", "acro"], 
+                                   command=on_change_ac_garage)
+        opt_ac.set(current_ac_name)
+        opt_ac.pack(side="left", padx=10)
+
+        c_visual = self.card_frame(page, f"APPAREIL : {current_ac_name.upper()}")
+        
+        # Mapping images
+        img_files = {
+            "cessna": "Avion_Cessna_172-removebg-preview.png",
+            "fighter": "Avion_de_chasse_sans_r-removebg-preview.png",
+            "cargo": "Avion_cargo-removebg-preview.png",
+            "acro": "Avion_acrobatique-removebg-preview.png"
+        }
+        
+        try:
+            img_path = resource_path(os.path.join("image", img_files.get(current_ac_name, "")))
+            if os.path.exists(img_path):
+                pil_img = Image.open(img_path)
+                # Resize for menu
+                ratio = pil_img.width / pil_img.height
+                new_w = 300
+                new_h = int(new_w / ratio)
+                ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(new_w, new_h))
+                lbl_img = ctk.CTkLabel(c_visual, image=ctk_img, text="")
+                lbl_img.pack(pady=10)
+        except Exception as e:
+            print(f"Erreur chargement image garage: {e}")
+
+        c_upg = self.card_frame(page, "AMÉLIORER LES SYSTÈMES (50 Niveaux)")
+        
+        current_ac = self.var_aircraft.get()
+        upgrades = self.career_data["upgrades"].get(current_ac, {"engine": 0, "finesse": 0, "fuel": 0})
+        
+        def buy_upgrade(upg_type):
+            lvl = self.career_data["upgrades"][current_ac][upg_type]
+            if lvl >= 50: return
+            
+            # Prix réduit : 100 de base + 50 par niveau
+            cost = 100 + (lvl * 50)
+            
+            if self.career_data["coins"] >= cost:
+                self.career_data["coins"] -= cost
+                self.career_data["upgrades"][current_ac][upg_type] += 1
+                self.save_career_data()
+                self.build_page_garage() # Refresh
+                self.pages[page_name].grid(row=0, column=0, sticky="nsew")
+
+        def create_upgrade_row(parent, title, upg_type, desc):
+            f_row = ctk.CTkFrame(parent, fg_color=COL_BG, corner_radius=8)
+            f_row.pack(fill="x", padx=15, pady=10, ipady=5)
+            
+            lvl = upgrades.get(upg_type, 0)
+            
+            f_info = ctk.CTkFrame(f_row, fg_color="transparent")
+            f_info.pack(side="left", padx=15, fill="x", expand=True)
+            ctk.CTkLabel(f_info, text=f"{title} (Niv. {lvl}/50)", font=("Arial", 16, "bold")).pack(anchor="w")
+            ctk.CTkLabel(f_info, text=desc, font=("Arial", 12), text_color=COL_TEXT_MUTED).pack(anchor="w")
+            
+            # Progress bar visual (Plus compacte pour 50 niveaux)
+            f_bars = ctk.CTkFrame(f_info, fg_color=COL_PANEL, height=10, width=250)
+            f_bars.pack(anchor="w", pady=5)
+            f_fill = ctk.CTkFrame(f_bars, height=10, width=int(250 * (lvl/50.0)), fg_color=COL_ACCENT)
+            f_fill.place(x=0, y=0)
+                
+            if lvl < 50:
+                cost = 100 + (lvl * 50)
+                btn_buy = ctk.CTkButton(f_row, text=f"AMÉLIORER ({cost} 💰)", width=150, 
+                                        command=lambda t=upg_type: buy_upgrade(t))
+                if coins < cost:
+                    btn_buy.configure(state="disabled", fg_color=COL_PANEL)
+                btn_buy.pack(side="right", padx=15)
+            else:
+                ctk.CTkLabel(f_row, text="MAXIMUM", font=("Arial", 14, "bold"), text_color=COL_ACCENT).pack(side="right", padx=30)
+
+        create_upgrade_row(c_upg, "Moteur & Poussée", "engine", "+1% puissance par niveau.")
+        create_upgrade_row(c_upg, "Finesse Aérodynamique", "finesse", "+0.5% portance, -0.5% traînée par niveau.")
+        create_upgrade_row(c_upg, "Réservoir Supplémentaire", "fuel", "+2% capacité fuel par niveau.")
+
+
     def title_label(self, parent, text):
         lbl = ctk.CTkLabel(parent, text=text, font=("Arial", 28, "bold"), text_color=COL_TEXT)
         lbl.pack(anchor="w", pady=(0, 30))
@@ -244,8 +403,12 @@ puis cliquez sur LANCER LE VOL.
         # ctk.CTkLabel(page, text="[Illustration / Astuces]", font=("Arial", 16), text_color=COL_PANEL).pack(expand=True)
 
     def build_page_base(self):
+        page_name = "Appareil & Vol"
+        if page_name in self.pages:
+            self.pages[page_name].destroy()
+            
         page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.pages["Appareil & Vol"] = page
+        self.pages[page_name] = page
         self.title_label(page, "Configuration de l'Appareil")
 
         # Avion
@@ -257,7 +420,10 @@ puis cliquez sur LANCER LE VOL.
         opt_avion = ctk.CTkOptionMenu(c_avion, values=["Cessna (Standard)", "Chasseur (Armé)", "Gros Porteur (Lourd)", "Acrobatique (Voltige)"], 
                                       command=set_aircraft, width=300, height=40)
         opt_avion.pack(anchor="w", padx=15, pady=5)
-        opt_avion.set("Cessna (Standard)")
+        
+        # Synchronisation inverse : map du code vers le texte du menu
+        inv_map = {"cessna": "Cessna (Standard)", "fighter": "Chasseur (Armé)", "cargo": "Gros Porteur (Lourd)", "acro": "Acrobatique (Voltige)"}
+        opt_avion.set(inv_map.get(self.var_aircraft.get(), "Cessna (Standard)"))
 
         c_mode = self.card_frame(page, "MODE DE JEU")
         
@@ -609,12 +775,21 @@ puis cliquez sur LANCER LE VOL.
             cmd.append("--multiplayer")
             cmd.extend(["--ip", self.var_ip.get()])
             cmd.extend(["--pseudo", self.var_pseudo.get()])
+            
+        # Upgrades (Carrière)
+        # Rafraichit pour avoir les dernières infos
+        self.career_data = self.load_career_data() 
+        upgs = self.career_data.get("upgrades", {}).get(self.var_aircraft.get(), {"engine":0, "finesse":0, "fuel":0})
+        cmd.extend(["--upg-engine", str(upgs.get("engine", 0))])
+        cmd.extend(["--upg-finesse", str(upgs.get("finesse", 0))])
+        cmd.extend(["--upg-fuel", str(upgs.get("fuel", 0))])
         
         print(f"Lancement de : {cmd}")
         subprocess.run(cmd)
         
-        # Le jeu a été quitté (ex: touche Echap), on réaffiche le menu et on actualise les scores
+        # Le jeu a été quitté (ex: touche Echap), on réaffiche le menu et on actualise les scores/garage
         self.build_page_scores()
+        self.build_page_garage()
         self.deiconify()
 
 if __name__ == "__main__":

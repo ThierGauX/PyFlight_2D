@@ -74,6 +74,11 @@ parser.add_argument("--multiplayer", action="store_true", help="Activer le multi
 parser.add_argument("--ip", type=str, default="127.0.0.1", help="IP du serveur")
 parser.add_argument("--pseudo", type=str, default="Pilote_1", help="Pseudo du joueur")
 
+# Upgrades Carrière
+parser.add_argument("--upg-engine", type=int, default=0, help="Niveau d'amélioration moteur (0-5)")
+parser.add_argument("--upg-finesse", type=int, default=0, help="Niveau d'amélioration finesse (0-5)")
+parser.add_argument("--upg-fuel", type=int, default=0, help="Niveau d'amélioration carburant (0-5)")
+
 # On parse systématiquement pour que ça marche aussi quand importé par menu.py
 args, unknown = parser.parse_known_args()
 
@@ -949,6 +954,12 @@ music_player = MusicPlayer(dossier_musique)
 music_player.volume = args.volume
 engine_sound_active = True
 
+def save_session_coins():
+    # 1 km = 1 pièce
+    distance_km = int(distance_totale_session / 1000.0)
+    if distance_km > 0:
+        mission_manager.save_career_coins(distance_km)
+
 class MenuBar:
     def __init__(self):
         self.height = s(24)
@@ -1030,11 +1041,14 @@ class MenuBar:
         
         if cat == "FICHIER":
             if item == "RECOMMENCER": 
+                save_session_coins()
                 if getattr(sys, 'frozen', False):
                     os.execl(sys.executable, sys.executable, *sys.argv)
                 else:
                     os.execl(sys.executable, sys.executable, sys.argv[0], *sys.argv[1:])
-            if item == "QUITTER": pygame.quit(); sys.exit()
+            if item == "QUITTER": 
+                save_session_coins()
+                pygame.quit(); sys.exit()
             
         elif cat == "AUDIO":
             if item == "RADIO ON/OFF": music_player.toggle()
@@ -1301,7 +1315,7 @@ def update_particles():
         particules.append([random.randint(0, L), random.randint(0, H), random.uniform(0.5, 2.0), random.randint(1, 3)])
 
 def switch_aircraft(name):
-    global current_ac, PUISSANCE_MOTEUR, FRICTION_AIR, ACCEL_ROTATION, COEFF_PORTANCE, V_DECOLLAGE, V_DECROCHAGE, V_VNE, args, img_avion_normal_base, img_avion_feu_base
+    global current_ac, PUISSANCE_MOTEUR, FRICTION_AIR, ACCEL_ROTATION, COEFF_PORTANCE, V_DECOLLAGE, V_DECROCHAGE, V_VNE, args, img_avion_normal_base, img_avion_feu_base, fuel_burn_rate
     if name in AIRCRAFT_CONFIGS:
         args.aircraft = name
         current_ac = AIRCRAFT_CONFIGS[name]
@@ -1311,12 +1325,24 @@ def switch_aircraft(name):
             img_avion_normal_base = loaded_aircraft_images.get(args.aircraft, list(loaded_aircraft_images.values())[0] if loaded_aircraft_images else None)
             img_avion_feu_base = img_avion_normal_base
                 
+        # --- APPLICATION DES AMELIORATIONS DU GARAGE (50 Niveaux) ---
+        upg_engine_mult = 1.0 + (args.upg_engine * 0.01) # +1% par niveau (+50% max)
+        upg_finesse_mult = 1.0 + (args.upg_finesse * 0.005) # +0.5% portance par niveau (+25% max)
+        upg_fuel_mult = 1.0 + (args.upg_fuel * 0.02) # +2% capacité par niveau (+100% max)
+        
         # Re-calcul dynamique des constantes physiques
-        PUISSANCE_MOTEUR = current_ac["thrust_max"] / 8500.0
-        FRICTION_AIR = 1.0 - current_ac["drag_factor"]
+        PUISSANCE_MOTEUR = (current_ac["thrust_max"] / 8500.0) * upg_engine_mult
+        
+        drag_reduction = args.upg_finesse * 0.005 # -0.5% trainée par niveau
+        drag = current_ac["drag_factor"] * (1.0 - drag_reduction)
+        FRICTION_AIR = 1.0 - drag
+        
         ACCEL_ROTATION = current_ac["rot_speed"] * 0.02
-        COEFF_PORTANCE = current_ac["lift_factor"] * 0.015
+        COEFF_PORTANCE = (current_ac["lift_factor"] * 0.015) * upg_finesse_mult
         V_VNE = current_ac.get("v_vne", 300)
+        
+        # Le taux de conso diminue si la capacité augmente
+        fuel_burn_rate = current_ac["fuel_rate"] / upg_fuel_mult
         
         # Ajustement des seuils de vitesse selon l'appareil
         if name == "fighter":
@@ -1362,6 +1388,30 @@ class MissionManager:
             self.cargo_targets.append({'x': cx, 'w': 800, 'active': True}) # Cibles plus larges (800)
             cx += random.randint(4000, 15000)
             
+    def save_career_coins(self, amount):
+        if amount <= 0: return
+        # Chemin du fichier
+        if getattr(sys, 'frozen', False):
+            dossier_exe = os.path.dirname(sys.executable)
+            path_career = os.path.join(dossier_exe, "career.json")
+        else:
+            dossier = os.path.dirname(os.path.abspath(__file__))
+            path_career = os.path.join(dossier, "career.json")
+            
+        data = {"coins": 0, "upgrades": {}}
+        if os.path.exists(path_career):
+            try:
+                with open(path_career, "r", encoding="utf-8") as f:
+                    data.update(json.load(f))
+            except: pass
+            
+        data["coins"] += amount
+        
+        try:
+            with open(path_career, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+        except: pass
+
     def save_score(self):
         if not self.active_mission: return
         
@@ -1391,6 +1441,9 @@ class MissionManager:
                 json.dump(scores_data, f, indent=4)
         except Exception as e:
             print(f"Erreur d'écriture scores : {e}")
+            
+        # Récompense en pièces (Score direct)
+        self.save_career_coins(self.score)
         
     def start_rings_challenge(self, current_x=0):
         self.active_mission = "rings"
@@ -2616,6 +2669,7 @@ while True:
             continue
             
         if event.type == pygame.QUIT:
+            save_session_coins()
             pygame.quit()
             exit()
         elif event.type == pygame.MOUSEWHEEL:
@@ -2657,6 +2711,7 @@ while True:
             if event.key == pygame.K_n: # NEXT SONG
                 music_player.next()
             if event.key == pygame.K_ESCAPE:
+                save_session_coins()
                 pygame.quit()
                 exit()
             
