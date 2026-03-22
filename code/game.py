@@ -2698,20 +2698,11 @@ while True:
     angle += vitesse_rotation_actuelle
 
 
-    # --- LIMITATION ANGLE ---
-    if args.aircraft != "acro":
-        LIMIT_ANGLE = 35
-        if angle > LIMIT_ANGLE:  
-            angle = LIMIT_ANGLE
-            vitesse_rotation_actuelle = 0
-        if angle < -LIMIT_ANGLE:
-            angle = -LIMIT_ANGLE
-            vitesse_rotation_actuelle = 0
-    else:
-        # Vol acrobatique : Rotation 360 continue
-        # On garde l'angle entre -180 et 180 pour la logique (bien que Pygame gère au delà)
-        if angle > 180: angle -= 360
-        if angle < -180: angle += 360
+    # --- LIMITATION ANGLE (Désactivée pour tous les appareils) ---
+    # Tous les avions peuvent désormais faire des loopings à 360°
+    # On garde l'angle entre -180 et 180 pour la logique de calcul
+    if angle > 180: angle -= 360
+    if angle < -180: angle += 360
 
     if args.missions:
         if atc_timer > 0:
