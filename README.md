@@ -4,98 +4,58 @@ Bienvenue dans **PyFlight 2D**, un simulateur de vol 2D ultra-complet développ�
 
 ---
 
+## 🏆 Mode Carrière & Garage (Nouveau)
+
+Le projet intègre désormais un système de progression complet. Gagnez des **pièces (💰)** en volant et en accomplissant des missions pour améliorer vos appareils.
+
+### 💰 Économie de vol
+*   **Distance** : Gagnez 1 pièce pour chaque kilomètre parcouru.
+*   **Missions** : Votre score de mission est directement converti en pièces.
+*   **Sauvegarde** : Vos pièces et améliorations sont conservées localement dans `career.json` (exclu du dépôt pour protéger votre progression).
+
+### 🛠️ Le Garage (50 Niveaux d'amélioration)
+Améliorez chaque avion indépendamment sur 7 axes techniques :
+1.  **Moteur** : Augmente la poussée brute (+1% par niveau).
+2.  **Aérodynamisme** : Améliore la finesse, augmente la portance et réduit la traînée.
+3.  **Réservoir** : Augmente la capacité en carburant (+2% par niveau).
+4.  **Allègement** : Réduit la masse totale de l'appareil pour plus d'agilité.
+5.  **Train d'Atterrissage** : Augmente la tolérance aux chocs verticaux.
+6.  **Refroidissement** : Réduit la vitesse de surchauffe moteur.
+7.  **Freins** : Augmente la puissance de freinage au sol.
+
+### 📊 Suivi des Records
+Consultez vos records personnels dans l'onglet Carrière : **Vitesse Max**, **Altitude Record**, **Distance Totale**, **Nombre d'Atterrissages** et **Crashs**.
+
+---
+
 ## Les Appareils (Aircrafts)
 
 Chaque avion possède son propre modèle physique (masse, poussée, traînée, inertie) :
 
 *   **Cessna 172 (Standard)** : L'équilibre parfait. Idéal pour l'apprentissage et la navigation.
-*   **Chasseur Mirage (Armé)** : Vitesse extrême (VNE 1500 km/h). Équipé d'un système d'armement (Bombes & Missiles).
-*   **Gros Porteur (Lourd)** : Une masse imposante de 20 tonnes. Lent à la réaction, il demande une grande anticipation pour les atterrissages et les missions de fret.
-*   **Acrobatique (Acro)** : Conçu pour les loopings à 360° et les figures extrêmes. Rotation ultra-rapide et fumées colorées.
+*   **Chasseur Mirage (Armé)** : Vitesse extrême (VNE 1500 km/h). Équipé d'un système d'armement.
+*   **Gros Porteur (Lourd)** : Une masse imposante. Demande une grande anticipation.
+*   **Acrobatique (Acro)** : Conçu pour les figures extrêmes. Supporte des Angles d'Attaque (AOA) jusqu'à 30° et permet le "prop-hanging" (maintien sur l'hélice).
 
 ---
 
-## Modes de Jeu & Missions
+## Interface & Cockpit Professionnel
 
-### 1. Vol Libre
-Explorez un monde de 600km de large sans contrainte. Le trafic aérien IA et la tour de contrôle (ATC) sont actifs pour rendre le ciel vivant.
+Le tableau de bord a été entièrement repensé pour offrir une clarté maximale sans aucune superposition :
 
-### 2. Carrière & Missions
-Activez ce mode pour accéder aux défis spécifiques et au système de scoring :
-*   **Parcours d'Anneaux** : Testez votre agilité en traversant une série d'anneaux disposés dans le ciel.
-*   **Atterrissage de Précision** : Posez-vous le plus près possible de la cible sur la piste pour maximiser vos points.
-*   **Largage Cargo** : (Exclusif au Gros Porteur) Larguez des caisses de ravitaillement sur des zones cibles au sol. Utilisez le viseur prédictif vert (CCIP) pour viser.
-
-### 3. Multijoueur en Ligne (Nouveau)
-Volez avec vos amis dans le même espace aérien de manière très simple ! 
-
-**Comment jouer avec un ami (Tutoriel étape par étape) :**
-
-**👤 Pour l'Hôte (Le créateur de la partie) :**
-1. Allez dans l'onglet **"🌐 Réseau & Multi"** du menu principal.
-2. Cliquez sur **"Héberger serveur"**. Une fenêtre console s'ouvre : le serveur est actif ! (Port UDP 5555).
-3. Cochez la case **"Jouer en Multijoueur"** et entrez votre Pseudo.
-4. Laissez l'IP sur `127.0.0.1` (car c'est votre machine qui héberge) et cliquez sur "Lancer le Vol".
-5. Partagez votre **Adresse IP Publique** (ou IP Hamachi/ZeroTier/Radmin) à votre ami. *(Veillez à ouvrir le port UDP 5555 sur votre box si vous n'utilisez pas de VPN).*
-
-**👥 Pour l'Invité (Celui qui rejoint) :**
-1. Allez dans l'onglet **"🌐 Réseau & Multi"**.
-2. Cochez la case **"Jouer en Multijoueur"**.
-3. Dans la case **Adresse IP**, effacez `127.0.0.1` et **entrez l'adresse IP** que l'Hôte vous a donnée.
-4. Entrez votre propre Pseudo et cliquez sur "Lancer le Vol" ! 
-5. C'est fait ! Vous verrez le nom de votre ami flotter au-dessus de son avion 🛩️.
-
-*Note : Pour s'assurer que vous ne confondez pas un joueur humain avec un robot, le trafic aérien artificiel (IA) est désactivé lorsque ce mode est coché. *
+*   **Jauge AOA (Angle of Attack)** : Instrument de précision mesurant l'angle entre le nez de l'avion et sa trajectoire réelle. Calibré à 16° (Aviation civile) et 30° (Acro). Elle atteint 100% pile au moment du décrochage.
+*   **Instruments Analogiques** : Tachymètre (Knots), Horizon Artificiel fluide et Altimètre (Feet) avec effets de verre et de reflets.
+*   **Bloc Moteur Digital** : Jauges verticales pour la Puissance (PWR), le Fuel et la Température (TEMP).
+*   **Horloge UTC / ZULU** : Boitier numérique dédié affichant l'heure au format aéronautique standard.
+*   **Voyants LED** : Indicateurs d'état avec halo lumineux pour le Train (GEAR), les Volets (FLAPS), les Freins (BRAKE) et le Pilote Auto (A/P).
 
 ---
 
-## Environnement & Météo Dynamique
+## Environnement & Météo Avancée
 
-Le simulateur simule un monde riche et évolutif :
-
-*   **Saisons** : 
-    *   *Été* : Ciel clair, conditions optimales.
-    *   *Pluie* : Gouttes d'eau sur le cockpit, ciel gris et visibilité réduite.
-    *   *Neige* : Particules de neige et ambiance hivernale.
-    *   *Tempête* : Turbulences fortes et vents violents.
-*   **Conditions Météo** : 
-    *   *Nuages* : Couche nuageuse massive au-delà de 1500m.
-    *   *Brouillard* : Visibilité au sol réduite selon l'intensité.
-*   **Cycle Temporel** : 
-    *   *Réel* : Synchronisé sur l'heure de votre ordinateur.
-    *   *Dynamique* : Le temps défile (Aube, Jour, Crépuscule, Nuit).
-    *   *Manuel* : Fixez l'heure de votre choix.
-
----
-
-## Paramètres de Réalisme (Customisation Totale)
-
-Vous pouvez ajuster le simulateur selon votre niveau :
-
-*   **Mode de Pilotage** : 
-    *   *Facile* : L'avion se stabilise automatiquement et la physique est simplifiée.
-    *   *Réaliste* : Gestion complexe de la portance, de l'angle d'attaque et de l'inertie.
-*   **Systèmes Avancés** (Activables/Désactivables) :
-    *   **Température Moteur** : Risque de surchauffe en cas de gaz excessifs à basse altitude.
-    *   **Poids Dynamique** : Le poids de l'avion diminue à mesure que vous consommez du carburant.
-    *   **Décrochage (Stall)** : Perte de portance si la vitesse est trop faible ou l'angle trop élevé.
-    *   **Vent & Turbulences** : Secousses aléatoires et dérive liée au vent.
-    *   **Gestion du Train** : Risque de crash en cas d'atterrissage train rentré.
-    *   **Sons d'Interface** : Activation/Désactivation du son de clic dans les menus et le jeu.
-
----
-
-## Interface & Cockpit (HUD/IFR)
-
-*   **HUD de Chasse** : Échelles de vitesse (gauche), altitude (droite), échelle de tangage et vecteur de trajectoire.
-*   **Dashboard Analogique** : 
-    *   *Horizon Artificiel* : Inclinaison et assiette.
-    *   *Altimètre & Tachymètre* (Vitesse).
-    *   *Indicateur de Portance (LIFT)* : Crucial pour éviter le décrochage.
-*   **Radar Interactif (Touche M)** : 
-    *   Carte GPS plein écran ou mini-map.
-    *   Profil altimétrique du terrain en temps réel.
-    *   Historique de trajectoire et marquage des zones de crash.
+*   **Météo Haute Densité** : Pluie et Neige simulées par 1000 particules actives avec gestion de la dérive et du bouclage infini.
+*   **Effets Storm** : Éclairs aléatoires illuminant le ciel et flashs blancs en mode Tempête.
+*   **Ground Spray** : Soulèvement de particules d'eau ou de neige derrière les roues lors des décollages à haute vitesse.
 
 ---
 
@@ -112,56 +72,17 @@ Vous pouvez ajuster le simulateur selon votre niveau :
 | **G** | **Train (Gear)** | Entrer/Sortir le train d'atterrissage. |
 | **L** | **Phares** | Activer les feux d'atterrissage. |
 | **M** | **Carte GPS** | Afficher/Masquer la grande carte interactive. |
-| **B / V** | **Armement** | Bombes (B) ou Missiles (V) - Mirage uniquement. |
-| **C** | **Cargo** | Larguer du fret - Gros Porteur uniquement (Mission Cargo). |
-| **R** | **Ravitaillement** | Maintenir à l'arrêt sur une piste pour faire le plein. |
-| **K / N** | **Radio** | **K** pour On/Off, **N** pour changer de piste. |
-| **F1 / F2** | **Challenges** | Lancer instantanément un défi (Anneaux / Atterrissage). |
-| **Molette** | **Zoom** | Zoomer ou dézoomer la vue caméra. |
-| **ECHAP** | **Menu/Quitter** | Quitter le vol en cours. |
-
-### Interaction Carte (Touche M)
-*   **Clic Gauche** : Ajouter un Waypoint de navigation sur la carte (ou clic dans le jeu). Joue un son de clic si activé.
-*   **Clic Droit** : Supprimer le dernier Waypoint.
-*   **Affichage** : Le premier Waypoint (WP1) affiche sa distance et son cap sur le HUD.
+| **ECHAP** | **Menu/Quitter** | Quitter le vol en cours (Sauvegarde auto carrière). |
 
 ---
 
 ## Installation & Lancement
 
-### Lancement via Python
 1.  Prérequis : Python 3.x.
 2.  Installation : `pip install -r requirements.txt`
 3.  Lancement : `python code/menu.py`
 
-### Version Exécutable (Automatisée)
-
-Le projet utilise **GitHub Actions** pour compiler automatiquement le jeu à chaque mise à jour. C'est la méthode la plus simple pour obtenir un fichier fonctionnel sans rien installer :
-
-1.  Allez sur l'onglet **"Actions"** de ce dépôt GitHub.
-2.  Cliquez sur le dernier build réussi dans la liste.
-3.  Descendez jusqu'à la section **"Artifacts"**.
-4.  Téléchargez `PyFlight2D-Windows-exe` pour Windows ou `PyFlight2D-Linux-binary` pour Linux.
-
-### Versions Directes (Nouveauté)
-
-Les derniers fichiers exécutables sont également disponibles directement dans le dossier `releases/` du dépôt pour un accès immédiat sans passer par les artifacts d'Actions.
-
-*   **Windows** : [PyFlight2D-Windows-exe/menu.exe](releases/PyFlight2D-Windows-exe/menu.exe)
-*   **Linux** : [PyFlight2D-Linux-binary/menu](releases/PyFlight2D-Linux-binary/menu)
-
-### Génération Manuelle
-
-#### Windows
-1.  Transférez le projet sur une machine Windows.
-2.  Double-cliquez sur `build_windows.bat`.
-
-#### Linux
-1.  `source venv/bin/activate`
-2.  `pyinstaller menu.spec`
-*   **Linux** : Lancez `./dist/menu` (si déjà compilé).
-
 ---
 
 ## Améliorations Futures
-N'hésitez pas à consulter le fichier [idees amelioration.txt](docs/idees%20amelioration.txt) dans le dossier `docs/` pour voir la feuille de route du projet (+50 idées d'évolution !).
+Consultez [docs/idees amelioration.txt](docs/idees%20amelioration.txt) pour voir la feuille de route (+50 idées d'évolution !).
