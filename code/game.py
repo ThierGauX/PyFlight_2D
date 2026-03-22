@@ -368,11 +368,12 @@ for _ in range(250): # Un peu plus de patches
     h = random.randint(4, 15)
     x_offset = random.randint(0, 4000) # Etalé sur 4km au lieu de 2km pour diversité
     y_offset = random.randint(0, 800)
-    # Type 0 = FONCE, Type 1 = CLAIR, Type 2 = ARBRE
+    # Type 0 = FONCE, Type 1 = CLAIR, Type 2 = ARBRE, Type 3 = VILLE
     r = random.random()
-    if r < 0.45: type_decor = 0
-    elif r < 0.90: type_decor = 1
-    else: type_decor = 2 # Arbre
+    if r < 0.40: type_decor = 0
+    elif r < 0.80: type_decor = 1
+    elif r < 0.95: type_decor = 2 # Arbre
+    else: type_decor = 3 # Ville
         
     decor_sol.append([x_offset, y_offset, w, h, type_decor])
 
@@ -3580,6 +3581,22 @@ while True:
                                 p2 = (px + pw/2 - 15*zoom, py)
                                 p3 = (px + pw/2 + 15*zoom, py)
                                 pygame.draw.polygon(fenetre, COLOR_TREE_LEAF, [p1, p2, p3])
+                        elif patch[4] == 3: # VILLE / BUILDING (Idée 11)
+                             if zoom > 0.1: # Visible de plus haut que les arbres
+                                b_w = pw * 0.8
+                                b_h = max(20, ph * 4) * zoom # Bâtiments hauts
+                                pygame.draw.rect(fenetre, (30, 35, 40), (px, py - b_h, b_w, b_h)) # Bâtiment
+                                
+                                # Fenêtres allumées si nuit ou crépuscule (Heure < 7 ou > 18)
+                                if offset_temps < 7.0 or offset_temps > 18.0:
+                                    nb_fx = max(1, int(b_w / (8 * zoom)))
+                                    nb_fy = max(1, int(b_h / (10 * zoom)))
+                                    for fx in range(nb_fx):
+                                        for fy in range(nb_fy):
+                                            # Pseudo-aléatoire déterministe pour que les mêmes fenêtres restent allumées
+                                            r_light = (patch[0] * 13 + fx * 7 + fy * 11) % 100
+                                            if r_light > 60: # 40% de fenêtres allumées
+                                                pygame.draw.rect(fenetre, (255, 255, 150), (px + (fx*8+2)*zoom, py - b_h + (fy*10+2)*zoom, 4*zoom, 6*zoom))
                         else:
                             pygame.draw.rect(fenetre, couleur_p, (px, py, pw, ph))
 
@@ -3621,6 +3638,15 @@ while True:
         # Rotation
         img_rot = pygame.transform.rotate(img_scaled, angle)
         rect_img = img_rot.get_rect(center=(L//2, H//2))
+        
+        # --- OMBRE PORTÉE (Idée 13) ---
+        if altitude < 1000 and not args.no_terrain:
+            shadow_alpha = int(max(0, 150 - (altitude / 1000.0) * 150))
+            if shadow_alpha > 0:
+                shadow = pygame.mask.from_surface(img_rot).to_surface(setcolor=(0,0,0,shadow_alpha), unsetcolor=(0,0,0,0))
+                y_sol = H//2 + (altitude * zoom)
+                shadow_rect = shadow.get_rect(center=(L//2 - (altitude * 0.2 * zoom), y_sol))
+                fenetre.blit(shadow, shadow_rect)
         
         # LANDING LIGHT (Phare)
         if lumiere_allume:
