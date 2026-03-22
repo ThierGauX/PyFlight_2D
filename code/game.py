@@ -363,21 +363,16 @@ target_poussee = 0.0
 # DÉCOR
 decor_sol = []
 # On stocke juste la position et la taille, la couleur sera calculée dynamiquement
-for _ in range(600): # Beaucoup plus de densité
-    w = random.randint(30, 120)
-    h = random.randint(5, 20)
-    x_offset = random.randint(0, 8000) # Etalé sur 8km pour plus de variété
+for _ in range(250): # Un peu plus de patches
+    w = random.randint(20, 100)
+    h = random.randint(4, 15)
+    x_offset = random.randint(0, 4000) # Etalé sur 4km au lieu de 2km pour diversité
     y_offset = random.randint(0, 800)
-    
-    # Type 0 = FONCE, Type 1 = CLAIR, Type 2 = ARBRE, Type 3 = VILLE
+    # Type 0 = FONCE, Type 1 = CLAIR, Type 2 = ARBRE
     r = random.random()
-    # Logique de regroupement (Idée 11) : Les villes apparaissent par "clusters" (vagues)
-    cluster_villes = (math.sin(x_offset * 0.002) + 1) / 2.0 # Oscille entre 0 et 1
-    
-    if r < 0.30: type_decor = 0
-    elif r < 0.60: type_decor = 1
-    elif r < 0.80 - (cluster_villes * 0.4): type_decor = 2 # Arbre (moins si zone urbaine)
-    else: type_decor = 3 # Ville (plus si zone urbaine)
+    if r < 0.45: type_decor = 0
+    elif r < 0.90: type_decor = 1
+    else: type_decor = 2 # Arbre
         
     decor_sol.append([x_offset, y_offset, w, h, type_decor])
 
@@ -3585,22 +3580,6 @@ while True:
                                 p2 = (px + pw/2 - 15*zoom, py)
                                 p3 = (px + pw/2 + 15*zoom, py)
                                 pygame.draw.polygon(fenetre, COLOR_TREE_LEAF, [p1, p2, p3])
-                        elif patch[4] == 3: # VILLE / BUILDING (Idée 11)
-                             if zoom > 0.1: # Visible de plus haut que les arbres
-                                b_w = pw * 0.8
-                                b_h = max(20, ph * 4) * zoom # Bâtiments hauts
-                                pygame.draw.rect(fenetre, (30, 35, 40), (px, py - b_h, b_w, b_h)) # Bâtiment
-                                
-                                # Fenêtres allumées si nuit ou crépuscule (Heure < 7 ou > 18)
-                                if offset_temps < 7.0 or offset_temps > 18.0:
-                                    nb_fx = max(1, int(b_w / (8 * zoom)))
-                                    nb_fy = max(1, int(b_h / (10 * zoom)))
-                                    for fx in range(nb_fx):
-                                        for fy in range(nb_fy):
-                                            # Pseudo-aléatoire déterministe pour que les mêmes fenêtres restent allumées
-                                            r_light = (patch[0] * 13 + fx * 7 + fy * 11) % 100
-                                            if r_light > 60: # 40% de fenêtres allumées
-                                                pygame.draw.rect(fenetre, (255, 255, 150), (px + (fx*8+2)*zoom, py - b_h + (fy*10+2)*zoom, 4*zoom, 6*zoom))
                         else:
                             pygame.draw.rect(fenetre, couleur_p, (px, py, pw, ph))
 
@@ -3643,32 +3622,29 @@ while True:
         img_rot = pygame.transform.rotate(img_scaled, angle)
         rect_img = img_rot.get_rect(center=(L//2, H//2))
         
-        # --- OMBRE PORTÉE (Idée 13 Améliorée) ---
-        if altitude < 1500 and not args.no_terrain:
-            # L'ombre devient plus transparente avec l'altitude
-            base_alpha = int(max(0, 140 - (altitude / 1500.0) * 140))
-            if base_alpha > 0:
-                # Calcul du scale de l'ombre (plus on est haut, plus l'ombre est diffuse/grande)
-                shadow_scale = 1.0 + (altitude / 1000.0) * 0.5
+        # --- OMBRE PORTÉE (Idée 13 Réaliste) ---
+        if altitude < 2000 and not args.no_terrain:
+            # L'ombre est très sombre au sol et disparaît à 2000ft
+            shadow_alpha = int(max(0, 160 - (altitude / 2000.0) * 160))
+            
+            if shadow_alpha > 0:
+                # Dans la réalité, plus on est haut, plus l'ombre est diffuse (floue)
+                # Mais en 2D, une ellipse qui rétrécit légèrement est plus lisible
+                s_width = int(w_new * 0.9)
+                s_height = int(h_new * 0.3) # Ombre plate au sol
                 
-                # Création du masque de l'avion
-                mask_surface = pygame.mask.from_surface(img_rot).to_surface(setcolor=(0,0,0,base_alpha), unsetcolor=(0,0,0,0))
+                shadow_surf = pygame.Surface((s_width * 2, s_height * 2), pygame.SRCALPHA)
+                # Dessin d'une ellipse dégradée pour simuler le flou
+                for r_off in range(5, 0, -1):
+                    a = int(shadow_alpha * (1.0 - r_off/6.0))
+                    pygame.draw.ellipse(shadow_surf, (0, 0, 0, a), 
+                                        (r_off, r_off, s_width - r_off*2, s_height - r_off*2))
                 
-                # Couche 1 : Ombre principale
-                sw = int(mask_surface.get_width() * shadow_scale)
-                sh = int(mask_surface.get_height() * shadow_scale)
-                shadow_main = pygame.transform.scale(mask_surface, (sw, sh))
-                
+                # Position de projection sur le sol réel (sous l'avion)
                 y_sol = H//2 + (altitude * zoom)
-                # Décalage horizontal simulant l'angle du soleil (dépend de l'altitude)
-                x_off = -(altitude * 0.15 * zoom)
-                
-                # Couche 2 : Pénombre (plus large et plus claire pour l'effet de flou)
-                shadow_blur = pygame.transform.scale(mask_surface, (int(sw*1.2), int(sh*1.2)))
-                shadow_blur.set_alpha(base_alpha // 2)
-                
-                fenetre.blit(shadow_blur, shadow_blur.get_rect(center=(L//2 + x_off, y_sol)))
-                fenetre.blit(shadow_main, shadow_main.get_rect(center=(L//2 + x_off, y_sol)))
+                # On centre l'ombre
+                shadow_rect = shadow_surf.get_rect(center=(L//2, y_sol))
+                fenetre.blit(shadow_surf, shadow_rect)
         
         # LANDING LIGHT (Phare)
         if lumiere_allume:
