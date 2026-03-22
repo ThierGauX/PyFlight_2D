@@ -3630,27 +3630,34 @@ while True:
         img_rot = pygame.transform.rotate(img_scaled, angle)
         rect_img = img_rot.get_rect(center=(L//2, H//2))
         
-        # --- OMBRE PORTÉE (Idée 13 Réaliste) ---
+        # --- OMBRE PORTÉE (Idée 13 - Version Finale Réaliste) ---
         if altitude < 2000 and not args.no_terrain:
-            shadow_alpha = int(max(0, 160 - (altitude / 2000.0) * 160))
+            shadow_alpha = int(max(0, 150 - (altitude / 2000.0) * 150))
             if shadow_alpha > 0:
-                s_width = int(w_new * 0.9)
-                s_height = int(h_new * 0.3)
-                shadow_surf = pygame.Surface((s_width + 10, s_height + 10), pygame.SRCALPHA)
-                for r_off in range(5, 0, -1):
-                    a = int(shadow_alpha * (1.0 - r_off/6.0))
-                    pygame.draw.ellipse(shadow_surf, (0, 0, 0, a), (r_off, r_off, s_width, s_height))
+                # Taille de l'ombre (se réduit légèrement avec l'altitude)
+                s_width = int(w_new * (1.0 - (altitude / 4000.0)))
+                s_height = int(h_new * 0.25)
                 
-                y_sol = H//2 + (altitude * zoom)
+                # Surface de l'ombre
+                shadow_surf = pygame.Surface((s_width + 20, s_height + 20), pygame.SRCALPHA)
+                # Effet de flou simple
+                pygame.draw.ellipse(shadow_surf, (0, 0, 0, shadow_alpha // 2), (0, 0, s_width + 10, s_height + 10))
+                pygame.draw.ellipse(shadow_surf, (0, 0, 0, shadow_alpha), (5, 5, s_width, s_height))
+                
+                # Position Y : Centre de l'écran + Moitié de la hauteur de l'avion + altitude zoomée
+                # Cela place l'ombre exactement SOUS l'avion au sol
+                y_sol = H//2 + (h_new // 2) + (altitude * zoom)
                 shadow_rect = shadow_surf.get_rect(center=(L//2, y_sol))
                 
-                # Correction : On ne dessine pas l'ombre si elle dépasse sur le tableau de bord
-                # Zone de vol utile : 0 à H - 140 (hauteur dashboard)
+                # CLIPPING : On interdit de dessiner sur le dashboard
                 limite_basse = H - s(140)
-                if shadow_rect.top < limite_basse:
-                    # On clip la surface pour ne pas déborder sur le dashboard
-                    area = pygame.Rect(0, 0, shadow_surf.get_width(), max(0, limite_basse - shadow_rect.top))
-                    fenetre.blit(shadow_surf, shadow_rect, area)
+                old_clip = fenetre.get_clip()
+                fenetre.set_clip(pygame.Rect(0, 0, L, limite_basse))
+                
+                fenetre.blit(shadow_surf, shadow_rect)
+                
+                # Restaurer le clip original
+                fenetre.set_clip(old_clip)
         
         # LANDING LIGHT (Phare)
         if lumiere_allume:
