@@ -78,6 +78,10 @@ parser.add_argument("--pseudo", type=str, default="Pilote_1", help="Pseudo du jo
 parser.add_argument("--upg-engine", type=int, default=0, help="Niveau d'amélioration moteur (0-5)")
 parser.add_argument("--upg-finesse", type=int, default=0, help="Niveau d'amélioration finesse (0-5)")
 parser.add_argument("--upg-fuel", type=int, default=0, help="Niveau d'amélioration carburant (0-5)")
+parser.add_argument("--upg-weight", type=int, default=0, help="Niveau d'amélioration poids (0-5)")
+parser.add_argument("--upg-gear", type=int, default=0, help="Niveau d'amélioration train d'atterrissage (0-5)")
+parser.add_argument("--upg-cooling", type=int, default=0, help="Niveau d'amélioration refroidissement (0-5)")
+parser.add_argument("--upg-brakes", type=int, default=0, help="Niveau d'amélioration freins (0-5)")
 
 # On parse systématiquement pour que ça marche aussi quand importé par menu.py
 args, unknown = parser.parse_known_args()
@@ -959,6 +963,37 @@ def save_session_coins():
     if distance_km > 0:
         mission_manager.save_career_coins(distance_km)
 
+def save_career_stats():
+    # Chemin du fichier
+    if getattr(sys, 'frozen', False):
+        dossier_exe = os.path.dirname(sys.executable)
+        path_career = os.path.join(dossier_exe, "career.json")
+    else:
+        dossier = os.path.dirname(os.path.abspath(__file__))
+        path_career = os.path.join(dossier, "career.json")
+        
+    data = {"coins": 0, "upgrades": {}, "stats": {"max_speed": 0, "max_alt": 0, "total_dist": 0, "total_landings": 0, "total_crashes": 0}}
+    if os.path.exists(path_career):
+        try:
+            with open(path_career, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                data.update(loaded)
+                if "stats" not in data: data["stats"] = {"max_speed": 0, "max_alt": 0, "total_dist": 0, "total_landings": 0, "total_crashes": 0}
+        except: pass
+        
+    # Mise à jour des records
+    st = data["stats"]
+    st["max_speed"] = max(st.get("max_speed", 0), max_vitesse_session)
+    st["max_alt"] = max(st.get("max_alt", 0), max_alt_session)
+    st["total_dist"] = st.get("total_dist", 0) + distance_totale_session
+    st["total_landings"] = st.get("total_landings", 0) + session_landings
+    st["total_crashes"] = st.get("total_crashes", 0) + session_crashes
+    
+    try:
+        with open(path_career, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+    except: pass
+
 class MenuBar:
     def __init__(self):
         self.height = s(24)
@@ -1041,12 +1076,14 @@ class MenuBar:
         if cat == "FICHIER":
             if item == "RECOMMENCER": 
                 save_session_coins()
+                save_career_stats()
                 if getattr(sys, 'frozen', False):
                     os.execl(sys.executable, sys.executable, *sys.argv)
                 else:
                     os.execl(sys.executable, sys.executable, sys.argv[0], *sys.argv[1:])
             if item == "QUITTER": 
                 save_session_coins()
+                save_career_stats()
                 pygame.quit(); sys.exit()
             
         elif cat == "AUDIO":
@@ -1322,6 +1359,7 @@ def update_particles():
 
 def switch_aircraft(name):
     global current_ac, PUISSANCE_MOTEUR, FRICTION_AIR, ACCEL_ROTATION, COEFF_PORTANCE, V_DECOLLAGE, V_DECROCHAGE, V_VNE, args, img_avion_normal_base, img_avion_feu_base, fuel_burn_rate
+    global UPG_WEIGHT_REDUCTION, UPG_GEAR_CRASH_BONUS, UPG_COOLING_REDUCTION, UPG_BRAKES_POWER_BONUS
     if name in AIRCRAFT_CONFIGS:
         args.aircraft = name
         current_ac = AIRCRAFT_CONFIGS[name]
@@ -1335,6 +1373,12 @@ def switch_aircraft(name):
         upg_engine_mult = 1.0 + (args.upg_engine * 0.01) # +1% par niveau (+50% max)
         upg_finesse_mult = 1.0 + (args.upg_finesse * 0.005) # +0.5% portance par niveau (+25% max)
         upg_fuel_mult = 1.0 + (args.upg_fuel * 0.02) # +2% capacité par niveau (+100% max)
+        
+        # Nouveaux paramètres de carrière
+        UPG_WEIGHT_REDUCTION = args.upg_weight * 0.01 # -1% par niveau
+        UPG_GEAR_CRASH_BONUS = args.upg_gear * 0.02 # +2% par niveau
+        UPG_COOLING_REDUCTION = args.upg_cooling * 0.02 # -2% par niveau
+        UPG_BRAKES_POWER_BONUS = args.upg_brakes * 0.05 # Influence sur friction_sol
         
         # Re-calcul dynamique des constantes physiques
         PUISSANCE_MOTEUR = (current_ac["thrust_max"] / 8500.0) * upg_engine_mult
@@ -1369,6 +1413,17 @@ max_vitesse_session = 0
 max_alt_session = 0
 distance_totale_session = 0
 temps_vol_session = 0
+session_landings = 0
+session_crashes = 0
+has_already_landed = False # Pour ne pas compter 50 atterrissages si on reste au sol
+session_landings = 0
+session_crashes = 0
+
+# Facteurs d'upgrade (initialisés à 0, seront mis à jour par switch_aircraft)
+UPG_WEIGHT_REDUCTION = 0.0
+UPG_GEAR_CRASH_BONUS = 0.0
+UPG_COOLING_REDUCTION = 0.0
+UPG_BRAKES_POWER_BONUS = 0.0
 
 menu_bar = MenuBar()
 
@@ -1932,6 +1987,9 @@ COEFF_TRAINEE_MONTEE = 0.004
 
 horloge = pygame.time.Clock()
 
+# Appliquer les upgrades au démarrage
+switch_aircraft(args.aircraft)
+
 def lerp_color(c1, c2, t):
     t = max(0.0, min(1.0, t))
     return (
@@ -2488,6 +2546,7 @@ while True:
             
         if event.type == pygame.QUIT:
             save_session_coins()
+            save_career_stats()
             pygame.quit()
             exit()
         elif event.type == pygame.MOUSEWHEEL:
@@ -2530,6 +2589,7 @@ while True:
                 music_player.next()
             if event.key == pygame.K_ESCAPE:
                 save_session_coins()
+                save_career_stats()
                 pygame.quit()
                 exit()
             
@@ -2668,7 +2728,7 @@ while True:
     if moteur_allume and not moteur_endommage and not args.no_overheat:
         # Chauffe augmente de façon exponentielle avec la poussée (Idée 4)
         facteur_poussee = (niveau_poussee_reelle / 100.0)
-        chauffe_base = facteur_poussee**2 * 0.08
+        chauffe_base = (facteur_poussee**2 * 0.08) * (1.0 - UPG_COOLING_REDUCTION)
         
         # Refroidissement lié à l'altitude (air plus froid) et la vitesse (flux d'air)
         # altitude est typiquement 0 à 15000+. Vitesse_kph de 0 à 300+
@@ -2755,6 +2815,9 @@ while True:
     facteur_poids = 1.0
     if not args.static_weight:
         facteur_poids = 1.0 + (fuel / 100.0) * 0.4
+    
+    # APPLICATION UPGRADE POIDS (Allègement)
+    facteur_poids *= (1.0 - UPG_WEIGHT_REDUCTION)
         
     # La puissance instantanée est divisée par le facteur de poids
     puissance_instantanee = ((niveau_poussee_reelle / 100.0) * PUISSANCE_MOTEUR) / facteur_poids
@@ -2810,6 +2873,21 @@ while True:
     
     vitesse_totale = math.sqrt(vx**2 + vy**2)
     vitesse_kph = int(vitesse_totale * 15)
+    
+    # --- TRACKING RECORDS SESSION ---
+    max_vitesse_session = max(max_vitesse_session, vitesse_kph)
+    max_alt_session = max(max_alt_session, altitude)
+    distance_totale_session += abs(vx) # Approximation simple de la distance
+    
+    # Détection Atterrissage Réussi
+    if not crashed and altitude < 5 and vitesse_kph < 10:
+        if not has_already_landed:
+            session_landings += 1
+            has_already_landed = True
+            # ATC message félicitations
+            afficher_atc("BRAVO ! ATTERRISSAGE RÉUSSI.", 120)
+    elif altitude > 20:
+        has_already_landed = False # On redécolle
     
     # Planeur / Décrochage (Plus permissif en mode facile)
     seuil_decrochage = V_DECROCHAGE - 10 
@@ -3052,7 +3130,7 @@ while True:
         altitude = 0
         
         # CRASH CHECK
-        crash_limit = 8.0 # m/s (environ 1500 ft/min)
+        crash_limit = 8.0 * (1.0 + UPG_GEAR_CRASH_BONUS)
         if impact_vitesse_vert > crash_limit and not args.god_mode:
             crashed = True
             crash_reason = f"ATTERRISSAGE VIOLENT ({int(impact_vitesse_vert*200)} ft/min)"
@@ -3071,6 +3149,7 @@ while True:
             crash_reason = "CRASH NEZ/QUEUE (Angle trop fort)"
             
         if crashed and game_over_timer == 0:
+            session_crashes += 1
             # Enregistre le lieu du crash pour la map
             crash_sites.append((world_x, altitude))
             spawn_explosion(world_x, world_y, vx, vy)
@@ -3085,7 +3164,8 @@ while True:
             # Friction Sol
             friction_sol = 0.99 
             if freins_actifs:
-                friction_sol = 0.92 
+                # Les freins sont plus puissants avec l'upgrade
+                friction_sol = max(0.5, 0.92 - UPG_BRAKES_POWER_BONUS)
                 if vitesse_kph > 10: angle = 1.0 
                     
             vx *= friction_sol

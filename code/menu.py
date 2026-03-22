@@ -218,19 +218,38 @@ class MenuPrincipal(ctk.CTk):
             dossier = os.path.dirname(os.path.abspath(__file__))
             path_career = os.path.join(dossier, "career.json")
             
-        data = {"coins": 0, "upgrades": {}}
+        data = {
+            "coins": 0, 
+            "upgrades": {},
+            "stats": {
+                "max_speed": 0,
+                "max_alt": 0,
+                "total_dist": 0,
+                "total_landings": 0,
+                "total_crashes": 0
+            }
+        }
         if os.path.exists(path_career):
             try:
                 with open(path_career, "r", encoding="utf-8") as f:
                     data.update(json.load(f))
             except:
                 pass
+        
+        # S'assurer que la structure stats existe
+        if "stats" not in data:
+            data["stats"] = {"max_speed": 0, "max_alt": 0, "total_dist": 0, "total_landings": 0, "total_crashes": 0}
                 
         # Initialize default upgrades structure for all planes
         planes = ["cessna", "fighter", "cargo", "acro"]
         for p in planes:
             if p not in data["upgrades"]:
-                data["upgrades"][p] = {"engine": 0, "finesse": 0, "fuel": 0}
+                data["upgrades"][p] = {"engine": 0, "finesse": 0, "fuel": 0, "weight": 0, "gear": 0, "cooling": 0, "brakes": 0}
+            else:
+                # Ajout des nouveaux types si manquants
+                for upg in ["weight", "gear", "cooling", "brakes"]:
+                    if upg not in data["upgrades"][p]:
+                        data["upgrades"][p][upg] = 0
         return data
         
     def save_career_data(self):
@@ -259,7 +278,26 @@ class MenuPrincipal(ctk.CTk):
         # Reload data to ensure it's up to date
         self.career_data = self.load_career_data()
         coins = self.career_data.get("coins", 0)
+        stats = self.career_data.get("stats", {})
         current_ac_name = self.var_aircraft.get()
+
+        # --- BLOC CARRIÈRE ---
+        c_stats = self.card_frame(page, "VOTRE CARRIÈRE (RECORDS)")
+        f_st = ctk.CTkFrame(c_stats, fg_color="transparent")
+        f_st.pack(fill="x", padx=15, pady=5)
+        f_st.grid_columnconfigure((0,1,2,3,4), weight=1)
+
+        def create_stat_mini(parent, title, value, col, unit=""):
+            b = ctk.CTkFrame(parent, fg_color=COL_BG, corner_radius=8)
+            b.grid(row=0, column=col, padx=5, pady=5, sticky="nsew")
+            ctk.CTkLabel(b, text=title, font=("Arial", 10, "bold"), text_color=COL_TEXT_MUTED).pack(pady=(10,2))
+            ctk.CTkLabel(b, text=f"{value}{unit}", font=("Arial", 16, "bold"), text_color=COL_TEXT).pack(pady=(2,10))
+
+        create_stat_mini(f_st, "Vitesse Max", int(stats.get("max_speed", 0)), 0, " km/h")
+        create_stat_mini(f_st, "Alt Max", int(stats.get("max_alt", 0)), 1, " ft")
+        create_stat_mini(f_st, "Dist Totale", int(stats.get("total_dist", 0)), 2, " km")
+        create_stat_mini(f_st, "Atterrissages", stats.get("total_landings", 0), 3)
+        create_stat_mini(f_st, "Crashs", stats.get("total_crashes", 0), 4)
         
         c_bank = self.card_frame(page, "VOTRE COMPTE")
         lbl_coins = ctk.CTkLabel(c_bank, text=f"💰 Pièces disponibles : {int(coins)}", font=("Arial", 24, "bold"), text_color="#F59E0B")
@@ -310,7 +348,7 @@ class MenuPrincipal(ctk.CTk):
         c_upg = self.card_frame(page, "AMÉLIORER LES SYSTÈMES (50 Niveaux)")
         
         current_ac = self.var_aircraft.get()
-        upgrades = self.career_data["upgrades"].get(current_ac, {"engine": 0, "finesse": 0, "fuel": 0})
+        upgrades = self.career_data["upgrades"].get(current_ac, {"engine": 0, "finesse": 0, "fuel": 0, "weight": 0, "gear": 0, "cooling": 0, "brakes": 0})
         
         def buy_upgrade(upg_type):
             lvl = self.career_data["upgrades"][current_ac][upg_type]
@@ -356,6 +394,10 @@ class MenuPrincipal(ctk.CTk):
         create_upgrade_row(c_upg, "Moteur & Poussée", "engine", "+1% puissance par niveau.")
         create_upgrade_row(c_upg, "Finesse Aérodynamique", "finesse", "+0.5% portance, -0.5% traînée par niveau.")
         create_upgrade_row(c_upg, "Réservoir Supplémentaire", "fuel", "+2% capacité fuel par niveau.")
+        create_upgrade_row(c_upg, "Allègement Structurel", "weight", "-0.5% poids par niveau.")
+        create_upgrade_row(c_upg, "Résistance du Train", "gear", "+1% tolérance vitesse/impact au sol.")
+        create_upgrade_row(c_upg, "Refroidissement", "cooling", "-1% taux de surchauffe par niveau.")
+        create_upgrade_row(c_upg, "Freins Haute Performance", "brakes", "+2% puissance de freinage par niveau.")
 
 
     def title_label(self, parent, text):
@@ -799,10 +841,15 @@ puis cliquez sur LANCER LE VOL.
         # Upgrades (Carrière)
         # Rafraichit pour avoir les dernières infos
         self.career_data = self.load_career_data() 
-        upgs = self.career_data.get("upgrades", {}).get(self.var_aircraft.get(), {"engine":0, "finesse":0, "fuel":0})
+        current_ac = self.var_aircraft.get()
+        upgs = self.career_data.get("upgrades", {}).get(current_ac, {"engine":0, "finesse":0, "fuel":0, "weight":0, "gear":0, "cooling":0, "brakes":0})
         cmd.extend(["--upg-engine", str(upgs.get("engine", 0))])
         cmd.extend(["--upg-finesse", str(upgs.get("finesse", 0))])
         cmd.extend(["--upg-fuel", str(upgs.get("fuel", 0))])
+        cmd.extend(["--upg-weight", str(upgs.get("weight", 0))])
+        cmd.extend(["--upg-gear", str(upgs.get("gear", 0))])
+        cmd.extend(["--upg-cooling", str(upgs.get("cooling", 0))])
+        cmd.extend(["--upg-brakes", str(upgs.get("brakes", 0))])
         
         print(f"Lancement de : {cmd}")
         subprocess.run(cmd)
