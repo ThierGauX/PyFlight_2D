@@ -363,17 +363,21 @@ target_poussee = 0.0
 # DÉCOR
 decor_sol = []
 # On stocke juste la position et la taille, la couleur sera calculée dynamiquement
-for _ in range(250): # Un peu plus de patches
-    w = random.randint(20, 100)
-    h = random.randint(4, 15)
-    x_offset = random.randint(0, 4000) # Etalé sur 4km au lieu de 2km pour diversité
+for _ in range(600): # Beaucoup plus de densité
+    w = random.randint(30, 120)
+    h = random.randint(5, 20)
+    x_offset = random.randint(0, 8000) # Etalé sur 8km pour plus de variété
     y_offset = random.randint(0, 800)
+    
     # Type 0 = FONCE, Type 1 = CLAIR, Type 2 = ARBRE, Type 3 = VILLE
     r = random.random()
-    if r < 0.40: type_decor = 0
-    elif r < 0.80: type_decor = 1
-    elif r < 0.95: type_decor = 2 # Arbre
-    else: type_decor = 3 # Ville
+    # Logique de regroupement (Idée 11) : Les villes apparaissent par "clusters" (vagues)
+    cluster_villes = (math.sin(x_offset * 0.002) + 1) / 2.0 # Oscille entre 0 et 1
+    
+    if r < 0.30: type_decor = 0
+    elif r < 0.60: type_decor = 1
+    elif r < 0.80 - (cluster_villes * 0.4): type_decor = 2 # Arbre (moins si zone urbaine)
+    else: type_decor = 3 # Ville (plus si zone urbaine)
         
     decor_sol.append([x_offset, y_offset, w, h, type_decor])
 
@@ -3639,14 +3643,32 @@ while True:
         img_rot = pygame.transform.rotate(img_scaled, angle)
         rect_img = img_rot.get_rect(center=(L//2, H//2))
         
-        # --- OMBRE PORTÉE (Idée 13) ---
-        if altitude < 1000 and not args.no_terrain:
-            shadow_alpha = int(max(0, 150 - (altitude / 1000.0) * 150))
-            if shadow_alpha > 0:
-                shadow = pygame.mask.from_surface(img_rot).to_surface(setcolor=(0,0,0,shadow_alpha), unsetcolor=(0,0,0,0))
+        # --- OMBRE PORTÉE (Idée 13 Améliorée) ---
+        if altitude < 1500 and not args.no_terrain:
+            # L'ombre devient plus transparente avec l'altitude
+            base_alpha = int(max(0, 140 - (altitude / 1500.0) * 140))
+            if base_alpha > 0:
+                # Calcul du scale de l'ombre (plus on est haut, plus l'ombre est diffuse/grande)
+                shadow_scale = 1.0 + (altitude / 1000.0) * 0.5
+                
+                # Création du masque de l'avion
+                mask_surface = pygame.mask.from_surface(img_rot).to_surface(setcolor=(0,0,0,base_alpha), unsetcolor=(0,0,0,0))
+                
+                # Couche 1 : Ombre principale
+                sw = int(mask_surface.get_width() * shadow_scale)
+                sh = int(mask_surface.get_height() * shadow_scale)
+                shadow_main = pygame.transform.scale(mask_surface, (sw, sh))
+                
                 y_sol = H//2 + (altitude * zoom)
-                shadow_rect = shadow.get_rect(center=(L//2 - (altitude * 0.2 * zoom), y_sol))
-                fenetre.blit(shadow, shadow_rect)
+                # Décalage horizontal simulant l'angle du soleil (dépend de l'altitude)
+                x_off = -(altitude * 0.15 * zoom)
+                
+                # Couche 2 : Pénombre (plus large et plus claire pour l'effet de flou)
+                shadow_blur = pygame.transform.scale(mask_surface, (int(sw*1.2), int(sh*1.2)))
+                shadow_blur.set_alpha(base_alpha // 2)
+                
+                fenetre.blit(shadow_blur, shadow_blur.get_rect(center=(L//2 + x_off, y_sol)))
+                fenetre.blit(shadow_main, shadow_main.get_rect(center=(L//2 + x_off, y_sol)))
         
         # LANDING LIGHT (Phare)
         if lumiere_allume:
