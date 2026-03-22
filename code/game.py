@@ -2177,10 +2177,18 @@ def dessiner_dashboard(surface, vitesse, alt, moteur, flaps, auto, freins, lumie
     pygame.draw.line(surface, (60, 65, 75), (0, y_base), (L, y_base), s(2))
 
     # Utils pour effets
-    def draw_glass_effect(x, y, r):
-        s_glass = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
-        pygame.draw.ellipse(s_glass, (255, 255, 255, 20), (s(5), s(5), r*1.5, r*0.8), 0)
-        surface.blit(s_glass, (x - r, y - r))
+    def draw_glass_effect(gx, gy, gr):
+        # Création d'une surface avec canal alpha pour le reflet
+        s_glass = pygame.Surface((gr*2, gr*2), pygame.SRCALPHA)
+        # On dessine l'ellipse de reflet
+        pygame.draw.ellipse(s_glass, (255, 255, 255, 20), (s(5), s(5), gr*1.5, gr*0.8))
+        
+        # On crée un masque circulaire pour découper tout ce qui dépasse du rayon gr
+        mask = pygame.Surface((gr*2, gr*2), pygame.SRCALPHA)
+        pygame.draw.circle(mask, (255, 255, 255, 255), (gr, gr), gr)
+        s_glass.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        
+        surface.blit(s_glass, (gx - gr, gy - gr))
 
     def draw_led(x, y, active, color_on, label):
         color = color_on if active else (40, 45, 50)
@@ -3624,27 +3632,25 @@ while True:
         
         # --- OMBRE PORTÉE (Idée 13 Réaliste) ---
         if altitude < 2000 and not args.no_terrain:
-            # L'ombre est très sombre au sol et disparaît à 2000ft
             shadow_alpha = int(max(0, 160 - (altitude / 2000.0) * 160))
-            
             if shadow_alpha > 0:
-                # Dans la réalité, plus on est haut, plus l'ombre est diffuse (floue)
-                # Mais en 2D, une ellipse qui rétrécit légèrement est plus lisible
                 s_width = int(w_new * 0.9)
-                s_height = int(h_new * 0.3) # Ombre plate au sol
-                
-                shadow_surf = pygame.Surface((s_width * 2, s_height * 2), pygame.SRCALPHA)
-                # Dessin d'une ellipse dégradée pour simuler le flou
+                s_height = int(h_new * 0.3)
+                shadow_surf = pygame.Surface((s_width + 10, s_height + 10), pygame.SRCALPHA)
                 for r_off in range(5, 0, -1):
                     a = int(shadow_alpha * (1.0 - r_off/6.0))
-                    pygame.draw.ellipse(shadow_surf, (0, 0, 0, a), 
-                                        (r_off, r_off, s_width - r_off*2, s_height - r_off*2))
+                    pygame.draw.ellipse(shadow_surf, (0, 0, 0, a), (r_off, r_off, s_width, s_height))
                 
-                # Position de projection sur le sol réel (sous l'avion)
                 y_sol = H//2 + (altitude * zoom)
-                # On centre l'ombre
                 shadow_rect = shadow_surf.get_rect(center=(L//2, y_sol))
-                fenetre.blit(shadow_surf, shadow_rect)
+                
+                # Correction : On ne dessine pas l'ombre si elle dépasse sur le tableau de bord
+                # Zone de vol utile : 0 à H - 140 (hauteur dashboard)
+                limite_basse = H - s(140)
+                if shadow_rect.top < limite_basse:
+                    # On clip la surface pour ne pas déborder sur le dashboard
+                    area = pygame.Rect(0, 0, shadow_surf.get_width(), max(0, limite_basse - shadow_rect.top))
+                    fenetre.blit(shadow_surf, shadow_rect, area)
         
         # LANDING LIGHT (Phare)
         if lumiere_allume:
