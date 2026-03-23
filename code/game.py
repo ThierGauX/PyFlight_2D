@@ -1035,32 +1035,91 @@ class MenuBar:
         
         self.show_stats_window = False
         
-        # Pré-calcul des positions
-        x_start = s(10)
+        # Rects pour les boutons de pause (calculés dynamiquement dans draw)
+        self.pause_btn_rects = {} 
+        
+        # Pré-calcul des positions des catégories
+        x_curr = s(10)
         for cat in self.categories:
             text_surf = self.font.render(cat, True, (255, 255, 255))
             w = text_surf.get_width() + s(30)
-            self.cat_rects.append(pygame.Rect(x_start, 0, w, self.height))
-            x_start += w
+            self.cat_rects.append(pygame.Rect(x_curr, 0, w, self.height))
+            x_curr += w
+
+    def draw_pause_controls(self, surface):
+        global game_paused, free_cam_active, rewind_index, flight_history, cam_off_x, cam_off_y
+        
+        # 1. Bandeau de contrôle (Top Bar)
+        bw, bh = s(400), s(50)
+        bx, by = (L - bw) // 2, s(40)
+        
+        pygame.draw.rect(surface, (20, 25, 35, 240), (bx, by, bw, bh), 0, 10)
+        pygame.draw.rect(surface, (100, 105, 115), (bx, by, bw, bh), 2, 10)
+        
+        mx, my = pygame.mouse.get_pos()
+        btn_w = s(85)
+        btn_h = s(35)
+        spacing = s(10)
+        
+        # Définition des boutons
+        buttons = [
+            ("RW", "<< RW", bx + s(15)),
+            ("PP", "RESUME", bx + s(15) + (btn_w + spacing)),
+            ("CAM", "FREE CAM", bx + s(15) + (btn_w + spacing) * 2),
+            ("RESET", "RESTART", bx + s(15) + (btn_w + spacing) * 3)
+        ]
+        
+        for btn_id, label, b_x in buttons:
+            rect = pygame.Rect(b_x, by + (bh - btn_h)//2, btn_w, btn_h)
+            self.pause_btn_rects[btn_id] = rect
             
+            hover = rect.collidepoint(mx, my)
+            active = False
+            if btn_id == "CAM": active = free_cam_active
+            
+            # Couleur du bouton
+            b_col = (50, 150, 255) if active else (40, 45, 55)
+            if hover:
+                b_col = (70, 170, 255) if active else (60, 65, 75)
+                # Effet rewind continu au clic maintenu
+                if btn_id == "RW" and pygame.mouse.get_pressed()[0]:
+                    if len(flight_history) > abs(rewind_index):
+                        rewind_index -= 1
+            
+            pygame.draw.rect(surface, b_col, rect, 0, 5)
+            pygame.draw.rect(surface, (150, 155, 165), rect, 1, 5)
+            
+            txt = self.item_font.render(label, True, (255, 255, 255))
+            surface.blit(txt, txt.get_rect(center=rect.center))
+
     def handle_event(self, event):
+        global game_paused, free_cam_active, cam_off_x, cam_off_y
         if event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = event.pos
             
-            # Gestion de la fermeture de la fenêtre Stats
-            if self.show_stats_window:
-                w_pop, h_pop = s(400), s(300)
-                x_pop, y_pop = (L - w_pop) // 2, (H - h_pop) // 2
-                pop_rect = pygame.Rect(x_pop, y_pop, w_pop, h_pop)
-                
-                # Zone du bouton fermer (approximative en bas à droite)
-                close_rect = pygame.Rect(x_pop + w_pop - s(120), y_pop + h_pop - s(50), s(110), s(40))
-                
-                if close_rect.collidepoint(mx, my) or not pop_rect.collidepoint(mx, my):
-                    self.show_stats_window = False
-                return True # Bloquer les clics si la fenêtre est ouverte
+            # Clic sur les contrôles de pause
+            if game_paused:
+                if "PP" in self.pause_btn_rects and self.pause_btn_rects["PP"].collidepoint(mx, my):
+                    game_paused = False
+                    return True
+                if "CAM" in self.pause_btn_rects and self.pause_btn_rects["CAM"].collidepoint(mx, my):
+                    free_cam_active = not free_cam_active
+                    if not free_cam_active: cam_off_x, cam_off_y = 0, 0
+                    return True
+                if "RESET" in self.pause_btn_rects and self.pause_btn_rects["RESET"].collidepoint(mx, my):
+                    self.execute_action("FICHIER", "RECOMMENCER")
+                    return True
             
-            # Clic sur une catégorie
+            # Gestion de la fenêtre Stats
+            if self.show_stats_window:
+                w, h = s(400), s(300)
+                x, y = (L-w)//2, (H-h)//2
+                btn_close_rect = pygame.Rect(x + w - s(110), y + h - s(45), s(100), s(40))
+                if btn_close_rect.collidepoint(mx, my):
+                    self.show_stats_window = False
+                return True
+            
+            # Clic sur une catégorie du menu bar
             for i, rect in enumerate(self.cat_rects):
                 if rect.collidepoint(mx, my):
                     if self.active_menu == self.categories[i]:
@@ -1076,12 +1135,12 @@ class MenuBar:
                         if item_rect.collidepoint(mx, my):
                             if item_text == "---": return True
                             self.execute_action(self.active_menu, item_text)
-                            # Garder le menu ouvert pour les réglages de volume
+                            # Fermer le menu après action (sauf pour volumes)
                             if not ("+" in item_text or "-" in item_text):
                                 self.active_menu = None
                             return True
             
-            # Fermer le menu si on clique ailleurs
+            # Fermer le menu si clic ailleurs
             self.active_menu = None
         return False
 
@@ -1131,7 +1190,6 @@ class MenuBar:
                 s_val = item.split(": ")[1]
                 mapping = {"ETE": "summer", "AUTOMNE": "autumn", "HIVER": "snow", "PRINTEMPS": "spring", "TEMPÊTE": "wind"}
                 args.season = mapping.get(s_val, "summer")
-                # Appliquer les couleurs de saison
                 update_season_visuals()
 
         elif cat == "AIDES":
@@ -1178,7 +1236,7 @@ class MenuBar:
                 pygame.draw.rect(surface, (60, 60, 70), rect)
             
             text_surf = self.font.render(cat, True, (255, 255, 255))
-            surface.blit(text_surf, (rect.x + s(15), rect.y + (self.height - text_surf.get_height())//2))
+            surface.blit(text_surf, (rect.x + (rect.width - text_surf.get_width())//2, rect.y + (self.height - text_surf.get_height())//2))
             
             # Dessin du menu déroulant si actif
             if self.active_menu == cat:
@@ -1220,11 +1278,10 @@ class MenuBar:
             elif item == "VOLUME MOTEUR":
                 display_text = f"MOTEUR: {int(args.volume * 100)}%"
             
-            # Ajout d'une coche pour les toggles (approximation)
+            # Coche pour les toggles
             prefix = ""
             if cat in ["AIDES", "AFFICHAGE", "ENVIR"] or item in ["RADIO ON/OFF", "MOTEUR ON/OFF"]:
-                if self.is_option_active(item): prefix = "[x] "
-                else: prefix = "[ ] "
+                prefix = "[x] " if self.is_option_active(item) else "[ ] "
                 
             text_surf = self.item_font.render(prefix + display_text, True, (220, 220, 220))
             if "VOLUME" in item:
@@ -3987,23 +4044,24 @@ while True:
     # Fin de boucle
 
 
-    # --- OVERLAY PAUSE ---
+    # --- OVERLAY PAUSE INTERACTIF ---
     if game_paused:
+        # On assombrit l'écran
         overlay = pygame.Surface((L, H), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 120))
+        overlay.fill((0, 0, 0, 100))
         fenetre.blit(overlay, (0, 0))
         
-        # Determine if we are rewinding
-        is_rewinding = touches[pygame.K_r] and not free_cam_active
-        txt = "REPLAY" if is_rewinding else "PAUSE"
-        
-        surf_txt = police_alarme.render(txt, True, (255, 255, 255))
-        rect_txt = surf_txt.get_rect(center=(L//2, H//2))
-        fenetre.blit(surf_txt, rect_txt)
+        # On dessine la barre de contrôle interactive
+        menu_bar.draw_pause_controls(fenetre)
         
         if free_cam_active:
             txt_cam = police_label.render("FREE CAM ACTIVE (ARROWS TO MOVE)", True, (200, 255, 200))
-            fenetre.blit(txt_cam, (L//2 - txt_cam.get_width()//2, H//2 + 50))
+            fenetre.blit(txt_cam, (L//2 - txt_cam.get_width()//2, s(60)))
+        
+        # Indicateur REPLAY si on recule
+        if touches[pygame.K_r] or (pygame.mouse.get_pressed()[0] and "RW" in menu_bar.pause_btn_rects and menu_bar.pause_btn_rects["RW"].collidepoint(pygame.mouse.get_pos())):
+            txt_rep = police_alarme.render("REPLAY <<", True, (255, 100, 100))
+            fenetre.blit(txt_rep, (L//2 - txt_rep.get_width()//2, H//2))
 
     # --- BARRE DE MENU (FlightGear Style) ---
     menu_bar.draw(fenetre)
