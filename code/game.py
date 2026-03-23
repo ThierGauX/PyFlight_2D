@@ -2581,6 +2581,102 @@ update_season_visuals()
 while True:
     dt = horloge.tick(60) / 1000.0 
     
+    for event in pygame.event.get():
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if args.ui_sounds and son_clic:
+                son_clic.play()
+        if menu_bar.handle_event(event):
+            continue
+            
+        if event.type == pygame.QUIT:
+            save_session_coins()
+            save_career_stats()
+            pygame.quit()
+            exit()
+        elif event.type == pygame.MOUSEWHEEL:
+            zoom_cible += event.y * 0.2 # Zoom plus rapide 
+            # Clamp zoom to prevent negative sizes (crash) and excessive zoom
+            if zoom_cible < 0.05: zoom_cible = 0.05
+            if zoom_cible > 3.0: zoom_cible = 3.0
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if show_large_map:
+                # Calcul de la position géographique du clic
+                # La carte fait L-100 x H-100, ancrée en 50,50
+                w_map = L - 100
+                h_map = H - 100
+                x_map = 50
+                y_map = 50
+                if x_map <= event.pos[0] <= x_map + w_map and y_map <= event.pos[1] <= y_map + h_map:
+                    if event.button == 1: # Clic Gauche -> Ajouter Waypoint
+                        # Echelle X : -150km à +150km
+                        px_w = (event.pos[0] - x_map) / w_map * 300000 - 150000
+                        # Echelle Y : 15000m à 0m (inversé)
+                        py_alt = (1.0 - (event.pos[1] - y_map) / h_map) * 15000
+                        flight_plan_waypoints.append((px_w, py_alt))
+                    elif event.button == 3: # Clic Droit -> Retirer dernier Waypoint
+                        if len(flight_plan_waypoints) > 0:
+                            flight_plan_waypoints.pop()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_p: # TOGGLE PAUSE
+                game_paused = not game_paused
+                # On coupe l'alarme si en pause
+                if game_paused and alarme_playing:
+                    son_alarme.stop()
+                    
+            if event.key == pygame.K_c: # TOGGLE FREE CAM
+                free_cam_active = not free_cam_active
+                if not free_cam_active:
+                    cam_off_x, cam_off_y = 0, 0 # Reset cam position
+
+            if event.key == pygame.K_a:
+                moteur_allume = not moteur_allume
+            if event.key == pygame.K_f:
+                flaps_sortis = not flaps_sortis
+            if event.key == pygame.K_g:
+                gear_sorti = not gear_sorti
+            if event.key == pygame.K_l: # LANDING LIGHT
+                lumiere_allume = not lumiere_allume
+            if event.key == pygame.K_m: # TOGGLE LARGE MAP (Idée 46)
+                show_large_map = not show_large_map
+            if event.key == pygame.K_k: # TOGGLE RADIO
+                music_player.toggle()
+            if event.key == pygame.K_n: # NEXT SONG
+                music_player.next()
+            if event.key == pygame.K_ESCAPE:
+                save_session_coins()
+                save_career_stats()
+                pygame.quit()
+                exit()
+            
+            # MISSIONS
+            if event.key == pygame.K_F1:
+                mission_manager.start_rings_challenge(world_x)
+            if event.key == pygame.K_F2:
+                mission_manager.start_landing_challenge(world_x)
+            if event.key == pygame.K_c and mission_manager.active_mission == "cargo":
+                mission_manager.drop_cargo(world_x, world_y, vx, vy)
+                
+            if args.aircraft == "fighter":
+                if event.key == pygame.K_b:
+                    bombs.append(Bomb(world_x, world_y, vx, vy))
+                if event.key == pygame.K_v:
+                    missiles.append(Missile(world_x, world_y, vx, vy, angle))
+
+            if moteur_allume:
+                if event.key == pygame.K_LSHIFT: # PLEIN GAZ
+                    target_poussee = 100.0
+                if event.key == pygame.K_LCTRL: # COUPER GAZ
+                    target_poussee = 0.0
+                if event.key == pygame.K_RIGHT:
+                    target_poussee += 10.0 # Plus rapide
+                if event.key == pygame.K_LEFT:
+                    target_poussee -= 10.0 
+                target_poussee = max(0.0, min(100.0, target_poussee))
+
+    touches = pygame.key.get_pressed()
+    zoom_cible = max(0.01, min(5.0, zoom_cible)) # Plage de zoom ÉNORME (0.01 permet de dézoomer de très loin)
+    zoom += (zoom_cible - zoom) * 0.05 # Plus fluide
+    
     if args.multiplayer and udp_socket:
         # Reception des données serveur
         try:
@@ -2638,102 +2734,6 @@ while True:
     
         
         mettre_a_jour_couleurs(heure_actuelle) 
-    
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if args.ui_sounds and son_clic:
-                    son_clic.play()
-            if menu_bar.handle_event(event):
-                continue
-                
-            if event.type == pygame.QUIT:
-                save_session_coins()
-                save_career_stats()
-                pygame.quit()
-                exit()
-            elif event.type == pygame.MOUSEWHEEL:
-                zoom_cible += event.y * 0.2 # Zoom plus rapide 
-                # Clamp zoom to prevent negative sizes (crash) and excessive zoom
-                if zoom_cible < 0.05: zoom_cible = 0.05
-                if zoom_cible > 3.0: zoom_cible = 3.0
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if show_large_map:
-                    # Calcul de la position géographique du clic
-                    # La carte fait L-100 x H-100, ancrée en 50,50
-                    w_map = L - 100
-                    h_map = H - 100
-                    x_map = 50
-                    y_map = 50
-                    if x_map <= event.pos[0] <= x_map + w_map and y_map <= event.pos[1] <= y_map + h_map:
-                        if event.button == 1: # Clic Gauche -> Ajouter Waypoint
-                            # Echelle X : -150km à +150km
-                            px_w = (event.pos[0] - x_map) / w_map * 300000 - 150000
-                            # Echelle Y : 15000m à 0m (inversé)
-                            py_alt = (1.0 - (event.pos[1] - y_map) / h_map) * 15000
-                            flight_plan_waypoints.append((px_w, py_alt))
-                        elif event.button == 3: # Clic Droit -> Retirer dernier Waypoint
-                            if len(flight_plan_waypoints) > 0:
-                                flight_plan_waypoints.pop()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_p: # TOGGLE PAUSE
-                    game_paused = not game_paused
-                    # On coupe l'alarme si en pause
-                    if game_paused and alarme_playing:
-                        son_alarme.stop()
-                        
-                if event.key == pygame.K_c: # TOGGLE FREE CAM
-                    free_cam_active = not free_cam_active
-                    if not free_cam_active:
-                        cam_off_x, cam_off_y = 0, 0 # Reset cam position
-    
-                if event.key == pygame.K_a:
-                    moteur_allume = not moteur_allume
-                if event.key == pygame.K_f:
-                    flaps_sortis = not flaps_sortis
-                if event.key == pygame.K_g:
-                    gear_sorti = not gear_sorti
-                if event.key == pygame.K_l: # LANDING LIGHT
-                    lumiere_allume = not lumiere_allume
-                if event.key == pygame.K_m: # TOGGLE LARGE MAP (Idée 46)
-                    show_large_map = not show_large_map
-                if event.key == pygame.K_k: # TOGGLE RADIO
-                    music_player.toggle()
-                if event.key == pygame.K_n: # NEXT SONG
-                    music_player.next()
-                if event.key == pygame.K_ESCAPE:
-                    save_session_coins()
-                    save_career_stats()
-                    pygame.quit()
-                    exit()
-                
-                # MISSIONS
-                if event.key == pygame.K_F1:
-                    mission_manager.start_rings_challenge(world_x)
-                if event.key == pygame.K_F2:
-                    mission_manager.start_landing_challenge(world_x)
-                if event.key == pygame.K_c and mission_manager.active_mission == "cargo":
-                    mission_manager.drop_cargo(world_x, world_y, vx, vy)
-                    
-                if args.aircraft == "fighter":
-                    if event.key == pygame.K_b:
-                        bombs.append(Bomb(world_x, world_y, vx, vy))
-                    if event.key == pygame.K_v:
-                        missiles.append(Missile(world_x, world_y, vx, vy, angle))
-    
-                if moteur_allume:
-                    if event.key == pygame.K_LSHIFT: # PLEIN GAZ
-                        target_poussee = 100.0
-                    if event.key == pygame.K_LCTRL: # COUPER GAZ
-                        target_poussee = 0.0
-                    if event.key == pygame.K_RIGHT:
-                        target_poussee += 10.0 # Plus rapide
-                    if event.key == pygame.K_LEFT:
-                        target_poussee -= 10.0 
-                    target_poussee = max(0.0, min(100.0, target_poussee))
-    
-        touches = pygame.key.get_pressed()
-        zoom_cible = max(0.01, min(5.0, zoom_cible)) # Plage de zoom ÉNORME (0.01 permet de dézoomer de très loin)
-        zoom += (zoom_cible - zoom) * 0.05 # Plus fluide
     
         # --- CONTROLE STABILISÉ (MODE FACILE) ---
         target_rotation = 0
