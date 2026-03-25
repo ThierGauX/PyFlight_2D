@@ -856,9 +856,20 @@ puis cliquez sur LANCER LE VOL.
         print(f"Lancement de : {cmd}")
         subprocess.run(cmd)
         
-        # Le jeu a été quitté (ex: touche Echap), on réaffiche le menu et on actualise les scores/garage
-        self.build_page_scores()
+        # --- RETOUR AU MENU ---
+        # Le jeu a été quitté (ex: touche Echap), on réaffiche le menu
+        # On reconstruit TOUTES les pages pour garantir la stabilité de l'interface
+        self.build_page_accueil()
+        self.build_page_base()
         self.build_page_garage()
+        self.build_page_env()
+        self.build_page_realism()
+        self.build_page_gfx()
+        self.build_page_scores()
+        self.build_page_multi()
+        
+        # On retourne sur l'onglet d'accueil par défaut
+        self.select_tab("Vue d'ensemble")
         self.deiconify()
 
 if __name__ == "__main__":
