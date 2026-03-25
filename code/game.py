@@ -1081,10 +1081,6 @@ class MenuBar:
             b_col = (50, 150, 255) if active else (40, 45, 55)
             if hover:
                 b_col = (70, 170, 255) if active else (60, 65, 75)
-                # Effet rewind continu au clic maintenu
-                if btn_id == "RW" and pygame.mouse.get_pressed()[0]:
-                    if len(flight_history) > abs(rewind_index):
-                        rewind_index -= 1
             
             pygame.draw.rect(surface, b_col, rect, 0, 5)
             pygame.draw.rect(surface, (150, 155, 165), rect, 1, 5)
@@ -1489,8 +1485,6 @@ temps_vol_session = 0
 session_landings = 0
 session_crashes = 0
 has_already_landed = False # Pour ne pas compter 50 atterrissages si on reste au sol
-session_landings = 0
-session_crashes = 0
 
 # Facteurs d'upgrade (initialisés à 0, seront mis à jour par switch_aircraft)
 UPG_WEIGHT_REDUCTION = 0.0
@@ -2981,8 +2975,7 @@ while True:
         # --- TRACKING RECORDS SESSION ---
         max_vitesse_session = max(max_vitesse_session, vitesse_kph)
         max_alt_session = max(max_alt_session, altitude)
-        distance_totale_session += abs(vx) # Approximation simple de la distance
-        
+
         # Détection Atterrissage Réussi
         if not crashed and altitude < 5 and vitesse_kph < 10:
             if not has_already_landed:
@@ -3340,16 +3333,21 @@ while True:
         state = {
             "world_x": world_x, "world_y": world_y, "vx": vx, "vy": vy, "angle": angle, 
             "fuel": fuel, "moteur_temp": moteur_temp, "moteur_allume": moteur_allume, 
-            "flaps_sortis": flaps_sortis, "gear_sorti": gear_sorti
+            "flaps_sortis": flaps_sortis, "gear_sorti": gear_sorti,
+            "crashed": crashed, "game_over_timer": game_over_timer
         }
         flight_history.append(state)
         if len(flight_history) > 1800: flight_history.pop(0)
-        rewind_index = len(flight_history) - 1
+        rewind_index = max(0, len(flight_history) - 1)
     else:
         # --- MODE PAUSE / REWIND / FREE CAM ---
-        if touches[pygame.K_r] and len(flight_history) > 0:
+        # Détection Rewind (Touche R ou Bouton UI)
+        is_rewinding = touches[pygame.K_r] or (pygame.mouse.get_pressed()[0] and "RW" in menu_bar.pause_btn_rects and menu_bar.pause_btn_rects["RW"].collidepoint(pygame.mouse.get_pos()))
+
+        if is_rewinding and len(flight_history) > 0:
             rewind_index -= 1
-            if rewind_index < 0: rewind_index = 0
+            rewind_index = max(0, min(len(flight_history) - 1, rewind_index))
+
             s_state = flight_history[rewind_index]
             world_x = s_state["world_x"]
             world_y = s_state["world_y"]
@@ -3361,6 +3359,8 @@ while True:
             moteur_allume = s_state["moteur_allume"]
             flaps_sortis = s_state["flaps_sortis"]
             gear_sorti = s_state["gear_sorti"]
+            crashed = s_state.get("crashed", False)
+            game_over_timer = s_state.get("game_over_timer", 0)
             altitude = -world_y
 
         if free_cam_active:

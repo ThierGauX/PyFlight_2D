@@ -416,7 +416,7 @@ class MenuPrincipal(ctk.CTk):
         if page_name in self.pages:
             self.pages[page_name].destroy()
             
-        page = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
         self.pages[page_name] = page
         
         self.title_label(page, "Bienvenue Commandant.")
@@ -431,10 +431,12 @@ PyFlight 2D vous offre une simulation aéronautique exigeante :
 • Trafic IA ambiant et Tour de Contrôle (ATC)
 • Cycle Jour/Nuit, Météo Volumétrique & Océans Dynamiques
 • Cockpit Interactif (HUD / Instruments Analogiques)
-• Plan de Vol Interactif GPS (Touche 'M') : Clic Gauche pour ajouter un Waypoint.
-• Combat & Missions : Bombes (B), Missiles (V), Cargo (C). F1/F2 pour lancer des challenges.
-• Commandes Avancées : 'A' pour le Moteur, SHIFT/CTRL pour les gaz rapides.
+• Plan de Vol Interactif GPS (Touche 'M')
+• Combat & Missions : Bombes (B), Missiles (V), Cargo (C). 
+• Challenges : F1/F2 pour lancer des défis instantanés.
+• Commandes Avancées : 'A' pour le Moteur, SHIFT/CTRL pour les gaz.
 • Radio & Musique : K pour On/Off, N pour Suivant.
+• Replay & Pause : P pour Pauser, R (maintenir) pour Rewind.
 
 Configurez votre appareil via les onglets à gauche, 
 puis cliquez sur LANCER LE VOL.
@@ -442,8 +444,8 @@ puis cliquez sur LANCER LE VOL.
         card = ctk.CTkFrame(page, fg_color="transparent")
         card.pack(fill="both", expand=True, pady=10)
         
-        lbl_infos = ctk.CTkLabel(card, text=infos, font=("Consolas", 16), text_color=COL_TEXT_MUTED, justify="left")
-        lbl_infos.pack(anchor="nw", pady=20)
+        lbl_infos = ctk.CTkLabel(card, text=infos, font=("Consolas", 14), text_color=COL_TEXT_MUTED, justify="left")
+        lbl_infos.pack(anchor="nw", padx=10, pady=10)
         
         # Image de fond ou illustration (Optionnel)
         # ctk.CTkLabel(page, text="[Illustration / Astuces]", font=("Arial", 16), text_color=COL_PANEL).pack(expand=True)
