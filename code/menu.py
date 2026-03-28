@@ -44,7 +44,7 @@ class MenuPrincipal(ctk.CTk):
 
         # Fenêtre
         self.title("Pyflight 2D - Launcher Premium")
-        self.geometry("1100x750")
+        self.geometry("1150x850")
         self.resizable(False, False)
         self.configure(fg_color=COL_BG)
 
@@ -102,6 +102,35 @@ class MenuPrincipal(ctk.CTk):
         self.var_pseudo = ctk.StringVar(value="Pilote_1")
         self.var_ip = ctk.StringVar(value="127.0.0.1")
 
+        # MASTER TOGGLES (Nouveaux Toggles Globaux Expert)
+        self.var_m_audio = ctk.BooleanVar(value=True)
+        self.var_m_weather = ctk.BooleanVar(value=True)
+        self.var_m_daynight = ctk.BooleanVar(value=True)
+        self.var_m_birds = ctk.BooleanVar(value=True)
+        self.var_m_planes = ctk.BooleanVar(value=True)
+        self.var_m_stall = ctk.BooleanVar(value=True)  # Inverse de no_stall
+        self.var_m_overheat = ctk.BooleanVar(value=True)
+        self.var_m_gear_crash = ctk.BooleanVar(value=True)
+        self.var_m_fuel_cons = ctk.BooleanVar(value=True)
+        self.var_m_dyn_weight = ctk.BooleanVar(value=True)
+        self.var_m_wind = ctk.BooleanVar(value=True)
+
+        # TOOTH/CHEAT MODIFIERS (Expert)
+        self.var_zero_gravity = ctk.BooleanVar(value=False)
+        self.var_no_drag = ctk.BooleanVar(value=False)
+        self.var_no_brakes = ctk.BooleanVar(value=False)
+        self.var_no_collisions = ctk.BooleanVar(value=False)
+        self.var_crazy_wind = ctk.BooleanVar(value=False)
+        self.var_always_boost = ctk.BooleanVar(value=False)
+        
+        # Synchronisation init avec les vars inversées existantes
+        self.var_m_stall.set(not self.var_no_stall.get())
+        self.var_m_overheat.set(not self.var_no_overheat.get())
+        self.var_m_gear_crash.set(not self.var_no_gear_crash.get())
+        self.var_m_fuel_cons.set(not self.var_unlimited_fuel.get())
+        self.var_m_dyn_weight.set(not self.var_static_weight.get())
+        self.var_m_wind.set(not self.var_no_wind.get())
+
         # Layout Principal (2 Colonnes: Sidebar / Contenu)
         self.grid_columnconfigure(0, weight=0) # Sidebar width fixed
         self.grid_columnconfigure(1, weight=1) # Main View
@@ -110,7 +139,7 @@ class MenuPrincipal(ctk.CTk):
         # --- SIDEBAR (GAUCHE) ---
         self.sidebar_frame = ctk.CTkFrame(self, width=280, corner_radius=0, fg_color=COL_SIDEBAR)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsw")
-        self.sidebar_frame.grid_rowconfigure(10, weight=1) # Espaceur entre les menus et le bouton jouer (Ligne 10)
+        self.sidebar_frame.grid_rowconfigure(11, weight=1) # Espaceur entre les menus et le bouton jouer
         
         # En-Tête Sidebar
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="PYFLIGHT 2D", font=("Arial", 36, "bold"), text_color=COL_TEXT)
@@ -129,19 +158,20 @@ class MenuPrincipal(ctk.CTk):
         self.btn_tab_gfx = self.create_sidebar_btn("Affichage & Rendu", 7)
         self.btn_tab_stats = self.create_sidebar_btn("Scores & Stats", 8)
         self.btn_tab_multi = self.create_sidebar_btn("Réseau & Multi", 9)
+        self.btn_tab_expert = self.create_sidebar_btn("Tous les Modules", 10)
         
         # Spacer pour repousser les boutons vers le bas grace au weight=1
-        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=10, column=0, sticky="nsew")
+        ctk.CTkFrame(self.sidebar_frame, fg_color="transparent").grid(row=11, column=0, sticky="nsew")
 
         # Boutons Action (Bas de Sidebar)
         self.btn_jouer = ctk.CTkButton(self.sidebar_frame, text="LANCER LE VOL", command=self.lancer_jeu,
                                        font=("Arial", 18, "bold"), height=55, fg_color=COL_ACCENT, hover_color=COL_ACCENT_HOVER)
-        self.btn_jouer.grid(row=11, column=0, padx=20, pady=(10, 10), sticky="ew")
+        self.btn_jouer.grid(row=12, column=0, padx=20, pady=(10, 10), sticky="ew")
 
         self.btn_quitter = ctk.CTkButton(self.sidebar_frame, text="QUITTER", command=self.quit,
                                          font=("Arial", 14, "bold"), height=40, fg_color="transparent", 
                                          border_width=2, border_color=COL_DANGER, text_color=COL_DANGER, hover_color="#451a1a")
-        self.btn_quitter.grid(row=12, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.btn_quitter.grid(row=13, column=0, padx=20, pady=(0, 20), sticky="ew")
 
         # --- CONTENU (DROITE) ---
         self.main_frame = ctk.CTkFrame(self, fg_color=COL_BG, corner_radius=0)
@@ -163,6 +193,7 @@ class MenuPrincipal(ctk.CTk):
         self.build_page_gfx()
         self.build_page_scores()
         self.build_page_multi()
+        self.build_page_expert()
 
         # Binding du clic pour le son d'interface
         self.bind("<Button-1>", self.on_global_click)
@@ -775,6 +806,79 @@ puis cliquez sur LANCER LE VOL.
         btn_host = ctk.CTkButton(c_host, text="Démarrer le Serveur Local", command=start_server_bg, fg_color=COL_ACCENT)
         btn_host.pack(anchor="w", padx=15, pady=10)
 
+    def build_page_expert(self):
+        page_name = "Tous les Modules"
+        if page_name in self.pages:
+            self.pages[page_name].destroy()
+            
+        page = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
+        self.pages[page_name] = page
+        self.title_label(page, "Mode Expert : Tous les Modules")
+        
+        lbl_info = ctk.CTkLabel(page, text="Activez ou désactivez intégralement chaque système du jeu.\nCeci supplante certains réglages des autres onglets.", justify="left", text_color=COL_PRIMARY)
+        lbl_info.pack(anchor="w", padx=15, pady=(0, 15))
+        
+        # Colonnes pour organiser les checkboxes
+        f_cols = ctk.CTkFrame(page, fg_color="transparent")
+        f_cols.pack(fill="x", padx=15)
+        col1 = ctk.CTkFrame(f_cols, fg_color="transparent")
+        col1.pack(side="left", fill="y", expand=True)
+        col2 = ctk.CTkFrame(f_cols, fg_color="transparent")
+        col2.pack(side="right", fill="y", expand=True, padx=(20, 0))
+
+        def create_toggle(parent, text, var, command_sync=None):
+            cb = ctk.CTkCheckBox(parent, text=text, variable=var, command=command_sync, font=("Arial", 13, "bold"), text_color=COL_TEXT)
+            cb.pack(anchor="w", pady=8)
+            
+        def sync_inverted(master_var, inverted_var):
+            inverted_var.set(not master_var.get())
+            
+        # --- COLONNE 1 ---
+        ctk.CTkLabel(col1, text="✈️ MÉCANIQUES DE VOL", text_color=COL_TEXT_MUTED, font=("Arial", 14, "bold")).pack(anchor="w", pady=(10, 5))
+        create_toggle(col1, "Décrochage Aérodynamique", self.var_m_stall, lambda: sync_inverted(self.var_m_stall, self.var_no_stall))
+        create_toggle(col1, "Surchauffe Moteur", self.var_m_overheat, lambda: sync_inverted(self.var_m_overheat, self.var_no_overheat))
+        create_toggle(col1, "Dégâts Train d'Atterrissage", self.var_m_gear_crash, lambda: sync_inverted(self.var_m_gear_crash, self.var_no_gear_crash))
+        create_toggle(col1, "Consommation de Carburant", self.var_m_fuel_cons, lambda: sync_inverted(self.var_m_fuel_cons, self.var_unlimited_fuel))
+        create_toggle(col1, "Poids Statique (Ignorer Fuel)", self.var_static_weight) # Attention: on garde le nom "Poids Statique" donc inversé visuellement
+        
+        ctk.CTkLabel(col1, text="⛅ ENVIRONNEMENT", text_color=COL_TEXT_MUTED, font=("Arial", 14, "bold")).pack(anchor="w", pady=(20, 5))
+        create_toggle(col1, "Cycle Jour/Nuit Automatique", self.var_m_daynight)
+        create_toggle(col1, "Système Météorologique (Nuages/Brouillard)", self.var_m_weather)
+        create_toggle(col1, "Générateur de Vent & Turbulences", self.var_m_wind, lambda: sync_inverted(self.var_m_wind, self.var_no_wind))
+        create_toggle(col1, "Relief Terrestre Détaillé", self.var_show_terrain)
+
+        ctk.CTkLabel(col1, text="🦅 TRAFIC & ENTITÉS", text_color=COL_TEXT_MUTED, font=("Arial", 14, "bold")).pack(anchor="w", pady=(20, 5))
+        create_toggle(col1, "Avions IA (Trafic Aérien)", self.var_m_planes)
+        create_toggle(col1, "Faune (Oiseaux, Mouettes)", self.var_m_birds)
+        create_toggle(col1, "Missions Interactives", self.var_missions)
+
+        # --- COLONNE 2 ---
+        ctk.CTkLabel(col2, text="🎨 RENDU VISUEL & EFFETS", text_color=COL_TEXT_MUTED, font=("Arial", 14, "bold")).pack(anchor="w", pady=(10, 5))
+        create_toggle(col2, "Nuages 2D Volumétriques", self.var_show_clouds)
+        create_toggle(col2, "Particules (Pluie/Neige/Explosions)", self.var_show_particles)
+        create_toggle(col2, "Dégradé Atmosphérique Ciel", self.var_show_atmo)
+        create_toggle(col2, "Traînées de Condensation / Fumée", self.var_show_trail)
+
+        ctk.CTkLabel(col2, text="🎛️ INTERFACE & AUDIO", text_color=COL_TEXT_MUTED, font=("Arial", 14, "bold")).pack(anchor="w", pady=(20, 5))
+        create_toggle(col2, "HUD (Affichage Tête Haute)", self.var_show_hud)
+        create_toggle(col2, "Tableau de Bord Analogique", self.var_show_w_dashboard)
+        create_toggle(col2, "Compteur de Performances FPS", self.var_show_fps)
+        create_toggle(col2, "Tous les effets Audio & Moteur", self.var_m_audio)
+        create_toggle(col2, "Sons d'interface UI", self.var_ui_sounds)
+        
+        ctk.CTkLabel(col2, text="⚙️ SYSTÈME & AIDES", text_color=COL_TEXT_MUTED, font=("Arial", 14, "bold")).pack(anchor="w", pady=(20, 5))
+        create_toggle(col2, "Plein Écran Natif", self.var_fullscreen)
+        create_toggle(col2, "Mode Invincible (God Mode)", self.var_god_mode)
+        create_toggle(col2, "Ravitaillement Auto sur Piste", self.var_auto_refuel)
+        
+        ctk.CTkLabel(col2, text="🔥 MODIFICATEURS EXTRÊMES", text_color=COL_TEXT_MUTED, font=("Arial", 14, "bold")).pack(anchor="w", pady=(20, 5))
+        create_toggle(col2, "Apesanteur (Zéro Gravité)", self.var_zero_gravity)
+        create_toggle(col2, "Zéro Traînée Aérodynamique", self.var_no_drag)
+        create_toggle(col2, "Freins Inopérants", self.var_no_brakes)
+        create_toggle(col2, "Pas de Collisions (Passe-murailles)", self.var_no_collisions)
+        create_toggle(col2, "Vent Tempétueux (Aléatoire)", self.var_crazy_wind)
+        create_toggle(col2, "Boost Moteur x3 Constant", self.var_always_boost)
+
     def lancer_jeu(self):
         # On cache le menu au lieu de le détruire
         self.withdraw()
@@ -786,6 +890,18 @@ puis cliquez sur LANCER LE VOL.
         
         # Mapping base
         cmd.extend(["--difficulty", self.var_difficulte.get()])
+        # Surcharge des variables selon les toggles Expert
+        if not self.var_m_audio.get():
+            self.var_volume.set(0.0)
+            
+        if not self.var_m_daynight.get():
+            self.var_temps.set("manual")
+            self.var_heure_manuelle.set(12.0)
+            
+        if not self.var_m_weather.get():
+            self.var_weather.set("clear")
+            
+        # Remplacement "Master" des arguments au lancement
         cmd.extend(["--volume", str(self.var_volume.get())])
         if self.var_ui_sounds.get(): cmd.append("--ui-sounds")
         cmd.extend(["--aircraft", self.var_aircraft.get()])
@@ -813,26 +929,41 @@ puis cliquez sur LANCER LE VOL.
             cmd.append("--missions")
             if self.var_mission_type.get() != "none":
                 cmd.extend(["--mission-type", self.var_mission_type.get()])
-        if self.var_unlimited_fuel.get(): cmd.append("--unlimited-fuel")
+        if not self.var_m_fuel_cons.get(): cmd.append("--unlimited-fuel")
         if self.var_god_mode.get(): cmd.append("--god-mode")
         if self.var_fullscreen.get(): cmd.append("--fullscreen")
         if self.var_show_fps.get(): cmd.append("--show-fps")
         cmd.extend(["--fuel", str(self.var_fuel_initial.get())])
         
+        # Objets Extreme
+        if getattr(self, "var_zero_gravity", ctk.BooleanVar(value=False)).get(): cmd.append("--no-gravity")
+        if getattr(self, "var_no_drag", ctk.BooleanVar(value=False)).get(): cmd.append("--no-drag")
+        if getattr(self, "var_no_brakes", ctk.BooleanVar(value=False)).get(): cmd.append("--no-brakes")
+        if getattr(self, "var_no_collisions", ctk.BooleanVar(value=False)).get(): cmd.append("--no-collisions")
+        if getattr(self, "var_crazy_wind", ctk.BooleanVar(value=False)).get(): cmd.append("--crazy-wind")
+        if getattr(self, "var_always_boost", ctk.BooleanVar(value=False)).get(): cmd.append("--always-boost")
+        
         # Réalisme
-        if self.var_no_stall.get(): cmd.append("--no-stall")
-        if self.var_no_gear_crash.get(): cmd.append("--no-gear-crash")
-        if self.var_no_overheat.get(): cmd.append("--no-overheat")
+        if not self.var_m_stall.get(): cmd.append("--no-stall")
+        if not self.var_m_gear_crash.get(): cmd.append("--no-gear-crash")
+        if not self.var_m_overheat.get(): cmd.append("--no-overheat")
         if self.var_static_weight.get(): cmd.append("--static-weight")
-        if self.var_no_wind.get(): cmd.append("--no-wind")
+        if not self.var_m_wind.get(): cmd.append("--no-wind")
         if self.var_auto_refuel.get(): cmd.append("--auto-refuel")
 
         # Saison
         cmd.extend(["--season", self.var_season.get()])
         
-        # Trafic
-        cmd.extend(["--num-birds", str(int(self.var_num_birds.get()))])
-        cmd.extend(["--num-planes", str(int(self.var_num_planes.get()))])
+        # Trafic (Surcharge Expert)
+        if self.var_m_birds.get():
+            cmd.extend(["--num-birds", str(int(self.var_num_birds.get()))])
+        else:
+            cmd.extend(["--num-birds", "0"])
+            
+        if self.var_m_planes.get():
+            cmd.extend(["--num-planes", str(int(self.var_num_planes.get()))])
+        else:
+            cmd.extend(["--num-planes", "0"])
         
         # Multiplayer
         if self.var_multiplayer.get():
@@ -862,11 +993,9 @@ puis cliquez sur LANCER LE VOL.
         self.build_page_accueil()
         self.build_page_base()
         self.build_page_garage()
-        self.build_page_env()
-        self.build_page_realism()
-        self.build_page_gfx()
         self.build_page_scores()
         self.build_page_multi()
+        self.build_page_expert()
         
         # On retourne sur l'onglet d'accueil par défaut
         self.select_tab("Vue d'ensemble")

@@ -59,11 +59,19 @@ parser.add_argument("--terrain-intensity", type=float, default=1.0, help="Multip
 parser.add_argument("--show-trail", action="store_true", help="Fumée acrobatique")
 parser.add_argument("--trail-color", type=str, default="white", help="Couleur de la traînée")
 
+# Nouveaux Modules Extrêmes "Expert"
+parser.add_argument("--no-gravity", action="store_true", help="Désactiver la gravité (apesanteur)")
+parser.add_argument("--no-drag", action="store_true", help="Désactiver la friction de l'air")
+parser.add_argument("--no-brakes", action="store_true", help="Désactiver les freins")
+parser.add_argument("--no-collisions", action="store_true", help="Désactiver les collisions au sol")
+parser.add_argument("--crazy-wind", action="store_true", help="Vent extrêmement violent")
+parser.add_argument("--always-boost", action="store_true", help="Boost x3 permanent")
+
 parser.add_argument("--fullscreen", action="store_true", help="Plein Ecran")
 parser.add_argument("--show-fps", action="store_true", help="Afficher FPS")
 parser.add_argument("--season", type=str, default="summer", help="Saison: summer, rain, snow, wind")
 parser.add_argument("--aircraft", type=str, default="cessna", help="Type d'avion: cessna, fighter, cargo, acro")
-parser.add_argument("--fuel", type=float, default=100.0, help="Carburant initial (%)")
+parser.add_argument("--fuel", type=float, default=100.0, help="Carburant initial (%%)")
 parser.add_argument("--missions", action="store_true", help="Activer le mode Missions (Confort passager, ATC, etc.)")
 parser.add_argument("--mission-type", type=str, default="none", choices=["none", "rings", "landing", "cargo"], help="Lancer une mission spécifique au démarrage")
 parser.add_argument("--num-birds", type=int, default=20, help="Nombre maximal d'oiseaux")
@@ -1451,10 +1459,16 @@ def switch_aircraft(name):
         
         # Re-calcul dynamique des constantes physiques
         PUISSANCE_MOTEUR = (current_ac["thrust_max"] / 8500.0) * upg_engine_mult
+        if getattr(args, "always_boost", False): PUISSANCE_MOTEUR *= 3.0
+        
+        if getattr(args, "crazy_wind", False):
+            global vent_x, vent_y
+            vent_x = random.uniform(-60, 60)
+            vent_y = random.uniform(-30, 30)
         
         drag_reduction = args.upg_finesse * 0.005 # -0.5% trainée par niveau
         drag = current_ac["drag_factor"] * (1.0 - drag_reduction)
-        FRICTION_AIR = 1.0 - drag
+        FRICTION_AIR = 1.0 if getattr(args, "no_drag", False) else (1.0 - drag)
         
         ACCEL_ROTATION = current_ac["rot_speed"] * 0.02
         COEFF_PORTANCE = (current_ac["lift_factor"] * 0.015) * upg_finesse_mult
@@ -2045,7 +2059,7 @@ V_DECOLLAGE = 100          # Vitesse de rotation (~55 kts)
 V_DECROCHAGE = 85          # Vitesse de décrochage (Stall speed)
 V_VNE = 300                # Vitesse à ne jamais dépasser
 V_MACH1 = 1225             # Mur du son (sécurité pour le code)
-GRAVITE = 0.12             # Force de gravité
+GRAVITE = 0.0 if getattr(args, "no_gravity", False) else 0.12             # Force de gravité
 PUISSANCE_MOTEUR = current_ac["thrust_max"] / 8500.0
 FRICTION_AIR = 1.0 - current_ac["drag_factor"]
 FRICTION_VERTICALE = 0.96  
@@ -2743,7 +2757,7 @@ while True:
             action_manche = True
         
         # FREINS (Espace ou B)
-        if touches[pygame.K_SPACE] or touches[pygame.K_b]:
+        if (touches[pygame.K_SPACE] or touches[pygame.K_b]) and not getattr(args, "no_brakes", False):
             freins_actifs = True
     
         if action_manche:
@@ -3261,6 +3275,9 @@ while True:
                 crashed = True
                 crash_reason = "CRASH NEZ/QUEUE (Angle trop fort)"
                 
+            if getattr(args, "no_collisions", False):
+                crashed = False
+
             if crashed and game_over_timer == 0:
                 session_crashes += 1
                 # Enregistre le lieu du crash pour la map
